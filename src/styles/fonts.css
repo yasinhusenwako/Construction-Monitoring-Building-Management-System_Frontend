@@ -1,0 +1,9 @@
+/* ═══════════════════════════════════════════════════════════════════
+   FONT IMPORTS — Amharic & Latin Support
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Noto Sans Ethiopic — For Amharic text support */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@300;400;500;600;700;800&display=swap');
+
+/* Fallback Latin fonts for English text */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');

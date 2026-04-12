@@ -1,0 +1,471 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext";
+import {
+  mockMaintenance,
+  mockUsers,
+  getProfessionalsByDivision,
+  getDivisionById,
+} from "../../data/mockData";
+import {
+  getMaintenanceWithStored,
+  updateMaintenance,
+} from "../../lib/storage";
+import {
+  addNotification,
+  createNotification,
+  getUserIdsByRole,
+  addNotifications,
+} from "../../lib/notifications";
+import {
+  StatusBadge,
+  PriorityBadge,
+} from "../../components/common/StatusBadge";
+import {
+  ClipboardList,
+  CheckCircle,
+  Shield,
+  UserCheck,
+  XCircle,
+  AlertTriangle,
+  Activity,
+  Send,
+  MapPin,
+  Clock,
+  User,
+  Eye,
+} from "lucide-react";
+import { AssignmentModal } from "./AssignmentModal";
+import { TaskCard } from "./TaskCard";
+import { CompletionReportModal } from "./CompletionReportModal";
+
+// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
+export function SupervisorDashboard() {
+  const { currentUser } = useAuth();
+  const { t } = useLanguage();
+  const router = useRouter();
+  const uid = currentUser?.id || "";
+
+  const [assignTarget, setAssignTarget] = useState<string | null>(null);
+  const [actionMsg, setActionMsg] = useState("");
+  const [reportTarget, setReportTarget] = useState<string | null>(null);
+  const [allMaintenance, setAllMaintenance] = useState(() =>
+    getMaintenanceWithStored(mockMaintenance),
+  );
+
+  // Live refresh on any storage update
+  useEffect(() => {
+    const refresh = () =>
+      setAllMaintenance(getMaintenanceWithStored(mockMaintenance));
+    refresh();
+    window.addEventListener("storage", refresh);
+    window.addEventListener("insa-storage", refresh);
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener("insa-storage", refresh);
+    };
+  }, []);
+
+  // Get current user's division
+  const userDivision = currentUser?.divisionId;
+  const divisionInfo = userDivision ? getDivisionById(userDivision) : null;
+
+  // My assigned tasks — primary key is supervisorId, divisionId is informational only
+  const myTasks = allMaintenance.filter(
+    (m) =>
+      m.supervisorId === uid ||
+      // Fallback: division-scoped tasks that haven't had supervisorId stamped yet
+      (userDivision &&
+        m.divisionId === userDivision &&
+        ["Assigned to Supervisor", "WorkOrder Created"].includes(m.status) &&
+        !m.supervisorId),
+  );
+  const pendingAssignment = myTasks.filter((m) =>
+    ["Assigned to Supervisor", "WorkOrder Created"].includes(m.status),
+  );
+  const withProfessionals = myTasks.filter((m) =>
+    ["Assigned to Professional", "In Progress"].includes(m.status),
+  );
+  const completedTasks = myTasks.filter((m) => m.status === "Completed");
+  const reviewedTasks = myTasks.filter((m) => m.status === "Reviewed");
+
+  const handleAssign = (professionalId: string, instructions: string) => {
+    const task = myTasks.find((m) => m.id === assignTarget);
+    if (!task) return;
+    const pro = mockUsers.find((u) => u.id === professionalId);
+    const updated = {
+      ...task,
+      assignedTo: professionalId,
+      status: "Assigned to Professional" as const,
+      updatedAt: new Date().toISOString(),
+    };
+    updateMaintenance(updated);
+    // Notify the professional
+    addNotification(
+      createNotification({
+        title: "Maintenance Task Assigned",
+        message: `You have been assigned ${updated.id}${
+          instructions ? `: ${instructions}` : "."
+        }`,
+        userId: professionalId,
+        link: `/dashboard/maintenance/${updated.id}`,
+        type: "warning",
+      }),
+    );
+    setActionMsg(`Task assigned to ${pro?.name ?? "professional"}. Professional notified.`);
+    setAssignTarget(null);
+    setTimeout(() => setActionMsg(""), 4000);
+  };
+
+  const handleSubmitReport = (id: string, note: string) => {
+    const task = myTasks.find((m) => m.id === id);
+    if (!task) return;
+    const updated = {
+      ...task,
+      status: "Reviewed" as const,
+      updatedAt: new Date().toISOString(),
+    };
+    updateMaintenance(updated);
+    // Notify all admins
+    const adminIds = getUserIdsByRole("admin");
+    addNotifications(
+      adminIds.map((adminId) =>
+        createNotification({
+          title: "Maintenance Ready for Approval",
+          message: `${updated.id} reviewed by supervisor${
+            note ? ` — "${note}"` : ""
+          }. Awaiting admin approval.`,
+          userId: adminId,
+          link: `/dashboard/maintenance/${updated.id}`,
+          type: "info",
+        }),
+      ),
+    );
+    setActionMsg(`Completion report for ${id} submitted to Administration.`);
+    setReportTarget(null);
+    setTimeout(() => setActionMsg(""), 4000);
+  };
+
+  const assignTargetTask = myTasks.find((m) => m.id === assignTarget);
+
+  return (
+    <div className="space-y-6">
+      {/* Assignment Modal */}
+      {assignTarget && assignTargetTask && (
+        <AssignmentModal
+          ticketId={assignTarget}
+          ticketTitle={assignTargetTask.title}
+          professionals={
+            assignTargetTask.divisionId
+              ? getProfessionalsByDivision(assignTargetTask.divisionId)
+              : []
+          }
+          activeTasks={mockMaintenance}
+          onAssign={handleAssign}
+          onClose={() => setAssignTarget(null)}
+        />
+      )}
+
+      {/* Report Modal */}
+      {reportTarget && (
+        <CompletionReportModal
+          ticketId={reportTarget}
+          onClose={() => {
+            setReportTarget(null);
+          }}
+          onSubmit={handleSubmitReport}
+        />
+      )}
+
+      {/* Header */}
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{
+          background:
+            "linear-gradient(135deg, #3B0764 0%, #5B21B6 60%, #7C3AED 100%)",
+        }}
+      >
+        <div className="px-6 py-5">
+          <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-6 h-6 rounded-md bg-white/20 flex items-center justify-center">
+                  <ClipboardList size={14} className="text-white" />
+                </div>
+                <span className="text-white/70 text-xs font-semibold uppercase tracking-wider">
+                  Division Supervisor
+                </span>
+              </div>
+              <h1 className="text-white text-xl">Supervisor Dashboard</h1>
+              <p className="text-white/70 text-sm mt-0.5">
+                {currentUser?.name} ·{" "}
+                {divisionInfo?.name || currentUser?.department}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {pendingAssignment.length > 0 && (
+                <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-3 py-2">
+                  <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                  <span className="text-white text-xs font-semibold">
+                    {pendingAssignment.length} need assignment
+                  </span>
+                </div>
+              )}
+              {completedTasks.length > 0 && (
+                <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-3 py-2">
+                  <div className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
+                  <span className="text-white text-xs font-semibold">
+                    {completedTasks.length} pending review
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Division Info & Capabilities */}
+          {divisionInfo && (
+            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Division Responsibilities */}
+                <div>
+                  <h3 className="text-white text-sm font-semibold mb-2 flex items-center gap-2">
+                    <Shield size={14} /> Division Responsibilities
+                  </h3>
+                  <ul className="space-y-1">
+                    {divisionInfo.responsibilities
+                      .slice(0, 4)
+                      .map((resp, i) => (
+                        <li
+                          key={i}
+                          className="text-white/80 text-xs flex items-start gap-2"
+                        >
+                          <CheckCircle
+                            size={12}
+                            className="mt-0.5 flex-shrink-0 text-green-300"
+                          />
+                          <span>{resp}</span>
+                        </li>
+                      ))}
+                    {divisionInfo.responsibilities.length > 4 && (
+                      <li className="text-white/60 text-xs italic">
+                        +{divisionInfo.responsibilities.length - 4} more...
+                      </li>
+                    )}
+                  </ul>
+                </div>
+
+                {/* Supervisor Capabilities */}
+                <div>
+                  <h3 className="text-white text-sm font-semibold mb-2 flex items-center gap-2">
+                    <UserCheck size={14} /> Your Capabilities
+                  </h3>
+                  <div className="space-y-1">
+                    <div className="text-white/80 text-xs flex items-start gap-2">
+                      <CheckCircle
+                        size={12}
+                        className="mt-0.5 flex-shrink-0 text-green-300"
+                      />
+                      <span>View assigned requests from Admin</span>
+                    </div>
+                    <div className="text-white/80 text-xs flex items-start gap-2">
+                      <CheckCircle
+                        size={12}
+                        className="mt-0.5 flex-shrink-0 text-green-300"
+                      />
+                      <span>
+                        Assign tasks to Professionals in your division
+                      </span>
+                    </div>
+                    <div className="text-white/80 text-xs flex items-start gap-2">
+                      <CheckCircle
+                        size={12}
+                        className="mt-0.5 flex-shrink-0 text-green-300"
+                      />
+                      <span>Monitor execution progress</span>
+                    </div>
+                    <div className="text-white/80 text-xs flex items-start gap-2">
+                      <CheckCircle
+                        size={12}
+                        className="mt-0.5 flex-shrink-0 text-green-300"
+                      />
+                      <span>Review completed tasks</span>
+                    </div>
+                    <div className="text-white/80 text-xs flex items-start gap-2">
+                      <CheckCircle
+                        size={12}
+                        className="mt-0.5 flex-shrink-0 text-green-300"
+                      />
+                      <span>Submit completion report to Admin</span>
+                    </div>
+                    <div className="text-white/60 text-xs flex items-start gap-2">
+                      <XCircle
+                        size={12}
+                        className="mt-0.5 flex-shrink-0 text-red-300"
+                      />
+                      <span>Cannot close requests (Admin only)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Action message */}
+      {actionMsg && (
+        <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-700 flex items-center gap-2">
+          <CheckCircle size={16} /> {actionMsg}
+        </div>
+      )}
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {[
+          {
+            label: "Total Assigned",
+            value: myTasks.length,
+            color: "#7C3AED",
+            bg: "#F5F3FF",
+            icon: <ClipboardList size={18} />,
+          },
+          {
+            label: "Need Assignment",
+            value: pendingAssignment.length,
+            color: "#F59E0B",
+            bg: "#FFFBEB",
+            icon: <AlertTriangle size={18} />,
+          },
+          {
+            label: "With Professionals",
+            value: withProfessionals.length,
+            color: "#EA580C",
+            bg: "#FFF7ED",
+            icon: <Activity size={18} />,
+          },
+          {
+            label: "Completed",
+            value: completedTasks.length,
+            color: "#0D9488",
+            bg: "#F0FDFA",
+            icon: <CheckCircle size={18} />,
+          },
+          {
+            label: "Submitted to Admin",
+            value: reviewedTasks.length,
+            color: "#0891B2",
+            bg: "#ECFEFF",
+            icon: <Send size={18} />,
+          },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="bg-white rounded-xl border border-border p-4 shadow-sm"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <div className="p-2 rounded-xl" style={{ background: stat.bg }}>
+                <span style={{ color: stat.color }}>{stat.icon}</span>
+              </div>
+            </div>
+            <p className="text-2xl font-bold" style={{ color: stat.color }}>
+              {stat.value}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Task Management */}
+      <h2 className="text-[#0E2271]">Task Management</h2>
+
+      {/* List View */}
+      <div className="space-y-3">
+        {myTasks.length === 0 ? (
+          <div className="bg-white rounded-xl border border-border p-16 text-center">
+            <ClipboardList
+              size={48}
+              className="mx-auto text-muted-foreground/40 mb-3"
+            />
+            <h3 className="text-[#0E2271]">No tasks assigned</h3>
+            <p className="text-muted-foreground text-sm">
+              Administration will assign tasks to you
+            </p>
+          </div>
+        ) : (
+          myTasks.map((m) => {
+            const assignee = mockUsers.find((u) => u.id === m.assignedTo);
+            return (
+              <div
+                key={m.id}
+                className="bg-white rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-mono text-xs font-bold text-[#7C3AED]">
+                        {m.id}
+                      </span>
+                      <StatusBadge status={m.status} />
+                      <PriorityBadge priority={m.priority} />
+                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                        {m.type}
+                      </span>
+                    </div>
+                    <h3 className="font-semibold text-[#0E2271]">{m.title}</h3>
+                    <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
+                      {m.description}
+                    </p>
+                    <div className="flex items-center gap-4 mt-2 flex-wrap">
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <MapPin size={12} /> {m.location}, {m.floor}
+                      </span>
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock size={12} /> {m.createdAt.split(" ")[0]}
+                      </span>
+                      {assignee && (
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <User size={12} /> {assignee.name}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2 items-end">
+                    <button
+                      onClick={() =>
+                        router.push(`/dashboard/maintenance/${m.id}`)
+                      }
+                      className="flex items-center gap-1 text-xs text-[#7C3AED] hover:underline"
+                    >
+                      <Eye size={12} /> View Details
+                    </button>
+                    {m.status === "Assigned to Supervisor" && (
+                      <button
+                        onClick={() => setAssignTarget(m.id)}
+                        className="flex items-center gap-1 text-xs text-white px-3 py-1.5 rounded-lg"
+                        style={{ background: "#7C3AED" }}
+                      >
+                        <UserCheck size={12} /> Assign Professional
+                      </button>
+                    )}
+                    {m.status === "Completed" && (
+                      <button
+                        onClick={() => setReportTarget(m.id)}
+                        className="flex items-center gap-1 text-xs text-white px-3 py-1.5 rounded-lg"
+                        style={{ background: "#0891B2" }}
+                      >
+                        <Send size={12} /> Submit Report
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
