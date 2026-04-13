@@ -79,8 +79,23 @@ const priorityConfig: Record<string, { bg: string; text: string }> = {
 
 // Status translation map
 const statusTranslationKeys: Record<string, string> = {
-  active: "users.active",
-  inactive: "users.inactive",
+  // Workflow
+  Submitted: "status.submitted",
+  "Under Review": "status.underReview",
+  "Assigned to Supervisor": "status.assignedToSupervisor",
+  "WorkOrder Created": "status.workOrderCreated",
+  "Assigned to Professional": "status.assignedToProfessional",
+  "In Progress": "status.inProgress",
+  Completed: "status.completed",
+  Reviewed: "status.reviewed",
+  Approved: "status.approved",
+  Rejected: "status.rejected",
+  Closed: "status.closed",
+  "In Process": "status.inProcess",
+  // User
+  active: "status.active",
+  inactive: "status.inactive",
+  locked: "status.locked",
 };
 
 // Priority translation map
@@ -137,19 +152,10 @@ export function RoleBadge({ role }: { role: string }) {
     supervisor: { bg: "bg-[#7C3AED]", text: "text-white" },
     professional: { bg: "bg-[#CC1F1A]", text: "text-white" },
     user: { bg: "bg-[#F5B800]", text: "text-gray-900" },
-    technician: { bg: "bg-[#CC1F1A]", text: "text-white" }, // legacy fallback
+    technician: { bg: "bg-[#CC1F1A]", text: "text-white" },
   };
   const c = config[role] || { bg: "bg-gray-200", text: "text-gray-700" };
-  const label =
-    role === "professional"
-      ? "Professional"
-      : role === "supervisor"
-        ? "Supervisor"
-        : role === "admin"
-          ? "Admin"
-          : role === "user"
-            ? "User"
-            : role;
+  const label = t(`role.${role}`);
 
   return (
     <span

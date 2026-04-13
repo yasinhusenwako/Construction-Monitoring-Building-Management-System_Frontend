@@ -1,5 +1,7 @@
 "use client";
 
+import { exportToCSV } from "../../lib/exportUtils";
+
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -23,6 +25,8 @@ import {
   getProjectsWithStored,
   getBookingsWithStored,
   getMaintenanceWithStored,
+  updateProject,
+  updateBooking,
   updateMaintenance,
 } from "../../lib/storage";
 import {
@@ -76,19 +80,19 @@ const MODULE_META = {
     color: "#1A3580",
     bg: "#EEF2FF",
     icon: <FolderOpen size={13} />,
-    label: "Project",
+    label: "requests.module.project",
   },
   Bookings: {
     color: "#7C3AED",
     bg: "#F5F3FF",
     icon: <Calendar size={13} />,
-    label: "Space Booking",
+    label: "requests.module.booking",
   },
   Maintenance: {
     color: "#CC1F1A",
     bg: "#FFF1F1",
     icon: <Wrench size={13} />,
-    label: "Maintenance",
+    label: "requests.module.maintenance",
   },
 };
 
@@ -153,11 +157,17 @@ function DetailPanel({
         m.divisionId || suggestDivision(m.title, m.description, m.type) || ""
       );
     }
+    if (req.module === "Projects") {
+      return (req.raw as Project).divisionId || "";
+    }
     return "";
   });
   const [selectedSupervisor, setSelectedSupervisor] = useState<string>(() => {
     if (req.module === "Maintenance") {
       return (req.raw as Maintenance).supervisorId || "";
+    }
+    if (req.module === "Projects") {
+      return (req.raw as Project).supervisorId || "";
     }
     return "";
   });
@@ -203,7 +213,7 @@ function DetailPanel({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-white/60 text-xs font-semibold uppercase tracking-wider">
-                  {meta.label}
+                  {t(meta.label)}
                 </span>
                 <span className="text-white/40 text-xs">·</span>
                 <span className="text-white font-mono text-xs font-bold">
@@ -365,6 +375,92 @@ function DetailPanel({
                   <Section title={t("projects.activityTimeline")}>
                     <Timeline events={p.timeline} color="#1A3580" />
                   </Section>
+
+                  {/* --- Project Assignment Workflow (B2) --- */}
+                  <Section title={t("requests.teamAssignment")}>
+                    <div className="space-y-3 bg-white border border-border rounded-xl p-4 shadow-sm">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
+                          {t("requests.selectDivision")}
+                        </label>
+                        <select
+                          value={selectedDivision}
+                          onChange={(e) => {
+                            setSelectedDivision(e.target.value);
+                            setSelectedSupervisor("");
+                          }}
+                          className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
+                        >
+                          <option value="">{t("requests.selectDivision")}</option>
+                          {divisions.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
+                          {t("requests.assignLeadSupervisor")}
+                        </label>
+                        <select
+                          disabled={!selectedDivision}
+                          value={selectedSupervisor}
+                          onChange={(e) =>
+                            setSelectedSupervisor(e.target.value)
+                          }
+                          className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580] disabled:opacity-50"
+                        >
+                          <option value="">{t("requests.assignLeadSupervisor")}</option>
+                          {availableSupervisors.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <button
+                        disabled={!selectedDivision || !selectedSupervisor}
+                        onClick={() => {
+                          const now = new Date().toISOString();
+                          const updated = {
+                            ...p,
+                            divisionId: selectedDivision,
+                            supervisorId: selectedSupervisor,
+                            status: "Assigned to Supervisor" as const,
+                            updatedAt: now,
+                            timeline: [
+                              ...p.timeline,
+                              {
+                                id: `EV-${Math.random().toString(36).substr(2, 9)}`,
+                                action: "Assigned to Supervisor",
+                                actor: "Admin",
+                                timestamp: now,
+                                note: `Project assigned to ${getUserInfo(selectedSupervisor)?.name}`,
+                              },
+                            ],
+                          };
+                          updateProject(updated);
+                          addNotification(
+                            createNotification({
+                              title: t("notifications.title.assigned"),
+                              message: t("notifications.message.assigned_id", { id: p.id }),
+                              userId: selectedSupervisor,
+                              link: `/dashboard/projects/${p.id}`,
+                              type: "warning",
+                            }),
+                          );
+                          setNoteSent(true);
+                          setTimeout(() => setNoteSent(false), 3000);
+                        }}
+                        className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#1A3580] hover:bg-[#0E2271] transition-all disabled:opacity-40"
+                      >
+                        {t("requests.processAssignment")}
+                      </button>
+                    </div>
+                  </Section>
                 </div>
               );
             })()}
@@ -441,6 +537,87 @@ function DetailPanel({
                           {b.updatedAt}
                         </span>
                       </span>
+                    </div>
+                  </Section>
+
+                  {/* --- Booking Actions Workflow (B2) --- */}
+                  <Section title="Booking Actions">
+                    <div className="space-y-3 bg-white border border-border rounded-xl p-4 shadow-sm">
+                      <div className="flex gap-2">
+                        {b.status === "Submitted" && (
+                          <>
+                            <button
+                              onClick={() => {
+                                const now = new Date().toISOString();
+                                const updated = {
+                                  ...b,
+                                  status: "Approved" as const,
+                                  updatedAt: now,
+                                };
+                                updateBooking(updated);
+                                addNotification(
+                                  createNotification({
+                                    title: "Booking Approved",
+                                    message: `Your booking ${b.id} has been approved.`,
+                                    userId: b.requestedBy,
+                                    link: "/dashboard/bookings",
+                                    type: "success",
+                                  }),
+                                );
+                                setNoteSent(true);
+                                setTimeout(() => setNoteSent(false), 3000);
+                              }}
+                              className="flex-1 py-2 rounded-lg text-white text-xs font-semibold bg-green-600 hover:bg-green-700 transition-all"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => {
+                                const now = new Date().toISOString();
+                                const updated = {
+                                  ...b,
+                                  status: "Rejected" as const,
+                                  updatedAt: now,
+                                };
+                                updateBooking(updated);
+                                addNotification(
+                                  createNotification({
+                                    title: "Booking Rejected",
+                                    message: `Your booking ${b.id} has been rejected.`,
+                                    userId: b.requestedBy,
+                                    link: "/dashboard/bookings",
+                                    type: "error",
+                                  }),
+                                );
+                                setNoteSent(true);
+                                setTimeout(() => setNoteSent(false), 3000);
+                              }}
+                              className="flex-1 py-2 rounded-lg text-white text-xs font-semibold bg-red-600 hover:bg-red-700 transition-all"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                        {(b.status === "Approved" ||
+                          b.status === "Rejected") && (
+                          <button
+                            onClick={() => {
+                              const now = new Date().toISOString();
+                              const updated = {
+                                ...b,
+                                status: "Closed" as const,
+                                updatedAt: now,
+                              };
+                              updateBooking(updated);
+                              setNoteSent(true);
+                              setTimeout(() => setNoteSent(false), 3000);
+                            }}
+                            className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-gray-600 hover:bg-gray-700 transition-all"
+                          >
+                            {t("requests.markClosed")}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </Section>
                 </div>
@@ -544,11 +721,11 @@ function DetailPanel({
                   </Section>
 
                   {/* --- Admin Assignment Logic Extension --- */}
-                  <Section title="Supervisor Assignment">
+                  <Section title={t("requests.supervisorAssignment")}>
                     <div className="space-y-3 bg-white border border-border rounded-xl p-4">
                       <div className="space-y-1">
                         <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                          Select Division (for Supervisor)
+                          {t("requests.selectDivisionForSupervisor")}
                         </label>
                         <select
                           value={selectedDivision}
@@ -558,7 +735,7 @@ function DetailPanel({
                           }}
                           className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#CC1F1A]"
                         >
-                          <option value="">Select Division</option>
+                          <option value="">{t("requests.selectDivision")}</option>
                           {divisions.map((d) => (
                             <option key={d.id} value={d.id}>
                               {d.name}
@@ -569,7 +746,7 @@ function DetailPanel({
 
                       <div className="space-y-1">
                         <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                          Assign Supervisor
+                          {t("supervisor.title")}
                         </label>
                         <select
                           disabled={!selectedDivision}
@@ -579,7 +756,7 @@ function DetailPanel({
                           }
                           className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#CC1F1A] disabled:opacity-50"
                         >
-                          <option value="">Select Supervisor</option>
+                          <option value="">{t("requests.selectSupervisor")}</option>
                           {availableSupervisors.map((s) => (
                             <option key={s.id} value={s.id}>
                               {s.name}
@@ -602,8 +779,8 @@ function DetailPanel({
                           // Notify the assigned supervisor
                           addNotification(
                             createNotification({
-                              title: "Maintenance Assigned",
-                              message: `You have been assigned ${updated.id} for supervision.`,
+                              title: t("notifications.title.assigned"),
+                              message: t("notifications.message.assigned_id", { id: updated.id }),
                               userId: selectedSupervisor,
                               link: `/dashboard/maintenance/${updated.id}`,
                               type: "warning",
@@ -614,8 +791,8 @@ function DetailPanel({
                           addNotifications(
                             adminIds.map((adminId) =>
                               createNotification({
-                                title: "Supervisor Assigned",
-                                message: `${updated.id} has been assigned to a division supervisor.`,
+                                title: t("requests.supervisorAssigned"),
+                                message: t("requests.assignedToDivision", { id: updated.id }),
                                 userId: adminId,
                                 link: `/dashboard/maintenance/${updated.id}`,
                                 type: "info",
@@ -627,7 +804,7 @@ function DetailPanel({
                         }}
                         className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#CC1F1A] hover:bg-[#7A0E0E] transition-all disabled:opacity-40"
                       >
-                        Process Assignment
+                        {t("requests.processAssignment")}
                       </button>
                     </div>
                   </Section>
@@ -974,6 +1151,30 @@ export function AllRequestsPage() {
               {t("requests.requestsCount")}
             </p>
           </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const exportData = filtered.map((r) => {
+                const requester = getUserInfo(r.requestedBy);
+                return {
+                  ID: r.id,
+                  Module: r.module,
+                  Title: r.title,
+                  Status: r.status,
+                  Priority: r.priority || "N/A",
+                  RequestedBy: requester?.name || r.requestedBy,
+                  Department: requester?.department || "N/A",
+                  Date: r.date,
+                };
+              });
+              exportToCSV(exportData, `CMBM_Report_Admin_${new Date().toISOString().split("T")[0]}`);
+            }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-border text-sm font-semibold text-[#1A3580] hover:bg-secondary transition-all shadow-sm"
+          >
+            <Download size={14} /> {t("requests.exportReport")}
+          </button>
         </div>
       </div>
 

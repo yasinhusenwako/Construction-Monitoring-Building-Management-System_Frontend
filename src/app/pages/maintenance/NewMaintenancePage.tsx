@@ -20,55 +20,9 @@ import {
   createNotification,
   getUserIdsByRole,
 } from "../../lib/notifications";
+import { useLanguage } from "../../context/LanguageContext";
 
-const steps = [
-  "Basic Information",
-  "Category & Priority",
-  "Location Details",
-  "Attachments",
-  "Review",
-];
-
-const categories = [
-  "Electrical Issue",
-  "Plumbing Issue",
-  "HVAC / Air Conditioning",
-  "Elevator / Lift Issue",
-  "Generator / UPS Issue",
-  "Cleaning Request",
-  "Gardening / Landscaping",
-  "Furniture / Carpentry",
-  "Building Damage / Structural",
-  "Water / Sewerage Issue",
-  "Other",
-];
-
-const priorityOptions = [
-  {
-    value: "Critical",
-    label: "Critical",
-    desc: "Risk to life/property",
-    border: "border-red-500",
-    bg: "bg-red-50",
-    text: "text-red-700",
-  },
-  {
-    value: "Medium",
-    label: "Medium",
-    desc: "Affects operations",
-    border: "border-yellow-500",
-    bg: "bg-yellow-50",
-    text: "text-yellow-700",
-  },
-  {
-    value: "Routine",
-    label: "Routine",
-    desc: "Planned / non-urgent",
-    border: "border-gray-400",
-    bg: "bg-gray-50",
-    text: "text-gray-700",
-  },
-] as const;
+// Static constants moved inside component for translation support
 
 const mapMaintenanceType = (category: string): Maintenance["type"] => {
   const lowered = category.toLowerCase();
@@ -89,7 +43,7 @@ type FormState = {
   title: string;
   description: string;
   category: string;
-  priority: "" | "Critical" | "Medium" | "Routine";
+  priority: "" | "Critical" | "High" | "Medium" | "Routine";
   building: string;
   floor: string;
   roomArea: string;
@@ -103,6 +57,64 @@ type PreviewImage = {
 
 export function NewMaintenancePage() {
   const router = useRouter();
+  const { t } = useLanguage();
+
+  const steps = [
+    t("maintenance.step.basicInfo"),
+    t("maintenance.step.categoryPriority"),
+    t("maintenance.step.location"),
+    t("maintenance.step.attachments"),
+    t("maintenance.step.review"),
+  ];
+
+  const categories = [
+    { value: "Electrical Issue", label: t("maintenance.category.electrical") },
+    { value: "Plumbing Issue", label: t("maintenance.category.plumbing") },
+    { value: "HVAC / Air Conditioning", label: t("maintenance.category.hvac") },
+    { value: "Elevator / Lift Issue", label: t("maintenance.category.elevator") },
+    { value: "Generator / UPS Issue", label: t("maintenance.category.generator") },
+    { value: "Cleaning Request", label: t("maintenance.category.cleaning") },
+    { value: "Gardening / Landscaping", label: t("maintenance.category.gardening") },
+    { value: "Furniture / Carpentry", label: t("maintenance.category.furniture") },
+    { value: "Building Damage / Structural", label: t("maintenance.category.structural") },
+    { value: "Water / Sewerage Issue", label: t("maintenance.category.sewerage") },
+    { value: "Other", label: t("maintenance.category.other") },
+  ];
+
+  const priorityOptions = [
+    {
+      value: "Critical",
+      label: t("maintenance.priority.critical"),
+      desc: t("maintenance.priority.critical.desc"),
+      border: "border-red-500",
+      bg: "bg-red-50",
+      text: "text-red-700",
+    },
+    {
+      value: "High",
+      label: t("maintenance.priority.high"),
+      desc: t("maintenance.priority.high.desc"),
+      border: "border-orange-500",
+      bg: "bg-orange-50",
+      text: "text-orange-700",
+    },
+    {
+      value: "Medium",
+      label: t("maintenance.priority.medium"),
+      desc: t("maintenance.priority.medium.desc"),
+      border: "border-yellow-500",
+      bg: "bg-yellow-50",
+      text: "text-yellow-700",
+    },
+    {
+      value: "Routine",
+      label: t("maintenance.priority.routine"),
+      desc: t("maintenance.priority.routine.desc"),
+      border: "border-gray-400",
+      bg: "bg-gray-50",
+      text: "text-gray-700",
+    },
+  ];
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -142,10 +154,12 @@ export function NewMaintenancePage() {
   const validateFiles = (files: File[]) => {
     for (const f of files) {
       if (!f.type.startsWith("image/")) {
-        return "Only image files are allowed";
+        return t("maintenance.imageOnlyExc");
+
       }
       if (f.size > 10 * 1024 * 1024) {
-        return "Each file must be 10MB or smaller";
+        return t("maintenance.maxFileSizeExc");
+
       }
     }
     return "";
@@ -172,15 +186,15 @@ export function NewMaintenancePage() {
     const nextErrors: Record<string, string> = {};
 
     if (step === 0) {
-      if (!form.title.trim()) nextErrors.title = "Request title is required";
+      if (!form.title.trim()) nextErrors.title = t("validation.required");
       if (!form.description.trim()) {
-        nextErrors.description = "Problem description is required";
+        nextErrors.description = t("validation.required");
       }
     }
 
     if (step === 1) {
-      if (!form.category) nextErrors.category = "Category is required";
-      if (!form.priority) nextErrors.priority = "Priority is required";
+      if (!form.category) nextErrors.category = t("validation.selectOne");
+      if (!form.priority) nextErrors.priority = t("validation.selectOne");
     }
 
     if (step === 2) {
@@ -189,13 +203,11 @@ export function NewMaintenancePage() {
         !form.floor.trim() &&
         !form.roomArea.trim()
       ) {
-        nextErrors.location = "At least one location field is required";
+        nextErrors.location = t("maintenance.atLeastOneLocation");
       }
     }
 
-    if (step === 3 && form.files.length === 0) {
-      nextErrors.files = "Please attach at least one image";
-    }
+    // Attachments are optional — users proceed without images
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -228,7 +240,9 @@ export function NewMaintenancePage() {
             maintenanceId: generatedId,
             title: form.title,
             category: form.category,
-            priority: (form.priority === "Routine" || !form.priority ? "Low" : form.priority) as "Low" | "Medium" | "High" | "Critical",
+            priority: (form.priority === "Routine" || !form.priority
+              ? "Low"
+              : form.priority) as "Low" | "Medium" | "High" | "Critical",
             description: form.description,
             location: [form.building, form.floor, form.roomArea]
               .filter((x) => x && x.trim())
@@ -256,13 +270,18 @@ export function NewMaintenancePage() {
         type: mapMaintenanceType(form.category),
         subType: form.category,
         status: "Submitted",
-        priority: (form.priority === "Routine" || !form.priority ? "Low" : form.priority) as Extract<Maintenance["priority"], string>,
+        priority: (form.priority === "Routine" || !form.priority
+          ? "Low"
+          : form.priority) as Extract<Maintenance["priority"], string>,
         requestedBy,
-        location: location || "Not specified",
-        floor: form.floor || "N/A",
+        location: location || t("bookings.notSpecified"),
+        floor: form.floor || t("bookings.notSpecified"),
+
         createdAt: now,
         updatedAt: now,
-        notes: "Submitted by user",
+        building: form.building,
+        roomArea: form.roomArea,
+        notes: t("requests.submitted"),
         attachments: form.files.map((f) => f.name),
         timeline: [
           {
@@ -270,7 +289,7 @@ export function NewMaintenancePage() {
             action: "Submitted",
             actor: requestedBy,
             timestamp: now,
-            note: "Request submitted",
+            note: t("requests.submitted"),
           },
         ],
       };
@@ -280,8 +299,8 @@ export function NewMaintenancePage() {
       addNotifications(
         adminIds.map((id) =>
           createNotification({
-            title: "New Maintenance Request",
-            message: `New maintenance request ${maintenanceId} requires review.`,
+            title: t("notifications.title"),
+            message: `${t("maintenance.submitSuccess")} (${maintenanceId})`,
             userId: id,
             link: `/dashboard/maintenance/${maintenanceId}`,
             type: "info",
@@ -296,7 +315,7 @@ export function NewMaintenancePage() {
         submit:
           error instanceof Error
             ? error.message
-            : "Failed to submit maintenance request",
+            : t("message.error"),
       }));
     } finally {
       setLoading(false);
@@ -317,18 +336,18 @@ export function NewMaintenancePage() {
           <CheckCircle size={40} className="text-green-500" />
         </div>
         <h2 className="text-2xl font-bold text-[#0E2271] mb-2">
-          Maintenance Request Submitted
+          {t("maintenance.submitSuccess")}
         </h2>
         <p className="text-muted-foreground mb-4">
-          Your request has been submitted and sent to Admin for review.
+          {t("maintenance.submitSuccessDesc")}
         </p>
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
-          <p className="text-xs text-muted-foreground mb-1">Maintenance ID</p>
+          <p className="text-xs text-muted-foreground mb-1">{t("maintenance.idLabel")}</p>
           <p className="font-mono text-xl font-bold text-[#CC1F1A]">
             {submittedId}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Initial Status: Submitted
+            {t("form.status")}: {t("requests.submitted")}
           </p>
         </div>
         <div className="flex gap-3 justify-center">
@@ -336,13 +355,13 @@ export function NewMaintenancePage() {
             onClick={() => router.push("/dashboard/maintenance")}
             className="px-5 py-2.5 rounded-lg border-2 border-[#CC1F1A] text-[#CC1F1A] text-sm font-semibold"
           >
-            View Requests
+            {t("maintenance.viewRequests")}
           </button>
           <button
             onClick={() => router.push("/dashboard")}
             className="px-5 py-2.5 rounded-lg text-white text-sm font-semibold bg-[#CC1F1A]"
           >
-            Go to Dashboard
+            {t("maintenance.goToDashboard")}
           </button>
         </div>
       </div>
@@ -364,10 +383,10 @@ export function NewMaintenancePage() {
           <div className="flex items-center gap-2 mb-0.5">
             <div className="w-2.5 h-2.5 rounded-full bg-[#CC1F1A]" />
             <span className="text-xs font-semibold text-[#CC1F1A] uppercase tracking-wider">
-              Maintenance & Repairs
+              {t("module.maintenance")}
             </span>
           </div>
-          <h1 className="text-[#0E2271]">Submit Maintenance Request</h1>
+          <h1 className="text-[#0E2271]">{t("maintenance.newRequest")}</h1>
         </div>
       </div>
 
@@ -417,16 +436,16 @@ export function NewMaintenancePage() {
         {step === 0 && (
           <div className="space-y-4">
             <h2 className="text-[#0E2271] border-b border-border pb-3">
-              Basic Information
+              {t("maintenance.step.basicInfo")}
             </h2>
             <div>
               <label className="block text-sm font-medium text-[#0E2271] mb-1">
-                Request Title *
+                {t("maintenance.requestTitle")} *
               </label>
               <input
                 value={form.title}
                 onChange={(e) => update("title", e.target.value)}
-                placeholder="Short summary"
+                placeholder={t("maintenance.placeholder.shortSummary")}
                 className={inputClass("title")}
               />
               {errors.title && (
@@ -435,13 +454,13 @@ export function NewMaintenancePage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-[#0E2271] mb-1">
-                Problem Description *
+                {t("maintenance.problemDesc")} *
               </label>
               <textarea
                 rows={4}
                 value={form.description}
                 onChange={(e) => update("description", e.target.value)}
-                placeholder="Detailed explanation of the issue"
+                placeholder={t("maintenance.placeholder.detailedExplanation")}
                 className={`${inputClass("description")} resize-none`}
               />
               {errors.description && (
@@ -456,11 +475,11 @@ export function NewMaintenancePage() {
         {step === 1 && (
           <div className="space-y-4">
             <h2 className="text-[#0E2271] border-b border-border pb-3">
-              Category & Priority
+              {t("maintenance.step.categoryPriority")}
             </h2>
             <div>
               <label className="block text-sm font-medium text-[#0E2271] mb-1">
-                Category *
+                {t("form.category")} *
               </label>
               <select
                 value={form.category}
@@ -469,10 +488,10 @@ export function NewMaintenancePage() {
                 aria-label="Category"
                 title="Category"
               >
-                <option value="">Select category...</option>
+                <option value="">{t("maintenance.placeholder.selectCategory")}</option>
                 {categories.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
+                  <option key={c.value} value={c.value}>
+                    {c.label}
                   </option>
                 ))}
               </select>
@@ -482,9 +501,9 @@ export function NewMaintenancePage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-[#0E2271] mb-2">
-                Priority Level *
+                {t("form.priority")} *
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {priorityOptions.map((p) => (
                   <button
                     key={p.value}
@@ -519,42 +538,42 @@ export function NewMaintenancePage() {
         {step === 2 && (
           <div className="space-y-4">
             <h2 className="text-[#0E2271] border-b border-border pb-3">
-              Location Details
+              {t("maintenance.step.location")}
             </h2>
             <p className="text-xs text-muted-foreground">
-              At least one location field is required.
+              {t("maintenance.atLeastOneLocation")}
             </p>
             <div>
               <label className="block text-sm font-medium text-[#0E2271] mb-1">
-                Building / Block
+                {t("form.location")}
               </label>
               <input
                 value={form.building}
                 onChange={(e) => update("building", e.target.value)}
-                placeholder="e.g. Block A"
+                placeholder={t("maintenance.placeholder.building")}
                 className={inputClass("building")}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-[#0E2271] mb-1">
-                  Floor
+                  {t("users.floor_label") || "Floor"}
                 </label>
                 <input
                   value={form.floor}
                   onChange={(e) => update("floor", e.target.value)}
-                  placeholder="e.g. Floor 2"
+                  placeholder={t("maintenance.placeholder.floor")}
                   className={inputClass("floor")}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#0E2271] mb-1">
-                  Room / Area
+                  {t("bookings.spaceKey")}
                 </label>
                 <input
                   value={form.roomArea}
                   onChange={(e) => update("roomArea", e.target.value)}
-                  placeholder="e.g. Room 204"
+                  placeholder={t("maintenance.placeholder.room")}
                   className={inputClass("roomArea")}
                 />
               </div>
@@ -570,10 +589,10 @@ export function NewMaintenancePage() {
         {step === 3 && (
           <div className="space-y-4">
             <h2 className="text-[#0E2271] border-b border-border pb-3">
-              Attachments
+              {t("maintenance.step.attachments")} <span className="text-sm font-normal text-muted-foreground">({t("bookings.preferredLocationOpt").split("(")[1]}</span>
             </h2>
             <p className="text-muted-foreground text-sm">
-              Upload images as supporting evidence.
+              {t("maintenance.imageEvidence")}
             </p>
             <div
               onDragOver={(e) => {
@@ -597,9 +616,9 @@ export function NewMaintenancePage() {
                 size={32}
                 className="mx-auto text-muted-foreground mb-3"
               />
-              <p className="text-sm font-medium">Drag & drop images here</p>
+              <p className="text-sm font-medium">{t("maintenance.dragDropImages")}</p>
               <p className="text-xs text-muted-foreground mt-1">
-                PNG, JPG, JPEG, WEBP · Max 10MB each
+                {t("maintenance.fileTypes")}
               </p>
               <input
                 id="mnt-upload"
@@ -667,20 +686,21 @@ export function NewMaintenancePage() {
         {step === 4 && (
           <div className="space-y-4">
             <h2 className="text-[#0E2271] border-b border-border pb-3">
-              Review
+              {t("maintenance.step.review")}
             </h2>
             <div className="bg-secondary/50 rounded-xl p-4 space-y-3 text-sm">
               {[
-                ["Request Title", form.title],
-                ["Category", form.category],
-                ["Priority", form.priority],
+                [t("maintenance.requestTitle"), form.title],
+                [t("form.category"), form.category],
+                [t("form.priority"), form.priority],
                 [
-                  "Location",
+                  t("form.location"),
                   [form.building, form.floor, form.roomArea]
                     .filter(Boolean)
                     .join(" / ") || "—",
                 ],
-                ["Attachments", `${form.files.length} image(s)`],
+                [t("form.attachments"), `${form.files.length} ${t("maintenance.imagesCount")}`],
+
               ].map(([k, v]) => (
                 <div key={String(k)} className="flex justify-between gap-4">
                   <span className="text-muted-foreground flex-shrink-0">
@@ -694,16 +714,14 @@ export function NewMaintenancePage() {
             </div>
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">
-                Problem Description
+                {t("maintenance.problemDesc")}
               </p>
               <p className="text-sm bg-secondary/30 rounded-lg p-3">
                 {form.description}
               </p>
             </div>
             <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-sm text-red-700">
-              After submission this request is sent to Admin for review.
-              Internal routing (division/supervisor/professionals) is managed by
-              Admin and not visible to user.
+              {t("maintenance.whatHappensNext")}
             </div>
           </div>
         )}
@@ -715,7 +733,7 @@ export function NewMaintenancePage() {
             onClick={() => setStep((s) => s - 1)}
             className="px-5 py-2.5 rounded-lg border-2 border-border text-sm font-semibold text-muted-foreground hover:bg-secondary"
           >
-            ← Back
+            ← {t("action.back")}
           </button>
         )}
         <div className="flex-1" />
@@ -724,7 +742,7 @@ export function NewMaintenancePage() {
             onClick={nextStep}
             className="px-6 py-2.5 rounded-lg text-white text-sm font-semibold transition-all bg-gradient-to-br from-[#7A0E0E] to-[#CC1F1A]"
           >
-            Continue <ChevronRight size={14} className="inline-block ml-1" />
+            {t("action.next")} <ChevronRight size={14} className="inline-block ml-1" />
           </button>
         ) : (
           <button
@@ -732,7 +750,7 @@ export function NewMaintenancePage() {
             disabled={loading}
             className="px-6 py-2.5 rounded-lg text-white text-sm font-semibold disabled:opacity-50 transition-all bg-gradient-to-br from-[#7A0E0E] to-[#CC1F1A]"
           >
-            {loading ? "Submitting..." : "Submit Request"}
+            {loading ? t("message.loading") : t("action.submit")}
           </button>
         )}
       </div>

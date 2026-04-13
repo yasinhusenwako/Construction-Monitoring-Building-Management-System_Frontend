@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { WorkflowStatus } from "../../lib/workflow";
 import "./WorkflowVisualizer.css";
+import { useLanguage } from "../../context/LanguageContext";
+
 
 interface WorkflowVisualizerProps {
   currentStatus: WorkflowStatus;
@@ -27,56 +29,64 @@ interface Step {
 const steps: Step[] = [
   {
     id: 0,
-    label: "Submission",
-    role: "User",
+    label: "submission",
+    role: "user",
     icon: User,
     statuses: ["Submitted"],
   },
+
   {
     id: 1,
-    label: "Verification",
-    role: "Admin",
+    label: "verification",
+    role: "admin",
     icon: ShieldCheck,
     statuses: ["Under Review"],
   },
+
   {
     id: 2,
-    label: "Routing",
-    role: "Supervisor",
+    label: "routing",
+    role: "supervisor",
     icon: MapPin,
     statuses: ["Assigned to Supervisor", "WorkOrder Created"],
   },
+
   {
     id: 3,
-    label: "Execution",
-    role: "Professional",
+    label: "execution",
+    role: "professional",
     icon: Wrench,
     statuses: ["Assigned to Professional", "In Progress"],
   },
+
   {
     id: 4,
-    label: "Inspection",
-    role: "Supervisor",
+    label: "inspection",
+    role: "supervisor",
     icon: ClipboardCheck,
     statuses: ["Completed"],
   },
+
   {
     id: 5,
-    label: "Approval",
-    role: "Admin",
+    label: "approval",
+    role: "admin",
     icon: CheckCircle,
     statuses: ["Reviewed", "Approved", "Rejected"],
   },
+
   {
     id: 6,
-    label: "Closed",
-    role: "System",
+    label: "closed",
+    role: "system",
     icon: Archive,
     statuses: ["Closed"],
   },
+
 ];
 
 export const WorkflowVisualizer: React.FC<WorkflowVisualizerProps> = ({ currentStatus }) => {
+  const { t } = useLanguage();
   const currentStepIndex = steps.findIndex((step) => 
     step.statuses.includes(currentStatus)
   );
@@ -116,9 +126,10 @@ export const WorkflowVisualizer: React.FC<WorkflowVisualizerProps> = ({ currentS
 
                 {/* Step Info */}
                 <div className="step-info">
-                  <span className={`step-label ${isActive ? "active" : ""}`}>{step.label}</span>
-                  <span className="step-role">{step.role}</span>
+                  <span className={`step-label ${isActive ? "active" : ""}`}>{t(`workflow.${step.label}`)}</span>
+                  <span className="step-role">{t(`role.${step.role}`)}</span>
                 </div>
+
               </div>
             </div>
           );
@@ -128,8 +139,9 @@ export const WorkflowVisualizer: React.FC<WorkflowVisualizerProps> = ({ currentS
       {/* Current Status Badge for Mobile/Brief */}
       <div className="current-status-brief">
         <Clock size={14} className="text-[#1A3580] animate-pulse" />
-        <span>Currently: <strong>{currentStatus}</strong></span>
+        <span>{t("workflow.currently")}: <strong>{t(`status.${currentStatus.charAt(0).toLowerCase()}${currentStatus.slice(1).replace(/\s+/g, "")}` as any) || currentStatus}</strong></span>
       </div>
+
     </div>
   );
 };

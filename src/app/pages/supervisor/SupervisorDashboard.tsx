@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { exportToCSV } from "../../lib/exportUtils";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -37,6 +38,7 @@ import {
   Clock,
   User,
   Eye,
+  Download,
 } from "lucide-react";
 import { AssignmentModal } from "./AssignmentModal";
 import { TaskCard } from "./TaskCard";
@@ -95,19 +97,43 @@ export function SupervisorDashboard() {
   const handleAssign = (professionalId: string, instructions: string) => {
     const task = myTasks.find((m) => m.id === assignTarget);
     if (!task) return;
-    const pro = mockUsers.find((u) => u.id === professionalId);
+    const now = new Date().toISOString();
+    const workOrderId = task.workOrderId || `WO-${task.id.split("-")[1] || Math.floor(Math.random() * 1000)}`;
+    
+    const pro = mockUsers.find(u => u.id === professionalId);
     const updated = {
       ...task,
+      workOrderId,
       assignedTo: professionalId,
       status: "Assigned to Professional" as const,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
+      timeline: [
+        ...(task.timeline || []),
+        {
+          id: `EV-${Math.random().toString(36).substr(2, 9)}`,
+          action: "WorkOrder Created",
+          actor: currentUser?.name || "Supervisor",
+          timestamp: now,
+          note: t("supervisor.note.workOrderGenerated", { id: workOrderId }),
+        },
+        {
+          id: `EV-${Math.random().toString(36).substr(2, 9)}`,
+          action: "Assigned to Professional",
+          actor: currentUser?.name || "Supervisor",
+          timestamp: now,
+          note: t("supervisor.note.assignedToPro", { 
+            name: pro?.name || professionalId,
+            instructions: instructions ? `. ${t("supervisor.instructionsNotes")}: ${instructions}` : "" 
+          }),
+        }
+      ]
     };
     updateMaintenance(updated);
     // Notify the professional
     addNotification(
       createNotification({
-        title: "Maintenance Task Assigned",
-        message: `You have been assigned ${updated.id}${
+        title: t("supervisor.maintenanceAssigned"),
+        message: `${t("notifications.message.assigned_id", { id: updated.id })}${
           instructions ? `: ${instructions}` : "."
         }`,
         userId: professionalId,
@@ -115,7 +141,7 @@ export function SupervisorDashboard() {
         type: "warning",
       }),
     );
-    setActionMsg(`Task assigned to ${pro?.name ?? "professional"}. Professional notified.`);
+    setActionMsg(t("supervisor.action.assigned"));
     setAssignTarget(null);
     setTimeout(() => setActionMsg(""), 4000);
   };
@@ -134,17 +160,15 @@ export function SupervisorDashboard() {
     addNotifications(
       adminIds.map((adminId) =>
         createNotification({
-          title: "Maintenance Ready for Approval",
-          message: `${updated.id} reviewed by supervisor${
-            note ? ` — "${note}"` : ""
-          }. Awaiting admin approval.`,
+          title: t("notifications.title.readyApproval"),
+          message: t("notifications.message.readyApproval_id", { id: updated.id, note: note || t("common.noNote") }),
           userId: adminId,
           link: `/dashboard/maintenance/${updated.id}`,
           type: "info",
         }),
       ),
     );
-    setActionMsg(`Completion report for ${id} submitted to Administration.`);
+    setActionMsg(t("supervisor.action.reportSubmitted", { id }));
     setReportTarget(null);
     setTimeout(() => setActionMsg(""), 4000);
   };
@@ -196,123 +220,144 @@ export function SupervisorDashboard() {
                   <ClipboardList size={14} className="text-white" />
                 </div>
                 <span className="text-white/70 text-xs font-semibold uppercase tracking-wider">
-                  Division Supervisor
+                  {t("supervisor.title")}
                 </span>
               </div>
-              <h1 className="text-white text-xl">Supervisor Dashboard</h1>
+              <h1 className="text-white text-xl">{t("supervisor.dashboard")}</h1>
               <p className="text-white/70 text-sm mt-0.5">
                 {currentUser?.name} ·{" "}
                 {divisionInfo?.name || currentUser?.department}
               </p>
             </div>
             <div className="flex items-center gap-3">
-              {pendingAssignment.length > 0 && (
-                <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-3 py-2">
-                  <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                  <span className="text-white text-xs font-semibold">
-                    {pendingAssignment.length} need assignment
-                  </span>
-                </div>
-              )}
-              {completedTasks.length > 0 && (
-                <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-3 py-2">
-                  <div className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
-                  <span className="text-white text-xs font-semibold">
-                    {completedTasks.length} pending review
-                  </span>
-                </div>
-              )}
+              <button
+                onClick={() => {
+                  const exportData = myTasks.map((t) => ({
+                    ID: t.id,
+                    Title: t.title,
+                    Status: t.status,
+                    Priority: t.priority,
+                    Location: `${t.location}, ${t.floor}`,
+                    ReportedBy: t.requestedBy,
+                    Date: t.createdAt,
+                    AssignedPro:
+                      mockUsers.find((u) => u.id === t.assignedTo)?.name ||
+                      t("common.unassigned"),
+                  }));
+                  exportToCSV(
+                    exportData,
+                    `Division_Report_${divisionInfo?.name || "Maintenance"}_${new Date().toISOString().split("T")[0]}`,
+                  );
+                }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-sm font-bold text-white transition-all backdrop-blur-md shadow-lg"
+              >
+                <Download size={16} /> {t("supervisor.exportReport")}
+              </button>
             </div>
           </div>
+          <div className="flex items-center gap-3">
+            {pendingAssignment.length > 0 && (
+              <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-3 py-2">
+                <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                <span className="text-white text-xs font-semibold">
+                  {pendingAssignment.length} {t("supervisor.needAssignment")}
+                </span>
+              </div>
+            )}
+            {completedTasks.length > 0 && (
+              <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-3 py-2">
+                <div className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
+                <span className="text-white text-xs font-semibold">
+                  {completedTasks.length} {t("supervisor.pendingReview")}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
 
-          {/* Division Info & Capabilities */}
-          {divisionInfo && (
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Division Responsibilities */}
-                <div>
-                  <h3 className="text-white text-sm font-semibold mb-2 flex items-center gap-2">
-                    <Shield size={14} /> Division Responsibilities
-                  </h3>
-                  <ul className="space-y-1">
-                    {divisionInfo.responsibilities
-                      .slice(0, 4)
-                      .map((resp, i) => (
-                        <li
-                          key={i}
-                          className="text-white/80 text-xs flex items-start gap-2"
-                        >
-                          <CheckCircle
-                            size={12}
-                            className="mt-0.5 flex-shrink-0 text-green-300"
-                          />
-                          <span>{resp}</span>
-                        </li>
-                      ))}
-                    {divisionInfo.responsibilities.length > 4 && (
-                      <li className="text-white/60 text-xs italic">
-                        +{divisionInfo.responsibilities.length - 4} more...
-                      </li>
-                    )}
-                  </ul>
-                </div>
+        {/* Division Info & Capabilities */}
+        {divisionInfo && (
+          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 m-6 mt-0">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Division Responsibilities */}
+              <div>
+                <h3 className="text-white text-sm font-semibold mb-2 flex items-center gap-2">
+                  <Shield size={14} /> {t("supervisor.responsibilities")}
+                </h3>
+                <ul className="space-y-1">
+                  {divisionInfo.responsibilities.slice(0, 4).map((resp, i) => (
+                    <li
+                      key={i}
+                      className="text-white/80 text-xs flex items-start gap-2"
+                    >
+                      <CheckCircle
+                        size={12}
+                        className="mt-0.5 flex-shrink-0 text-green-300"
+                      />
+                      <span>{resp}</span>
+                    </li>
+                  ))}
+                  {divisionInfo.responsibilities.length > 4 && (
+                    <li className="text-white/60 text-xs italic">
+                      +{divisionInfo.responsibilities.length - 4} {t("common.more")}...
+                    </li>
+                  )}
+                </ul>
+              </div>
 
-                {/* Supervisor Capabilities */}
-                <div>
-                  <h3 className="text-white text-sm font-semibold mb-2 flex items-center gap-2">
-                    <UserCheck size={14} /> Your Capabilities
-                  </h3>
-                  <div className="space-y-1">
-                    <div className="text-white/80 text-xs flex items-start gap-2">
-                      <CheckCircle
-                        size={12}
-                        className="mt-0.5 flex-shrink-0 text-green-300"
-                      />
-                      <span>View assigned requests from Admin</span>
-                    </div>
-                    <div className="text-white/80 text-xs flex items-start gap-2">
-                      <CheckCircle
-                        size={12}
-                        className="mt-0.5 flex-shrink-0 text-green-300"
-                      />
-                      <span>
-                        Assign tasks to Professionals in your division
-                      </span>
-                    </div>
-                    <div className="text-white/80 text-xs flex items-start gap-2">
-                      <CheckCircle
-                        size={12}
-                        className="mt-0.5 flex-shrink-0 text-green-300"
-                      />
-                      <span>Monitor execution progress</span>
-                    </div>
-                    <div className="text-white/80 text-xs flex items-start gap-2">
-                      <CheckCircle
-                        size={12}
-                        className="mt-0.5 flex-shrink-0 text-green-300"
-                      />
-                      <span>Review completed tasks</span>
-                    </div>
-                    <div className="text-white/80 text-xs flex items-start gap-2">
-                      <CheckCircle
-                        size={12}
-                        className="mt-0.5 flex-shrink-0 text-green-300"
-                      />
-                      <span>Submit completion report to Admin</span>
-                    </div>
-                    <div className="text-white/60 text-xs flex items-start gap-2">
-                      <XCircle
-                        size={12}
-                        className="mt-0.5 flex-shrink-0 text-red-300"
-                      />
-                      <span>Cannot close requests (Admin only)</span>
-                    </div>
+              {/* Supervisor Capabilities */}
+              <div>
+                <h3 className="text-white text-sm font-semibold mb-2 flex items-center gap-2">
+                  <UserCheck size={14} /> {t("supervisor.capabilities")}
+                </h3>
+                <div className="space-y-1">
+                  <div className="text-white/80 text-xs flex items-start gap-2">
+                    <CheckCircle
+                      size={12}
+                      className="mt-0.5 flex-shrink-0 text-green-300"
+                    />
+                    <span>{t("supervisor.capabilityView")}</span>
+                  </div>
+                  <div className="text-white/80 text-xs flex items-start gap-2">
+                    <CheckCircle
+                      size={12}
+                      className="mt-0.5 flex-shrink-0 text-green-300"
+                    />
+                    <span>{t("supervisor.capabilityAssign")}</span>
+                  </div>
+                  <div className="text-white/80 text-xs flex items-start gap-2">
+                    <CheckCircle
+                      size={12}
+                      className="mt-0.5 flex-shrink-0 text-green-300"
+                    />
+                    <span>{t("supervisor.capabilityMonitor")}</span>
+                  </div>
+                  <div className="text-white/80 text-xs flex items-start gap-2">
+                    <CheckCircle
+                      size={12}
+                      className="mt-0.5 flex-shrink-0 text-green-300"
+                    />
+                    <span>{t("supervisor.capabilityReview")}</span>
+                  </div>
+                  <div className="text-white/80 text-xs flex items-start gap-2">
+                    <CheckCircle
+                      size={12}
+                      className="mt-0.5 flex-shrink-0 text-green-300"
+                    />
+                    <span>{t("supervisor.capabilityReport")}</span>
+                  </div>
+                  <div className="text-white/60 text-xs flex items-start gap-2">
+                    <XCircle
+                      size={12}
+                      className="mt-0.5 flex-shrink-0 text-red-300"
+                    />
+                    <span>{t("supervisor.restrictionClose")}</span>
                   </div>
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Action message */}
@@ -326,35 +371,35 @@ export function SupervisorDashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           {
-            label: "Total Assigned",
+            label: t("supervisor.totalAssigned"),
             value: myTasks.length,
             color: "#7C3AED",
             bg: "#F5F3FF",
             icon: <ClipboardList size={18} />,
           },
           {
-            label: "Need Assignment",
+            label: t("requests.needsAttention"),
             value: pendingAssignment.length,
             color: "#F59E0B",
             bg: "#FFFBEB",
             icon: <AlertTriangle size={18} />,
           },
           {
-            label: "With Professionals",
+            label: t("supervisor.withProfessionals"),
             value: withProfessionals.length,
             color: "#EA580C",
             bg: "#FFF7ED",
             icon: <Activity size={18} />,
           },
           {
-            label: "Completed",
+            label: t("status.completed"),
             value: completedTasks.length,
             color: "#0D9488",
             bg: "#F0FDFA",
             icon: <CheckCircle size={18} />,
           },
           {
-            label: "Submitted to Admin",
+            label: t("supervisor.submittedToAdmin"),
             value: reviewedTasks.length,
             color: "#0891B2",
             bg: "#ECFEFF",
@@ -379,7 +424,7 @@ export function SupervisorDashboard() {
       </div>
 
       {/* Task Management */}
-      <h2 className="text-[#0E2271]">Task Management</h2>
+      <h2 className="text-[#0E2271]">{t("supervisor.taskManagement")}</h2>
 
       {/* List View */}
       <div className="space-y-3">
@@ -389,9 +434,9 @@ export function SupervisorDashboard() {
               size={48}
               className="mx-auto text-muted-foreground/40 mb-3"
             />
-            <h3 className="text-[#0E2271]">No tasks assigned</h3>
+            <h3 className="text-[#0E2271]">{t("supervisor.noTasksAssigned")}</h3>
             <p className="text-muted-foreground text-sm">
-              Administration will assign tasks to you
+              {t("supervisor.noTasksDesc")}
             </p>
           </div>
         ) : (
@@ -433,21 +478,21 @@ export function SupervisorDashboard() {
                     </div>
                   </div>
                   <div className="flex flex-col gap-2 items-end">
-                    <button
-                      onClick={() =>
-                        router.push(`/dashboard/maintenance/${m.id}`)
-                      }
-                      className="flex items-center gap-1 text-xs text-[#7C3AED] hover:underline"
-                    >
-                      <Eye size={12} /> View Details
-                    </button>
+                      <button
+                        onClick={() =>
+                          router.push(`/dashboard/maintenance/${m.id}`)
+                        }
+                        className="flex items-center gap-1 text-xs text-[#7C3AED] hover:underline"
+                      >
+                        <Eye size={12} /> {t("supervisor.viewDetails")}
+                      </button>
                     {m.status === "Assigned to Supervisor" && (
                       <button
                         onClick={() => setAssignTarget(m.id)}
                         className="flex items-center gap-1 text-xs text-white px-3 py-1.5 rounded-lg"
                         style={{ background: "#7C3AED" }}
                       >
-                        <UserCheck size={12} /> Assign Professional
+                        <UserCheck size={12} /> {t("supervisor.assignProfessional")}
                       </button>
                     )}
                     {m.status === "Completed" && (
@@ -456,7 +501,7 @@ export function SupervisorDashboard() {
                         className="flex items-center gap-1 text-xs text-white px-3 py-1.5 rounded-lg"
                         style={{ background: "#0891B2" }}
                       >
-                        <Send size={12} /> Submit Report
+                        <Send size={12} /> {t("supervisor.submitReport")}
                       </button>
                     )}
                   </div>

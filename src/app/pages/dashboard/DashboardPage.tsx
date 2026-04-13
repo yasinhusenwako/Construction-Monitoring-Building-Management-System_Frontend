@@ -254,22 +254,24 @@ export function DashboardPage() {
                 {getGreeting()}, {currentUser?.name?.split(" ")[0]}!
               </h1>
               <p className="text-muted-foreground text-sm mt-0.5">
-                Division Supervisor · Manage your assigned tasks
+                {t("dashboard.divisionSupervisor")} · {t("dashboard.manageAssignedTasks")}
               </p>
+
             </div>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
               icon={<Wrench size={20} />}
-              label="Assigned to Division"
+              label={t("dashboard.assignedToDivision")}
               value={supervisorMaintenance.length}
-              sub="Total assigned tasks"
+              sub={t("dashboard.totalAssignedTasks")}
               color="#1A3580"
+
               onClick={() => router.push("/dashboard/maintenance")}
             />
             <StatCard
               icon={<Activity size={20} />}
-              label="Active Operations"
+              label={t("dashboard.activeOperations")}
               value={
                 supervisorMaintenance.filter((m) =>
                   ["Assigned to Professional", "In Progress"].includes(
@@ -277,24 +279,26 @@ export function DashboardPage() {
                   ),
                 ).length
               }
-              sub="In execution"
+              sub={t("dashboard.inExecution")}
+
               color="#EA580C"
               onClick={() => router.push("/dashboard/maintenance")}
             />
             <StatCard
               icon={<CheckCircle size={20} />}
-              label="Pending Review"
+              label={t("dashboard.pendingReview")}
               value={
                 supervisorMaintenance.filter((m) => m.status === "Completed")
                   .length
               }
-              sub="Awaiting review"
+              sub={t("dashboard.awaitingReview")}
+
               color="#0D9488"
               onClick={() => router.push("/dashboard/maintenance")}
             />
             <StatCard
               icon={<TrendingUp size={20} />}
-              label="Approved / Closed"
+              label={t("dashboard.processed")}
               value={
                 supervisorMaintenance.filter((m) =>
                   ["Reviewed", "Approved", "Rejected", "Closed"].includes(
@@ -302,15 +306,17 @@ export function DashboardPage() {
                   ),
                 ).length
               }
-              sub="Processed"
+              sub={t("dashboard.processed")}
+
               color="#10B981"
               onClick={() => router.push("/dashboard/maintenance")}
             />
           </div>
           <div className="bg-white rounded-xl border border-border p-5 shadow-sm text-center">
             <p className="text-muted-foreground text-sm mb-3">
-              Go to your full Supervisor Dashboard
+              {t("dashboard.goFullSupervisor")}
             </p>
+
             <button
               onClick={() => router.push("/dashboard/supervisor")}
               className="px-6 py-2.5 rounded-lg text-white text-sm font-semibold"
@@ -318,7 +324,8 @@ export function DashboardPage() {
                 background: "linear-gradient(135deg, #5B21B6, #7C3AED)",
               }}
             >
-              Open Supervisor Dashboard →
+              {t("dashboard.openSupervisor")} →
+
             </button>
           </div>
         </div>
@@ -341,12 +348,13 @@ export function DashboardPage() {
             <div className="flex items-center gap-2 text-xs text-muted-foreground bg-white border border-border rounded-lg px-3 py-2">
               <Clock size={14} />
               <span>
-                {new Date().toLocaleDateString("en-US", {
+                {new Date().toLocaleDateString(t("lang.code") === "am" ? "am-ET" : "en-US", {
                   weekday: "long",
                   year: "numeric",
                   month: "long",
                   day: "numeric",
                 })}
+
               </span>
             </div>
           </div>
@@ -616,8 +624,9 @@ export function DashboardPage() {
                   ))}
                   {displayUpcomingBookings.length === 0 && (
                     <p className="text-center text-muted-foreground text-sm py-3">
-                      No upcoming bookings
+                      {t("dashboard.noUpcomingBookings")}
                     </p>
+
                   )}
                 </div>
               </div>

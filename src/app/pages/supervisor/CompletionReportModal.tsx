@@ -2,6 +2,7 @@
 
 import { Send } from "lucide-react";
 import { useState } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 
 export function CompletionReportModal({
   ticketId,
@@ -12,6 +13,7 @@ export function CompletionReportModal({
   onClose: () => void;
   onSubmit: (id: string, note: string) => void;
 }) {
+  const { t } = useLanguage();
   const [reportNote, setReportNote] = useState("");
 
   return (
@@ -30,29 +32,29 @@ export function CompletionReportModal({
           }}
         >
           <h2 className="text-white text-sm font-bold flex items-center gap-2">
-            <Send size={15} /> Submit Completion Report to Admin
+            <Send size={15} /> {t("supervisor.reportModalTitle")}
           </h2>
           <p className="text-white/60 text-xs mt-0.5">{ticketId}</p>
         </div>
         <div className="px-6 py-5 space-y-4">
           <div>
             <label className="block text-xs font-semibold text-[#0E2271] mb-1.5 uppercase tracking-wide">
-              Supervisor Report / Findings
+              {t("supervisor.reportFindings")}
             </label>
             <textarea
               value={reportNote}
               onChange={(e) => setReportNote(e.target.value)}
               rows={5}
-              placeholder="Describe the work completed, findings, parts used, and any follow-up recommendations..."
+              placeholder={t("supervisor.reportPlaceholder")}
               className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none focus:border-[#0891B2] resize-none"
             />
           </div>
           <div className="bg-cyan-50 border border-cyan-200 rounded-lg p-3 text-xs text-cyan-800">
-            <p className="font-semibold mb-1">📋 What happens next?</p>
+            <p className="font-semibold mb-1">📋 {t("supervisor.whatHappensNext")}</p>
             <ul className="space-y-0.5 list-disc list-inside">
-              <li>Report submitted to Administration for approval</li>
-              <li>Admin will approve or reject the completion</li>
-              <li>User will be notified upon Admin approval</li>
+              <li>{t("supervisor.nextStep1")}</li>
+              <li>{t("supervisor.nextStep2")}</li>
+              <li>{t("supervisor.nextStep3")}</li>
             </ul>
           </div>
         </div>
@@ -61,7 +63,7 @@ export function CompletionReportModal({
             onClick={onClose}
             className="flex-1 py-2.5 rounded-xl border-2 border-border text-sm font-semibold text-muted-foreground hover:bg-secondary"
           >
-            Cancel
+            {t("action.cancel")}
           </button>
           <button
             onClick={() => onSubmit(ticketId, reportNote)}
@@ -71,7 +73,7 @@ export function CompletionReportModal({
               background: "linear-gradient(135deg, #0E7490, #0891B2)",
             }}
           >
-            Submit to Admin
+            {t("supervisor.submitReport")}
           </button>
         </div>
       </div>

@@ -217,7 +217,7 @@ export function ConfigPage() {
                         {i + 1}
                       </span>
                     </div>
-                    <span className="text-sm font-medium flex-1">{status}</span>
+                    <span className="text-sm font-medium flex-1">{t(`requests.${status.toLowerCase().replace(/\s+/g, "_")}`)}</span>
                     <ChevronIcon />
                   </div>
                 ))}
@@ -254,7 +254,7 @@ export function ConfigPage() {
                   style={{ background: p.color }}
                 />
                 <div className="flex-1">
-                  <p className="font-semibold text-foreground">{p.label}</p>
+                  <p className="font-semibold text-foreground">{t(`maintenance.priority.${p.label.toLowerCase()}`)}</p>
                   <p className="text-xs text-muted-foreground">
                     {t("config.slaTarget")} {p.sla}
                   </p>
@@ -309,10 +309,10 @@ export function ConfigPage() {
               <div key={tmpl.id} className="px-5 py-4 flex items-center gap-4">
                 <div className="flex-1">
                   <p className="font-medium text-sm text-foreground">
-                    {tmpl.name}
+                    {t(`config.tmpl.${tmpl.id}.name`)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {tmpl.trigger}
+                    {t(`config.tmpl.${tmpl.id}.trigger`)}
                   </p>
                   <div className="flex gap-1 mt-1.5">
                     {tmpl.channels.map((ch) => (

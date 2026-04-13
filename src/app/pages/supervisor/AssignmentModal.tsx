@@ -3,6 +3,7 @@
 import { CheckCircle, UserCheck } from "lucide-react";
 import { useState } from "react";
 import { User, Maintenance } from "../../data/mockData";
+import { useLanguage } from "../../context/LanguageContext";
 
 export function AssignmentModal({
   ticketId,
@@ -19,6 +20,7 @@ export function AssignmentModal({
   onAssign: (professionalId: string, instructions: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useLanguage();
   const [selectedPro, setSelectedPro] = useState("");
   const [instructions, setInstructions] = useState("");
   const [priority, setPriority] = useState("Medium");
@@ -43,7 +45,7 @@ export function AssignmentModal({
             </div>
             <div>
               <h2 className="text-white text-sm font-bold">
-                Assign to Professional
+                {t("supervisor.assignmentModalTitle")}
               </h2>
               <p className="text-white/60 text-xs truncate max-w-64">
                 {ticketTitle}
@@ -56,7 +58,7 @@ export function AssignmentModal({
           {/* Professional select */}
           <div>
             <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
-              Select Professional *
+              {t("supervisor.selectProfessional")}
             </label>
             <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
               {professionals.map((pro) => {
@@ -96,7 +98,7 @@ export function AssignmentModal({
                             : "bg-green-50 text-green-700"
                       }`}
                     >
-                      {activeCount} active
+                      {activeCount} {t("users.active_count")}
                     </span>
                     {selectedPro === pro.id && (
                       <CheckCircle
@@ -113,13 +115,13 @@ export function AssignmentModal({
           {/* Instructions */}
           <div>
             <label className="block text-xs font-semibold text-[#0E2271] mb-1.5 uppercase tracking-wide">
-              Instructions / Notes
+              {t("supervisor.instructionsNotes")}
             </label>
             <textarea
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
               rows={3}
-              placeholder="Provide specific instructions, safety notes, or required materials..."
+              placeholder={t("supervisor.instructionsPlaceholder")}
               className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none focus:border-[#7C3AED] resize-none"
             />
           </div>
@@ -127,7 +129,7 @@ export function AssignmentModal({
           {/* Priority */}
           <div>
             <label className="block text-xs font-semibold text-[#0E2271] mb-1.5 uppercase tracking-wide">
-              Task Priority
+              {t("supervisor.taskPriority")}
             </label>
             <div className="grid grid-cols-4 gap-2">
               {["Low", "Medium", "High", "Critical"].map((p) => (
@@ -147,7 +149,7 @@ export function AssignmentModal({
                       : "border-border text-muted-foreground hover:border-gray-300"
                   }`}
                 >
-                  {p}
+                  {t(`priority.${p.toLowerCase()}`)}
                 </button>
               ))}
             </div>
@@ -159,7 +161,7 @@ export function AssignmentModal({
             onClick={onClose}
             className="flex-1 py-2.5 rounded-xl border-2 border-border text-sm font-semibold text-muted-foreground hover:bg-secondary"
           >
-            Cancel
+            {t("action.cancel")}
           </button>
           <button
             onClick={() => selectedPro && onAssign(selectedPro, instructions)}
@@ -167,7 +169,7 @@ export function AssignmentModal({
             className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold disabled:opacity-40 transition-all"
             style={{ background: "linear-gradient(135deg, #5B21B6, #7C3AED)" }}
           >
-            Assign Professional
+            {t("supervisor.assignProfessional")}
           </button>
         </div>
       </div>

@@ -1,6 +1,8 @@
 import React from "react";
 import { ArrowUpRight, ChevronRight, ArrowRight, CheckCircle2 } from "lucide-react";
 import { StatusBadge } from "../common/StatusBadge";
+import { useLanguage } from "../../context/LanguageContext";
+
 
 export function KpiCard({
   icon,
@@ -161,7 +163,9 @@ export function ModulePanel({
   }[];
   onView: () => void;
 }) {
+  const { t } = useLanguage();
   return (
+
     <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
       <div
         className="px-5 py-3.5 flex items-center justify-between border-b border-border"
@@ -191,8 +195,9 @@ export function ModulePanel({
           className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg text-white transition-all hover:opacity-90"
           style={{ background: color }}
         >
-          Manage <ArrowRight size={11} />
+          {t("dashboard.manage")} <ArrowRight size={11} />
         </button>
+
       </div>
 
       <div className="grid grid-cols-3 divide-x divide-border border-b border-border">
@@ -243,8 +248,9 @@ export function ModulePanel({
         {items.length === 0 && (
           <div className="px-4 py-6 text-center">
             <CheckCircle2 size={20} className="mx-auto text-green-500 mb-1" />
-            <p className="text-xs text-muted-foreground">All clear</p>
+            <p className="text-xs text-muted-foreground">{t("dashboard.allClear")}</p>
           </div>
+
         )}
       </div>
     </div>

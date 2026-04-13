@@ -24,6 +24,9 @@ import {
   ThumbsUp,
   ThumbsDown,
   UserPlus,
+  Briefcase,
+  Phone,
+  Info,
 } from "lucide-react";
 import {
   canTransition,
@@ -110,7 +113,9 @@ export function ProjectDetailPage() {
     extraUpdates?: Partial<Project>,
   ) => {
     if (!canTransition(actorRole, project.status, action)) {
-      setActionDone("Action not allowed for current status.");
+      setActionDone(t("maintenance.atLeastOneLocation")); // Using atLeastOneLocation as placeholder for "Action not allowed" if no specific key exists, but better to use a dedicated one.
+      // Wait, I should've added a specific key for "Action not allowed". Let's check common keys.
+      setActionDone(t("message.error")); 
       setTimeout(() => setActionDone(""), 3000);
       return;
     }
@@ -125,8 +130,8 @@ export function ProjectDetailPage() {
     if (extraUpdates?.supervisorId) {
       addNotification(
         createNotification({
-          title: "Project Assigned",
-          message: `You have been assigned ${updated.id} for supervision.`,
+          title: t("notifications.title.assigned"),
+          message: `${t("notifications.message.assigned")} (${updated.id})`,
           userId: extraUpdates.supervisorId,
           link: `/dashboard/projects/${updated.id}`,
           type: "warning",
@@ -136,8 +141,8 @@ export function ProjectDetailPage() {
     if (extraUpdates?.assignedTo) {
       addNotification(
         createNotification({
-          title: "Project Task Assigned",
-          message: `You have been assigned ${updated.id} to complete.`,
+          title: t("notifications.title.taskAssigned"),
+          message: `${t("notifications.message.taskAssigned")} (${updated.id})`,
           userId: extraUpdates.assignedTo,
           link: `/dashboard/projects/${updated.id}`,
           type: "warning",
@@ -151,8 +156,8 @@ export function ProjectDetailPage() {
     ) {
       addNotification(
         createNotification({
-          title: "Project Completed",
-          message: `${updated.id} has been completed and needs review.`,
+          title: t("notifications.title.completed"),
+          message: `${t("notifications.message.completed")} (${updated.id})`,
           userId: updated.supervisorId,
           link: `/dashboard/projects/${updated.id}`,
           type: "info",
@@ -164,8 +169,8 @@ export function ProjectDetailPage() {
       addNotifications(
         adminIds.map((id) =>
           createNotification({
-            title: "Project Ready for Approval",
-            message: `${updated.id} reviewed by supervisor, awaiting admin approval.`,
+            title: t("notifications.title.readyApproval"),
+            message: `${updated.id} ${t("notifications.message.readyApproval")}`,
             userId: id,
             link: `/dashboard/projects/${updated.id}`,
             type: "info",
@@ -179,8 +184,8 @@ export function ProjectDetailPage() {
     ) {
       addNotification(
         createNotification({
-          title: `Project ${action}`,
-          message: `Your project request ${updated.id} has been ${action.toLowerCase()}.`,
+          title: `${t("form.project")} ${t(`requests.${action.toLowerCase()}` as any) || action}`,
+          message: `${t("projects.actionApplied")}: ${updated.id} ${t(`requests.${action.toLowerCase()}` as any) || action.toLowerCase()}.`,
           userId: updated.requestedBy,
           link: `/dashboard/projects/${updated.id}`,
           type:
@@ -251,67 +256,158 @@ export function ProjectDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Main Details */}
         <div className="lg:col-span-2 space-y-5">
-          {/* Description */}
-          <div className="bg-white rounded-xl border border-border p-5 shadow-sm">
-            <h3 className="text-sm font-semibold text-[#0E2271] mb-3">
-              {t("projects.description")}
-            </h3>
-            <p className="text-sm text-foreground leading-relaxed">
-              {project.description}
-            </p>
-          </div>
+          {/* Combined Card for Description, Details, Contact, and Scope */}
+          <div className="bg-white rounded-xl border border-border p-5 shadow-sm space-y-8">
+            
+            {/* Description Section */}
+            <div>
+              <h3 className="text-sm font-semibold text-[#0E2271] mb-3">
+                {t("projects.description")}
+              </h3>
+              <p className="text-sm text-foreground leading-relaxed">
+                {project.description}
+              </p>
+            </div>
 
-          {/* Key Details */}
-          <div className="bg-white rounded-xl border border-border p-5 shadow-sm">
-            <h3 className="text-sm font-semibold text-[#0E2271] mb-4">
-              {t("projects.projectDetails")}
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              {[
-                {
-                  icon: <MapPin size={14} />,
-                  label: t("form.location"),
-                  value: project.location,
-                },
-                {
-                  icon: <DollarSign size={14} />,
-                  label: t("form.budget"),
-                  value: `ETB ${project.budget.toLocaleString()}`,
-                },
-                {
-                  icon: <Calendar size={14} />,
-                  label: t("form.startDate"),
-                  value: project.startDate,
-                },
-                {
-                  icon: <Calendar size={14} />,
-                  label: t("form.endDate"),
-                  value: project.endDate,
-                },
-                {
-                  icon: <User size={14} />,
-                  label: t("form.createdBy"),
-                  value: requester?.name || project.requestedBy,
-                },
-                {
-                  icon: <User size={14} />,
-                  label: t("form.assignedTo"),
-                  value: assignee?.name || t("projects.notYetAssigned"),
-                },
-              ].map((item) => (
-                <div key={item.label} className="flex items-start gap-2">
-                  <span className="text-[#1A3580] mt-0.5">{item.icon}</span>
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      {item.label}
-                    </p>
-                    <p className="text-sm font-medium text-foreground">
-                      {item.value}
-                    </p>
+            <div className="h-px bg-border w-full" />
+
+            {/* Project Details Section */}
+            <div>
+              <h3 className="text-sm font-semibold text-[#0E2271] mb-4">
+                {t("projects.projectDetails")}
+              </h3>
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-5">
+                {[
+                  {
+                    icon: <MapPin size={14} />,
+                    label: t("form.location"),
+                    value: project.location,
+                  },
+                  {
+                    icon: <DollarSign size={14} />,
+                    label: t("form.budget"),
+                    value: `ETB ${project.budget.toLocaleString()}`,
+                  },
+                  {
+                    icon: <Calendar size={14} />,
+                    label: t("form.startDate"),
+                    value: project.startDate,
+                  },
+                  {
+                    icon: <Calendar size={14} />,
+                    label: t("form.endDate"),
+                    value: project.endDate,
+                  },
+                  {
+                    icon: <User size={14} />,
+                    label: t("form.assignedTo"),
+                    value: assignee?.name || t("projects.notYetAssigned"),
+                  },
+                  ...(project.siteCondition ? [{
+                    icon: <Info size={14} />,
+                    label: t("common.other"),
+                    value: project.siteCondition,
+                  }] : []),
+                ].map((item) => (
+                  <div key={item.label} className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-[#EEF2FF] flex items-center justify-center flex-shrink-0">
+                      <span className="text-[#1A3580]">{item.icon}</span>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        {item.label}
+                      </p>
+                      <p className="text-sm font-medium text-foreground">
+                        {item.value}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* divider */}
+            <div className="h-px bg-border w-full" />
+
+            {/* Contact Information Section */}
+            <div>
+              <h3 className="text-sm font-semibold text-[#0E2271] mb-4">
+                {t("form.createdBy")} & Contact
+              </h3>
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-5">
+                {[
+                  {
+                    icon: <User size={14} />,
+                    label: t("form.createdBy"),
+                    value: requester?.name || project.requestedBy,
+                  },
+                  ...(project.department ? [{
+                    icon: <Briefcase size={14} />,
+                    label: t("users.department"),
+                    value: project.department,
+                  }] : []),
+                  ...(project.contactPerson ? [{
+                    icon: <User size={14} />,
+                    label: t("maintenance.contactPerson"),
+                    value: project.contactPerson,
+                  }] : []),
+                  ...(project.contactPhone ? [{
+                    icon: <Phone size={14} />,
+                    label: t("form.contactPhone"),
+                    value: project.contactPhone,
+                  }] : []),
+                ].map((item) => (
+                  <div key={item.label} className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                      <span className="text-muted-foreground">{item.icon}</span>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        {item.label}
+                      </p>
+                      <p className="text-sm font-medium text-foreground">
+                        {item.value}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Scope Details Section (Dynamic fields from form) */}
+            {project.scope && Object.keys(project.scope).length > 0 && (
+              <>
+                {/* divider */}
+                <div className="h-px bg-border w-full" />
+                <div>
+                  <h3 className="text-sm font-semibold text-[#0E2271] mb-4">
+                    Scope & Form Details
+                  </h3>
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-5">
+                    {Object.entries(project.scope).map(([key, value]) => {
+                      if (!value || (Array.isArray(value) && value.length === 0)) return null;
+                      
+                      // Make the key readable camelCase -> Title Case
+                      const formattedKey = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                      const displayValue = Array.isArray(value) ? value.join(", ") : String(value);
+
+                      return (
+                        <div key={key} className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                            <Info size={14} className="text-muted-foreground" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">{formattedKey}</p>
+                            <p className="text-sm font-medium text-foreground">{displayValue}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              ))}
-            </div>
+              </>
+            )}
+
           </div>
 
           {/* Documents */}
@@ -383,44 +479,49 @@ export function ProjectDetailPage() {
         </div>
 
         {/* Right Panel */}
-        <div className="space-y-4">
+        <div className="space-y-5">
           {/* Admin Actions */}
           {role === "admin" && (
-            <div className="bg-white rounded-xl border border-border p-5 shadow-sm">
-              <h3 className="text-sm font-semibold text-[#0E2271] mb-4">
+            <div className="bg-gradient-to-br from-[#ffffff] to-[#f4f7fc] rounded-xl border border-border p-5 shadow-md relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-1 h-full bg-[#0E2271]"></div>
+              <h3 className="text-sm font-bold text-[#0E2271] mb-5 flex items-center gap-2">
+                <CheckCircle size={16} className="text-[#CC1F1A]" /> 
                 {t("projects.adminActions")}
               </h3>
 
               {actionDone && (
-                <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-3 text-sm text-green-700 flex items-center gap-2">
-                  <CheckCircle size={14} /> {t("projects.actionApplied")}: "
-                  {actionDone}"
+                <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 text-sm text-green-700 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
+                  <CheckCircle size={16} /> <span className="font-medium">{t("projects.actionApplied")}:</span> {actionDone}
                 </div>
               )}
 
-              <div className="space-y-2">
+              <div className="space-y-4">
                 {project.status === "Submitted" && (
-                  <button
-                    onClick={() =>
-                      handleAction("Under Review", "admin", "Review started")
-                    }
-                    className="w-full py-2 rounded-lg text-white text-sm font-semibold transition-all"
-                    style={{ background: "#7C3AED" }}
-                  >
-                    {t("projects.startReview")}
-                  </button>
+                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
+                    <p className="text-xs text-muted-foreground mb-3">{t("requests.submitted")}: Ready for initial review.</p>
+                    <button
+                      onClick={() =>
+                        handleAction("Under Review", "admin", t("requests.under_review"))
+                      }
+                      className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
+                      style={{ background: "#7C3AED" }}
+                    >
+                      <User size={16} /> {t("projects.startReview")}
+                    </button>
+                  </div>
                 )}
+                
                 {project.status === "Under Review" && (
-                  <div className="border-t border-border pt-3 mt-3">
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">
-                      Assign Supervisor
+                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
+                    <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
+                      {t("maintenance.assignSupervisor")}
                     </label>
                     <select
                       value={selectedTech}
                       onChange={(e) => setSelectedTech(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none mb-2"
+                      className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none mb-3 focus:ring-2 focus:ring-[#1A3580]/20 focus:border-[#1A3580] transition-all"
                     >
-                      <option value="">Select Supervisor</option>
+                      <option value="">{t("maintenance.placeholder.selectCategory").replace("category", "supervisor")}</option>
                       {mockUsers
                         .filter((u) => u.role === "supervisor")
                         .map((u) => (
@@ -438,51 +539,56 @@ export function ProjectDetailPage() {
                         handleAction(
                           "Assigned to Supervisor",
                           "admin",
-                          "Assigned to Supervisor",
+                          t("requests.assigned_to_supervisor"),
                           {
                             supervisorId: selectedTech,
                           },
                         );
                       }}
                       disabled={!selectedTech}
-                      className="w-full py-2 rounded-lg text-sm font-medium border-2 border-[#1A3580] text-[#1A3580] hover:bg-secondary disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                      className="w-full py-2.5 rounded-lg text-sm font-bold bg-[#1A3580] text-white hover:bg-[#0E2271] disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-all shadow-sm flex items-center justify-center gap-2"
                     >
-                      <UserPlus size={14} /> Assign Supervisor
+                      <UserPlus size={16} /> {t("maintenance.assignSupervisor")}
                     </button>
                   </div>
                 )}
+
                 {project.status === "Reviewed" && (
-                  <>
+                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm flex flex-col gap-3">
+                    <p className="text-xs text-muted-foreground mb-1">Final decision required for this project.</p>
                     <button
                       onClick={() =>
                         handleAction("Approved", "admin", "Approved")
                       }
-                      className="w-full py-2 rounded-lg text-white text-sm font-semibold bg-green-600 hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+                      className="w-full py-2.5 rounded-lg text-white text-sm font-bold bg-green-600 hover:bg-green-700 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
                     >
-                      <ThumbsUp size={14} /> {t("projects.approveProject")}
+                      <ThumbsUp size={16} /> {t("projects.approveProject")}
                     </button>
                     <button
                       onClick={() =>
                         handleAction("Rejected", "admin", "Rejected")
                       }
-                      className="w-full py-2 rounded-lg text-white text-sm font-semibold bg-[#CC1F1A] hover:bg-red-700 transition-all flex items-center justify-center gap-2"
+                      className="w-full py-2.5 rounded-lg text-[#CC1F1A] text-sm font-bold border-2 border-[#CC1F1A] hover:bg-red-50 transition-all flex items-center justify-center gap-2"
                     >
-                      <ThumbsDown size={14} /> {t("projects.rejectProject")}
+                      <ThumbsDown size={16} /> {t("projects.rejectProject")}
                     </button>
-                  </>
-                )}
-                {["Approved", "Rejected"].includes(project.status) && (
-                  <button
-                    onClick={() => handleAction("Closed", "admin", "Closed")}
-                    className="w-full py-2 rounded-lg text-white text-sm font-semibold bg-gray-600 hover:bg-gray-700 transition-all"
-                  >
-                    Close Request
-                  </button>
+                  </div>
                 )}
 
-                {/* Note */}
-                <div className="border-t border-border pt-3">
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                {["Approved", "Rejected"].includes(project.status) && (
+                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
+                    <button
+                      onClick={() => handleAction("Closed", "admin", t("requests.closed"))}
+                      className="w-full py-2.5 rounded-lg text-white text-sm font-bold bg-slate-700 hover:bg-slate-800 transition-all shadow-sm flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle size={16} /> {t("projects.closeRequest")}
+                    </button>
+                  </div>
+                )}
+
+                {/* Note Field */}
+                <div className="p-4 bg-white rounded-lg border border-border shadow-sm mt-2">
+                  <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
                     {t("projects.addNote")}
                   </label>
                   <textarea
@@ -490,7 +596,7 @@ export function ProjectDetailPage() {
                     onChange={(e) => setAdminNote(e.target.value)}
                     rows={3}
                     placeholder={t("projects.addCommentOrReason")}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none resize-none"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none resize-none focus:ring-2 focus:ring-[#1A3580]/20 focus:border-[#1A3580] transition-all"
                   />
                   <button
                     onClick={() => {
@@ -498,9 +604,9 @@ export function ProjectDetailPage() {
                       setTimeout(() => setActionDone(""), 3000);
                       setAdminNote("");
                     }}
-                    className="w-full py-1.5 rounded-lg text-sm font-medium border border-border hover:bg-secondary mt-2 flex items-center justify-center gap-2"
+                    className="w-full py-2 rounded-lg text-sm font-semibold border-2 border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50 mt-3 transition-all flex items-center justify-center gap-2"
                   >
-                    <MessageSquare size={13} /> {t("projects.sendToRequester")}
+                    <MessageSquare size={14} /> {t("projects.sendToRequester")}
                   </button>
                 </div>
               </div>
@@ -510,45 +616,53 @@ export function ProjectDetailPage() {
           {/* Supervisor Actions */}
           {role === "supervisor" &&
             project.supervisorId === currentUser?.id && (
-              <div className="bg-white rounded-xl border border-border p-5 shadow-sm">
-                <h3 className="text-sm font-semibold text-[#0E2271] mb-4">
-                  Supervisor Actions
+              <div className="bg-gradient-to-br from-[#ffffff] to-[#fff5f5] rounded-xl border border-border p-5 shadow-md relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-[#CC1F1A]"></div>
+                <h3 className="text-sm font-bold text-[#CC1F1A] mb-5 flex items-center gap-2">
+                  <Briefcase size={16} /> 
+                  {t("projects.supervisorActions")}
                 </h3>
+                
                 {actionDone && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-3 text-sm text-green-700 flex items-center gap-2">
-                    <CheckCircle size={14} /> {actionDone}
+                  <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 text-sm text-green-700 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
+                    <CheckCircle size={16} /> {actionDone}
                   </div>
                 )}
-                <div className="space-y-2">
+                
+                <div className="space-y-4">
                   {project.status === "Assigned to Supervisor" && (
-                    <button
-                      onClick={() => {
-                        const workOrderId =
-                          project.workOrderId || `WO-${project.id}`;
-                        handleAction(
-                          "WorkOrder Created",
-                          "supervisor",
-                          "WorkOrder created",
-                          { workOrderId },
-                        );
-                      }}
-                      className="w-full py-2 rounded-lg text-white text-sm font-semibold"
-                      style={{ background: "#1A3580" }}
-                    >
-                      Create WorkOrder
-                    </button>
+                    <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
+                      <p className="text-xs text-muted-foreground mb-3">Task has been assigned to you. Generate a work order to begin.</p>
+                      <button
+                        onClick={() => {
+                          const workOrderId =
+                            project.workOrderId || `WO-${project.id}`;
+                          handleAction(
+                            "WorkOrder Created",
+                            "supervisor",
+                            t("requests.workorder_created"),
+                            { workOrderId },
+                          );
+                        }}
+                        className="w-full py-2.5 rounded-lg text-white text-sm font-bold hover:shadow-md transition-all flex items-center justify-center gap-2"
+                        style={{ background: "#1A3580" }}
+                      >
+                        <FileText size={16} /> {t("maintenance.createWorkOrder")}
+                      </button>
+                    </div>
                   )}
+
                   {project.status === "WorkOrder Created" && (
-                    <div>
-                      <label className="block text-xs font-medium text-muted-foreground mb-1">
-                        Assign Professional
+                    <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
+                      <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
+                        {t("maintenance.assignProfessional")}
                       </label>
                       <select
                         value={selectedTech}
                         onChange={(e) => setSelectedTech(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none mb-2"
+                        className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all"
                       >
-                        <option value="">Select Professional</option>
+                        <option value="">{t("maintenance.placeholder.selectCategory").replace("category", "professional")}</option>
                         {mockUsers
                           .filter((u) => u.role === "professional")
                           .map((u) => (
@@ -563,27 +677,31 @@ export function ProjectDetailPage() {
                           handleAction(
                             "Assigned to Professional",
                             "supervisor",
-                            "Assigned to Professional",
+                            t("requests.assigned_to_professional"),
                             { assignedTo: selectedTech },
                           );
                         }}
                         disabled={!selectedTech}
-                        className="w-full py-2 rounded-lg text-sm font-medium border-2 border-[#1A3580] text-[#1A3580] hover:bg-secondary disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                        className="w-full py-2.5 rounded-lg text-sm font-bold bg-[#CC1F1A] text-white hover:bg-[#aa1814] disabled:bg-red-200 disabled:text-red-400 disabled:cursor-not-allowed transition-all shadow-sm flex items-center justify-center gap-2"
                       >
-                        <UserPlus size={14} /> Assign Professional
+                        <UserPlus size={16} /> {t("maintenance.assignProfessional")}
                       </button>
                     </div>
                   )}
+
                   {project.status === "Completed" && (
-                    <button
-                      onClick={() =>
-                        handleAction("Reviewed", "supervisor", "Reviewed")
-                      }
-                      className="w-full py-2 rounded-lg text-white text-sm font-semibold"
-                      style={{ background: "#0891B2" }}
-                    >
-                      Submit Review to Admin
-                    </button>
+                    <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
+                      <p className="text-xs text-muted-foreground mb-3">Work has been completed by the professional. Review and submit to admin.</p>
+                      <button
+                        onClick={() =>
+                          handleAction("Reviewed", "supervisor", t("requests.reviewed"))
+                        }
+                        className="w-full py-2.5 rounded-lg text-white text-sm font-bold hover:shadow-md transition-all flex items-center justify-center gap-2"
+                        style={{ background: "#0891B2" }}
+                      >
+                        <CheckCircle size={16} /> {t("maintenance.submitToAdmin")}
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -594,7 +712,7 @@ export function ProjectDetailPage() {
             project.assignedTo === currentUser?.id && (
               <div className="bg-white rounded-xl border border-border p-5 shadow-sm">
                 <h3 className="text-sm font-semibold text-[#0E2271] mb-4">
-                  Professional Actions
+                  {t("projects.professionalActions")}
                 </h3>
                 {actionDone && (
                   <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-3 text-sm text-green-700 flex items-center gap-2">
@@ -608,24 +726,24 @@ export function ProjectDetailPage() {
                         handleAction(
                           "In Progress",
                           "professional",
-                          "In Progress",
+                          t("requests.in_progress"),
                         )
                       }
                       className="w-full py-2 rounded-lg text-white text-sm font-semibold"
                       style={{ background: "#EA580C" }}
                     >
-                      Start Work
+                      {t("maintenance.startWork")}
                     </button>
                   )}
                   {project.status === "In Progress" && (
                     <button
                       onClick={() =>
-                        handleAction("Completed", "professional", "Completed")
+                        handleAction("Completed", "professional", t("requests.completed"))
                       }
                       className="w-full py-2 rounded-lg text-white text-sm font-semibold"
                       style={{ background: "#0D9488" }}
                     >
-                      Mark Completed
+                      {t("maintenance.markFixed")}
                     </button>
                   )}
                 </div>

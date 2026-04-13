@@ -103,10 +103,11 @@ function SpaceModal({
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!form.name.trim()) errs.name = "Space name is required";
-    if (!form.floor.trim()) errs.floor = "Floor / location is required";
+    if (!form.name.trim()) errs.name = t("bookings.validation.nameReq");
+    if (!form.floor.trim()) errs.floor = t("bookings.validation.floorReq");
     if (!form.capacity || form.capacity < 1)
-      errs.capacity = "Capacity must be at least 1";
+      errs.capacity = t("bookings.validation.capacityReq");
+
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -200,7 +201,8 @@ function SpaceModal({
                     }`}
                     style={selected ? { background: meta.bg } : {}}
                   >
-                    <span className="text-base">{meta.icon}</span> {t}
+                    <span className="text-base">{meta.icon}</span> {t(`bookings.spaceType.${t.charAt(0).toLowerCase() + t.slice(1).replace(/\s+/g, "")}`)}
+
                     {selected && (
                       <CheckCircle
                         size={12}
@@ -468,8 +470,9 @@ export function BookingsPage() {
     extraUpdates?: Partial<Booking>,
   ) => {
     if (!canTransition(actorRole, currentStatus, nextStatus)) {
-      setActionMsg("Action not allowed for current status.");
+      setActionMsg(t("bookings.notAllowed"));
       setTimeout(() => setActionMsg(""), 3000);
+
       return false;
     }
     const updated = persistBookingUpdate(bookingId, {
@@ -550,7 +553,8 @@ export function BookingsPage() {
         );
       }
     }
-    setActionMsg(message);
+    setActionMsg(t(message));
+
     setTimeout(() => setActionMsg(""), 3000);
     return true;
   };
@@ -559,11 +563,12 @@ export function BookingsPage() {
   const handleSaveSpace = (s: Space) => {
     if (spaceModal === "edit") {
       setSpaceList((list) => list.map((sp) => (sp.id === s.id ? s : sp)));
-      setActionMsg(`Space "${s.name}" updated successfully`);
+      setActionMsg(t("bookings.spaceUpdated"));
     } else {
       setSpaceList((list) => [...list, s]);
-      setActionMsg(`Space "${s.name}" added successfully`);
+      setActionMsg(t("bookings.spaceAdded"));
     }
+
     setSpaceModal(null);
     setEditTarget(null);
     setTimeout(() => setActionMsg(""), 3500);
@@ -572,7 +577,8 @@ export function BookingsPage() {
   const handleDeleteSpace = () => {
     if (!deleteTarget) return;
     setSpaceList((list) => list.filter((s) => s.id !== deleteTarget.id));
-    setActionMsg(`Space "${deleteTarget.name}" deleted`);
+    setActionMsg(t("bookings.spaceDeleted"));
+
     setDeleteTarget(null);
     setTimeout(() => setActionMsg(""), 3500);
   };
@@ -738,7 +744,7 @@ export function BookingsPage() {
                     : "bg-secondary text-muted-foreground hover:bg-muted"
                 }`}
               >
-                {s}
+                {s === "All" ? t("status.all") : t(`status.${s.charAt(0).toLowerCase() + s.slice(1).replace(/\s+/g, "")}`)}
               </button>
             ))}
           </div>
@@ -809,232 +815,14 @@ export function BookingsPage() {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2">
-                    {role === "admin" && booking.status === "Submitted" && (
-                      <button
-                        onClick={() =>
-                          applyTransition(
-                            booking.id,
-                            booking.status,
-                            "Under Review",
-                            "admin",
-                            `Booking ${booking.id} under review`,
-                          )
-                        }
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700"
-                      >
-                        Start Review
-                      </button>
-                    )}
-                    {role === "admin" && booking.status === "Under Review" && (
-                      <button
-                        onClick={() =>
-                          setAssignTarget(
-                            assignTarget === booking.id ? null : booking.id,
-                          )
-                        }
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#1A3580] text-[#1A3580] text-xs font-semibold hover:bg-blue-50"
-                      >
-                        Assign Supervisor
-                      </button>
-                    )}
-                    {role === "supervisor" &&
-                      booking.status === "Assigned to Supervisor" && (
-                        <button
-                          onClick={() => {
-                            const workOrderId =
-                              booking.workOrderId || `WO-${booking.id}`;
-                            applyTransition(
-                              booking.id,
-                              booking.status,
-                              "WorkOrder Created",
-                              "supervisor",
-                              `WorkOrder created for ${booking.id}`,
-                              { workOrderId },
-                            );
-                          }}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#1A3580] text-white text-xs font-semibold"
-                        >
-                          Create WorkOrder
-                        </button>
-                      )}
-                    {role === "supervisor" &&
-                      booking.status === "WorkOrder Created" && (
-                        <button
-                          onClick={() =>
-                            setAssignTarget(
-                              assignTarget === booking.id ? null : booking.id,
-                            )
-                          }
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#CC1F1A] text-white text-xs font-semibold"
-                        >
-                          Assign Professional
-                        </button>
-                      )}
-                    {role === "professional" &&
-                      booking.status === "Assigned to Professional" && (
-                        <button
-                          onClick={() =>
-                            applyTransition(
-                              booking.id,
-                              booking.status,
-                              "In Progress",
-                              "professional",
-                              `Booking ${booking.id} started`,
-                            )
-                          }
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-orange-600 text-white text-xs font-semibold"
-                        >
-                          Start Work
-                        </button>
-                      )}
-                    {role === "professional" &&
-                      booking.status === "In Progress" && (
-                        <button
-                          onClick={() =>
-                            applyTransition(
-                              booking.id,
-                              booking.status,
-                              "Completed",
-                              "professional",
-                              `Booking ${booking.id} completed`,
-                            )
-                          }
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-teal-600 text-white text-xs font-semibold"
-                        >
-                          Complete
-                        </button>
-                      )}
-                    {role === "supervisor" &&
-                      booking.status === "Completed" && (
-                        <button
-                          onClick={() =>
-                            applyTransition(
-                              booking.id,
-                              booking.status,
-                              "Reviewed",
-                              "supervisor",
-                              `Booking ${booking.id} reviewed`,
-                            )
-                          }
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-cyan-600 text-white text-xs font-semibold"
-                        >
-                          Submit Review
-                        </button>
-                      )}
-                    {role === "admin" && booking.status === "Reviewed" && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() =>
-                            applyTransition(
-                              booking.id,
-                              booking.status,
-                              "Approved",
-                              "admin",
-                              `Booking ${booking.id} approved`,
-                            )
-                          }
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700"
-                        >
-                          <ThumbsUp size={12} /> {t("action.approve")}
-                        </button>
-                        <button
-                          onClick={() =>
-                            applyTransition(
-                              booking.id,
-                              booking.status,
-                              "Rejected",
-                              "admin",
-                              `Booking ${booking.id} rejected`,
-                            )
-                          }
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#CC1F1A] text-white text-xs font-semibold hover:bg-red-700"
-                        >
-                          <ThumbsDown size={12} /> {t("action.reject")}
-                        </button>
-                      </div>
-                    )}
-                    {role === "admin" &&
-                      ["Approved", "Rejected"].includes(booking.status) && (
-                        <button
-                          onClick={() =>
-                            applyTransition(
-                              booking.id,
-                              booking.status,
-                              "Closed",
-                              "admin",
-                              `Booking ${booking.id} closed`,
-                            )
-                          }
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-600 text-white text-xs font-semibold"
-                        >
-                          Close
-                        </button>
-                      )}
+                    <button
+                      onClick={() => router.push(`/dashboard/bookings/${booking.id}`)}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 hover:shadow-md transition-all mt-2"
+                    >
+                      {t("projects.review") || "Review Booking"}
+                    </button>
                   </div>
                 </div>
-                {(role === "admin" || role === "supervisor") &&
-                  assignTarget === booking.id && (
-                    <div className="mt-3 pt-3 border-t border-border flex gap-2">
-                      <select
-                        value={selectedAssignee}
-                        onChange={(e) => setSelectedAssignee(e.target.value)}
-                        className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-border bg-input-background"
-                      >
-                        <option value="">
-                          {role === "admin"
-                            ? "Select supervisor..."
-                            : "Select professional..."}
-                        </option>
-                        {(role === "admin"
-                          ? mockUsers.filter((u) => u.role === "supervisor")
-                          : mockUsers.filter((u) => u.role === "professional")
-                        ).map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.name}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        onClick={() => {
-                          if (!selectedAssignee) return;
-                          if (role === "admin") {
-                            applyTransition(
-                              booking.id,
-                              booking.status,
-                              "Assigned to Supervisor",
-                              "admin",
-                              `Assigned ${booking.id}`,
-                              { supervisorId: selectedAssignee },
-                            );
-                          } else if (role === "supervisor") {
-                            applyTransition(
-                              booking.id,
-                              booking.status,
-                              "Assigned to Professional",
-                              "supervisor",
-                              `Assigned ${booking.id}`,
-                              { assignedTo: selectedAssignee },
-                            );
-                          }
-                          setAssignTarget(null);
-                          setSelectedAssignee("");
-                        }}
-                        disabled={!selectedAssignee}
-                        className="px-4 py-1.5 bg-[#1A3580] text-white text-sm rounded-lg disabled:opacity-50"
-                      >
-                        Assign
-                      </button>
-                      <button
-                        onClick={() => {
-                          setAssignTarget(null);
-                          setSelectedAssignee("");
-                        }}
-                        className="px-3 py-1.5 border border-border text-sm rounded-lg hover:bg-secondary"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  )}
                 <p className="text-xs text-muted-foreground mt-2 line-clamp-1">
                   {booking.purpose}
                 </p>

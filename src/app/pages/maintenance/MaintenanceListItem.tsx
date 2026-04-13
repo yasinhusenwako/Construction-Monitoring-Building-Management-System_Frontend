@@ -8,6 +8,8 @@ import {
 } from "../../components/common/StatusBadge";
 import { Maintenance, User as UserType } from "../../data/mockData";
 import { getUserFacingStatus, WorkflowRole } from "../../lib/workflow";
+import { useLanguage } from "../../context/LanguageContext";
+
 
 export function MaintenanceListItem({
   m,
@@ -52,10 +54,11 @@ export function MaintenanceListItem({
   onCancelAssign: () => void;
   filteredProfessionals: UserType[];
 }) {
+  const { t } = useLanguage();
   const router = useRouter();
-
   return (
     <div className="bg-white rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-shadow">
+
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -106,8 +109,9 @@ export function MaintenanceListItem({
               onClick={() => onStartReview(m)}
               className="text-xs bg-[#7C3AED] text-white px-3 py-1 rounded font-bold uppercase tracking-wider"
             >
-              Start review
+              {t("maintenance.startReview")}
             </button>
+
           )}
 
           {/* Admin: Assign Supervisor */}
@@ -116,8 +120,9 @@ export function MaintenanceListItem({
               onClick={() => onAssign(m.id)}
               className="text-xs border border-[#1A3580] text-[#1A3580] px-2 py-1 rounded hover:bg-blue-50"
             >
-              Assign supervisor
+              {t("maintenance.assignSupervisor")}
             </button>
+
           )}
 
           {/* Supervisor: Create WorkOrder */}
@@ -126,8 +131,9 @@ export function MaintenanceListItem({
               onClick={() => onCreateWorkOrder(m)}
               className="text-xs bg-[#1A3580] text-white px-3 py-1 rounded font-bold uppercase tracking-wider"
             >
-              Create workorder
+              {t("maintenance.createWorkOrder")}
             </button>
+
           )}
 
           {/* Supervisor: Assign to Professional */}
@@ -136,8 +142,9 @@ export function MaintenanceListItem({
               onClick={() => onAssign(m.id)}
               className="text-xs bg-[#CC1F1A] text-white px-3 py-1 rounded font-bold uppercase tracking-wider"
             >
-              Assign professional
+              {t("maintenance.assignProfessional")}
             </button>
+
           )}
 
           {/* Professional Actions */}
@@ -147,8 +154,9 @@ export function MaintenanceListItem({
                 onClick={() => onStartWork(m)}
                 className="text-xs bg-orange-600 text-white px-3 py-1 rounded font-bold uppercase"
               >
-                Start Work
+                {t("maintenance.startWork")}
               </button>
+
             )}
 
           {role === "professional" && m.status === "In Progress" && (
@@ -156,7 +164,7 @@ export function MaintenanceListItem({
               onClick={() => onCompleteWork(m)}
               className="text-xs bg-cyan-600 text-white px-3 py-1 rounded font-bold uppercase"
             >
-              Complete & Submit
+              {t("maintenance.completeSubmit")}
             </button>
           )}
 
@@ -167,8 +175,9 @@ export function MaintenanceListItem({
                 onClick={() => onApprove(m)}
                 className="text-xs bg-teal-600 text-white px-2 py-1 rounded font-bold uppercase"
               >
-                Submit review to Admin
+                {t("maintenance.submitReviewAdmin")}
               </button>
+
             </div>
           )}
 
@@ -179,14 +188,16 @@ export function MaintenanceListItem({
                 onClick={() => onFinalApprove(m)}
                 className="text-xs bg-emerald-600 text-white px-2 py-1 rounded font-bold uppercase"
               >
-                Approve
+                {t("status.approved")}
               </button>
+
               <button
                 onClick={() => onReject(m)}
                 className="text-xs bg-red-600 text-white px-2 py-1 rounded font-bold uppercase"
               >
-                Reject
+                {t("status.rejected")}
               </button>
+
             </div>
           )}
 
@@ -196,16 +207,18 @@ export function MaintenanceListItem({
               onClick={() => onClose(m)}
               className="text-xs bg-gray-600 text-white px-3 py-1 rounded font-bold uppercase"
             >
-              Close
+              {t("status.closed")}
             </button>
+
           )}
 
-          <button
+            <button
             onClick={() => router.push(`/dashboard/maintenance/${m.id}`)}
             className="flex items-center gap-1 text-xs text-[#1A3580] hover:underline"
           >
-            <ExternalLink size={12} /> View Details
+            <ExternalLink size={12} /> {t("projects.review")}
           </button>
+
         </div>
       </div>
       {/* Inline assign panel */}
@@ -218,8 +231,9 @@ export function MaintenanceListItem({
           >
             <option value="">
               {role === "admin"
-                ? "Select supervisor..."
-                : "Select professional..."}
+                ? t("maintenance.selectSupervisor")
+                : t("maintenance.selectProfessional")}
+
             </option>
             {filteredProfessionals.map((t) => (
               <option key={t.id} value={t.id}>
@@ -227,19 +241,21 @@ export function MaintenanceListItem({
               </option>
             ))}
           </select>
-          <button
+            <button
             onClick={() => onConfirmAssign(m)}
             disabled={!selectedTech}
             className="px-4 py-1.5 bg-[#1A3580] text-white text-sm rounded-lg disabled:opacity-50"
           >
-            Assign
+            {t("maintenance.assign")}
           </button>
+
           <button
             onClick={onCancelAssign}
             className="px-3 py-1.5 border border-border text-sm rounded-lg hover:bg-secondary"
           >
-            Cancel
+            {t("projects.cancel")}
           </button>
+
         </div>
       )}
     </div>

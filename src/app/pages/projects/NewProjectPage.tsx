@@ -19,166 +19,8 @@ import {
   createNotification,
   getUserIdsByRole,
 } from "../../lib/notifications";
+import { useLanguage } from "../../context/LanguageContext";
 
-const steps = [
-  "Classification",
-  "General Info",
-  "Design Scope",
-  "Documents",
-  "Review & Submit",
-];
-
-const classifications = [
-  {
-    code: "A1",
-    label: "New Building Construction",
-    desc: "Greenfield or new structure from ground up",
-    icon: "🏗️",
-    color: "#0E2271",
-  },
-  {
-    code: "A2",
-    label: "Building Renovation & Expansion",
-    desc: "Structural modifications, change of use, facade works",
-    icon: "🔨",
-    color: "#1A3580",
-  },
-  {
-    code: "A3",
-    label: "Interior Architecture & Fit-out",
-    desc: "Office, lab, hall, hospital interior design",
-    icon: "🛋️",
-    color: "#7C3AED",
-  },
-  {
-    code: "A4",
-    label: "Landscape Architecture & Exterior Works",
-    desc: "Parks, plazas, streetscapes, outdoor areas",
-    icon: "🌳",
-    color: "#16A34A",
-  },
-  {
-    code: "A5",
-    label: "Quantity Surveying & Cost Estimation (BOQ)",
-    desc: "BOQ for tender, work valuation, cost estimation",
-    icon: "🧮",
-    color: "#EA580C",
-  },
-  {
-    code: "A6",
-    label: "Consolidated Supervision & Site Monitoring",
-    desc: "Civil, architectural, MEP supervision services",
-    icon: "👷",
-    color: "#CC1F1A",
-  },
-];
-
-const siteConditions = [
-  "Vacant / Greenfield",
-  "Existing Structure (Occupied)",
-  "Existing Structure (Vacant)",
-  "Other",
-];
-
-// A1 dynamic fields
-const buildingTypes = [
-  "Residential",
-  "Office / Commercial",
-  "Institutional / Educational",
-  "Industrial / Warehouse",
-  "Other",
-];
-const designDisciplines = [
-  "Conceptual Design",
-  "Schematic Design",
-  "Detailed Design",
-  "MEP (Mechanical, Electrical, Plumbing)",
-  "Site Grading & Drainage",
-  "Other",
-];
-
-// A2 dynamic fields
-const interventionTypes = [
-  "Change of Use",
-  "Structural Modification",
-  "Facade Renovation",
-  "Floor Area Expansion",
-  "Other",
-];
-const a2DesignScopes = ["Architectural", "Structural", "MEP", "Other"];
-const a2Deliverables = [
-  "Existing & Proposed Floor Plans",
-  "Elevations & Sections",
-  "3D Renderings",
-  "Construction Details",
-  "Demolition Plans",
-  "Other",
-];
-
-// A3 dynamic fields
-const spaceTypes = [
-  "Office",
-  "Showroom",
-  "Laboratory",
-  "Hall",
-  "Hospital",
-  "Recreational",
-  "Other",
-];
-const a3Deliverables = [
-  "Furniture Layout",
-  "Lighting & Electrical Layout",
-  "Materials & Finishes",
-  "Reflected Ceiling Plan",
-  "3D Renderings",
-  "Other",
-];
-
-// A4 dynamic fields
-const projectContexts = [
-  "Building Surrounding",
-  "Park / Green Space",
-  "Urban Plaza / Streetscape",
-  "Other",
-];
-const a4Deliverables = [
-  "Hardscape Plan",
-  "Planting Plan",
-  "Lighting Layout",
-  "Irrigation & Drainage",
-  "3D Visualizations",
-  "Other",
-];
-
-// A5 dynamic fields
-const boqPurposes = [
-  "Preliminary Estimate",
-  "BOQ for Tender",
-  "Work Valuation",
-  "Final Account",
-  "Other",
-];
-
-const locations = ["Site 1", "Site 2", "Site 3", "Site 4", "Other"];
-const blocks = ["Block A", "Block B", "Block C", "Block D", "Block E"];
-const floors = [
-  "B2",
-  "B1",
-  "G",
-  "Floor 1",
-  "Floor 2",
-  "Floor 3",
-  "Floor 4",
-  "Floor 5",
-];
-
-// A6 dynamic fields
-const supervisionTypes = [
-  "Civil / Structural Supervision",
-  "Architectural, Interior / Fit-out & Finishing Supervision",
-  "MEP Supervision",
-  "Other",
-];
 
 interface DynamicScope {
   // A1
@@ -294,6 +136,174 @@ function Toggle({
 
 export function NewProjectPage() {
   const router = useRouter();
+  const { t } = useLanguage();
+
+  const steps = [
+    t("projects.step.classification"),
+    t("projects.step.generalInfo"),
+    t("projects.step.designScope"),
+    t("projects.step.documents"),
+    t("projects.step.review"),
+  ];
+
+  const classifications = [
+    {
+      code: "A1",
+      label: t("projects.classification.A1.label"),
+      desc: t("projects.classification.A1.desc"),
+      icon: "🏗️",
+      color: "#0E2271",
+    },
+    {
+      code: "A2",
+      label: t("projects.classification.A2.label"),
+      desc: t("projects.classification.A2.desc"),
+      icon: "🔨",
+      color: "#1A3580",
+    },
+    {
+      code: "A3",
+      label: t("projects.classification.A3.label"),
+      desc: t("projects.classification.A3.desc"),
+      icon: "🛋️",
+      color: "#7C3AED",
+    },
+    {
+      code: "A4",
+      label: t("projects.classification.A4.label"),
+      desc: t("projects.classification.A4.desc"),
+      icon: "🌳",
+      color: "#16A34A",
+    },
+    {
+      code: "A5",
+      label: t("projects.classification.A5.label"),
+      desc: t("projects.classification.A5.desc"),
+      icon: "🧮",
+      color: "#EA580C",
+    },
+    {
+      code: "A6",
+      label: t("projects.classification.A6.label"),
+      desc: t("projects.classification.A6.desc"),
+      icon: "👷",
+      color: "#CC1F1A",
+    },
+  ];
+
+  const siteConditions = [
+    t("projects.siteCondition.vacant"),
+    t("projects.siteCondition.occupied"),
+    t("projects.siteCondition.partiallyDemolished"),
+    t("projects.siteCondition.constrained"),
+    t("common.other"),
+  ];
+
+  const buildingTypes = [
+    t("projects.buildingType.residential"),
+    t("projects.buildingType.office"),
+    t("projects.buildingType.lab"),
+    t("projects.buildingType.dataCenter"),
+    t("projects.buildingType.mixed"),
+    t("projects.buildingType.other"),
+  ];
+
+  const designDisciplines = [
+    t("projects.scope.conceptDesign"),
+    "Schematic Design",
+    t("projects.scope.detailedDesign"),
+    "MEP (Mechanical, Electrical, Plumbing)",
+    "Site Grading & Drainage",
+    t("common.other"),
+  ];
+
+  const interventionTypes = [
+    t("projects.intervention.functional"),
+    t("projects.intervention.structural"),
+    t("projects.intervention.modernization"),
+    t("projects.intervention.restoration"),
+    t("common.other"),
+  ];
+
+  const a2DesignScopes = [
+    t("projects.discipline.architectural"),
+    t("projects.discipline.structural"),
+    t("projects.discipline.hvac"),
+    t("common.other"),
+  ];
+
+  const a2Deliverables = [
+    t("projects.deliverable.3dVisualization"),
+    t("projects.deliverable.costEstimates"),
+    t("projects.deliverable.specifications"),
+    t("projects.deliverable.tenderDocs"),
+    t("projects.deliverable.permits"),
+    t("common.other"),
+  ];
+
+  const spaceTypes = [
+    t("projects.buildingType.office"),
+    "Showroom",
+    t("projects.buildingType.lab"),
+    "Hall",
+    "Hospital",
+    "Recreational",
+    t("common.other"),
+  ];
+
+  const a3Deliverables = [
+    "Furniture Layout",
+    "Lighting & Electrical Layout",
+    "Materials & Finishes",
+    "Reflected Ceiling Plan",
+    t("projects.deliverable.3dVisualization"),
+    t("common.other"),
+  ];
+
+  const projectContexts = [
+    "Building Surrounding",
+    "Park / Green Space",
+    "Urban Plaza / Streetscape",
+    t("common.other"),
+  ];
+
+  const a4Deliverables = [
+    "Hardscape Plan",
+    "Planting Plan",
+    "Lighting Layout",
+    "Irrigation & Drainage",
+    t("projects.deliverable.3dVisualization"),
+    t("common.other"),
+  ];
+
+  const boqPurposes = [
+    t("projects.boq.newTender"),
+    t("projects.boq.variation"),
+    t("projects.boq.asBuiltAudit"),
+    t("projects.boq.checkMaterial"),
+    t("common.other"),
+  ];
+
+  const supervisionTypes = [
+    t("projects.supervision.fullTime"),
+    t("projects.supervision.periodic"),
+    t("projects.supervision.qualityAudit"),
+    t("common.other"),
+  ];
+
+  const locations = ["Site 1", "Site 2", "Site 3", "Site 4", t("common.other")];
+  const blocks = ["Block A", "Block B", "Block C", "Block D", "Block E"];
+  const floors = [
+    "B2",
+    "B1",
+    "G",
+    "Floor 1",
+    "Floor 2",
+    "Floor 3",
+    "Floor 4",
+    "Floor 5",
+  ];
+
   const [step, setStep] = useState(0);
   const [submitted, setSubmitted] = useState(false);
   const [submittedId, setSubmittedId] = useState("");
@@ -329,7 +339,10 @@ export function NewProjectPage() {
     setErrors((e) => ({ ...e, [k]: "" }));
   };
 
-  const updateScope = (k: keyof DynamicScope, v: string | number | boolean | File | string[]) => {
+  const updateScope = (
+    k: keyof DynamicScope,
+    v: string | number | boolean | File | string[],
+  ) => {
     setForm((f) => ({ ...f, scope: { ...f.scope, [k]: v } }));
     setErrors((e) => ({
       ...e,
@@ -358,115 +371,119 @@ export function NewProjectPage() {
     const errs: Record<string, string> = {};
     if (step === 0) {
       if (!form.classification)
-        errs.classification = "Please select a project classification";
+        errs.classification = t("validation.selectOne");
     }
     if (step === 1) {
       if (isExistingRequestMode) {
         if (!form.existingProjectId.trim())
-          errs.existingProjectId = "Project ID is required";
+          errs.existingProjectId = t("validation.required");
       } else {
-        if (!form.title.trim()) errs.title = "Project title is required";
-        if (!form.location) errs.location = "Location is required";
-        if (form.location === "Other" && !form.otherLocation.trim())
-          errs.otherLocation = "Please specify the location";
-        if (!form.block) errs.block = "Block is required";
-        if (!form.floor) errs.floor = "Floor is required";
+        if (!form.title.trim()) errs.title = t("validation.required");
+        if (!form.location) errs.location = t("validation.selectOne");
+        if (form.location === t("common.other") && !form.otherLocation.trim())
+          errs.otherLocation = t("validation.required");
+        if (!form.block) errs.block = t("validation.selectOne");
+        if (!form.floor) errs.floor = t("validation.selectOne");
         if (!form.department.trim())
-          errs.department = "Requesting department is required";
+          errs.department = t("validation.required");
         if (!form.contactPerson.trim())
-          errs.contactPerson = "Contact person is required";
+          errs.contactPerson = t("validation.required");
         if (!form.contactPhone.trim())
-          errs.contactPhone = "Contact phone is required";
+          errs.contactPhone = t("validation.required");
         if (!form.siteCondition)
-          errs.siteCondition = "Current site condition is required";
-        if (form.siteCondition === "Other" && !form.otherSiteCondition.trim())
-          errs.otherSiteCondition = "Please specify the site condition";
+          errs.siteCondition = t("validation.selectOne");
+        if (
+          form.siteCondition === t("common.other") &&
+          !form.otherSiteCondition.trim()
+        )
+          errs.otherSiteCondition = t("validation.required");
         if (!form.functionalDescription.trim())
-          errs.functionalDescription = "Functional description is required";
+          errs.functionalDescription = t("validation.required");
         if (!form.budget || Number(form.budget) <= 0)
-          errs.budget = "Budget must be greater than 0";
-        if (!form.startDate) errs.startDate = "Start date is required";
-        if (!form.endDate) errs.endDate = "End date is required";
+          errs.budget = t("validation.positiveNumber");
+        if (!form.startDate) errs.startDate = t("validation.required");
+        if (!form.endDate) errs.endDate = t("validation.required");
         if (form.startDate && form.endDate && form.startDate >= form.endDate)
-          errs.endDate = "End date must be after start date";
+          errs.endDate = t("validation.endDateAfterStart");
       }
     }
-    if (step === 2 && !isExistingRequestMode) {
+    if (step === 2) {
       const cls = form.classification;
       if (cls === "A1") {
         if (!form.scope.buildingType)
-          errs.buildingType = "Building type is required";
+          errs.buildingType = t("validation.selectOne");
         if (
-          form.scope.buildingType === "Other" &&
+          form.scope.buildingType === t("common.other") &&
           !form.scope.otherBuildingType.trim()
         )
-          errs.buildingType = "Please specify the building type";
+          errs.buildingType = t("validation.required");
         if (
-          form.scope.disciplines.includes("Other") &&
+          form.scope.disciplines.includes(t("common.other")) &&
           !form.scope.otherDiscipline.trim()
         )
-          errs.disciplines = "Please specify the other design discipline";
+          errs.disciplines = t("validation.required");
       }
       if (cls === "A2") {
         if (
-          form.scope.interventionType.includes("Other") &&
+          form.scope.interventionType.includes(t("common.other")) &&
           !form.scope.otherInterventionType.trim()
         )
-          errs.interventionType = "Please specify the other intervention type";
+          errs.interventionType = t("validation.required");
         if (
-          form.scope.a2DesignScope.includes("Other") &&
+          form.scope.a2DesignScope.includes(t("common.other")) &&
           !form.scope.otherA2DesignScope.trim()
         )
-          errs.a2DesignScope = "Please specify the other design scope";
+          errs.a2DesignScope = t("validation.required");
         if (
-          form.scope.a2Deliverables.includes("Other") &&
+          form.scope.a2Deliverables.includes(t("common.other")) &&
           !form.scope.otherA2Deliverable.trim()
         )
-          errs.a2Deliverables = "Please specify the other deliverable";
+          errs.a2Deliverables = t("validation.required");
       }
       if (cls === "A3") {
-        if (!form.scope.spaceType) errs.spaceType = "Space type is required";
+        if (!form.scope.spaceType)
+          errs.spaceType = t("validation.selectOne");
         if (
-          form.scope.spaceType === "Other" &&
+          form.scope.spaceType === t("common.other") &&
           !form.scope.otherSpaceType.trim()
         )
-          errs.spaceType = "Please specify the space type";
+          errs.spaceType = t("validation.required");
         if (
-          form.scope.a3Deliverables.includes("Other") &&
+          form.scope.a3Deliverables.includes(t("common.other")) &&
           !form.scope.otherA3Deliverable.trim()
         )
-          errs.a3Deliverables = "Please specify the other deliverable";
+          errs.a3Deliverables = t("validation.required");
       }
       if (cls === "A4") {
         if (!form.scope.projectContext)
-          errs.projectContext = "Project context is required";
+          errs.projectContext = t("validation.selectOne");
         if (
-          form.scope.projectContext === "Other" &&
+          form.scope.projectContext === t("common.other") &&
           !form.scope.otherProjectContext.trim()
         )
-          errs.projectContext = "Please specify the project context";
+          errs.projectContext = t("validation.required");
         if (
-          form.scope.a4Deliverables.includes("Other") &&
+          form.scope.a4Deliverables.includes(t("common.other")) &&
           !form.scope.otherA4Deliverable.trim()
         )
-          errs.a4Deliverables = "Please specify the other deliverable";
+          errs.a4Deliverables = t("validation.required");
       }
       if (cls === "A5" && !form.scope.boqPurpose)
-        errs.boqPurpose = "BOQ purpose is required";
+        errs.boqPurpose = t("validation.selectOne");
       if (
         cls === "A5" &&
-        form.scope.boqPurpose === "Other" &&
+        form.scope.boqPurpose === t("common.other") &&
         !form.scope.otherBoqPurpose.trim()
       )
-        errs.boqPurpose = "Please specify the BOQ purpose";
+        errs.boqPurpose = t("validation.required");
       if (cls === "A6" && form.scope.supervisionTypes.length === 0)
-        errs.supervisionTypes = "At least one supervision type required";
+        errs.supervisionTypes = t("validation.selectOne");
       if (
         cls === "A6" &&
-        form.scope.supervisionTypes.includes("Other") &&
+        form.scope.supervisionTypes.includes(t("common.other")) &&
         !form.scope.otherSupervisionType.trim()
       )
-        errs.supervisionTypes = "Please specify the other supervision type";
+        errs.supervisionTypes = t("validation.required");
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -474,10 +491,6 @@ export function NewProjectPage() {
 
   const nextStep = () => {
     if (!validate()) return;
-    if (step === 1 && isExistingRequestMode) {
-      setStep(4);
-      return;
-    }
     setStep((s) => s + 1);
   };
 
@@ -522,7 +535,7 @@ export function NewProjectPage() {
 
     try {
       const locString =
-        form.location === "Other"
+        form.location === t("common.other")
           ? `${form.otherLocation}, ${form.block}, ${form.floor}`
           : `${form.location}, ${form.block}, ${form.floor}`;
 
@@ -550,8 +563,10 @@ export function NewProjectPage() {
             scope: {
               ...form.scope,
               linkedProjectId: form.existingProjectId,
-              supervisionTypes: form.scope.supervisionTypes.map((t) =>
-                t === "Other" ? form.scope.otherSupervisionType : t,
+              supervisionTypes: form.scope.supervisionTypes.map((t_item) =>
+                t_item === t("common.other")
+                  ? form.scope.otherSupervisionType
+                  : t_item,
               ),
             },
             linkedProjectId: form.existingProjectId,
@@ -565,7 +580,7 @@ export function NewProjectPage() {
             contactPerson: form.contactPerson,
             phone: form.contactPhone,
             siteCondition:
-              form.siteCondition === "Other"
+              form.siteCondition === t("common.other")
                 ? form.otherSiteCondition
                 : form.siteCondition,
             description: form.functionalDescription,
@@ -581,41 +596,45 @@ export function NewProjectPage() {
             scope: {
               ...form.scope,
               buildingType:
-                form.scope.buildingType === "Other"
+                form.scope.buildingType === t("projects.buildingType.other")
                   ? form.scope.otherBuildingType
                   : form.scope.buildingType,
               disciplines: form.scope.disciplines.map((d) =>
-                d === "Other" ? form.scope.otherDiscipline : d,
+                d === t("common.other") ? form.scope.otherDiscipline : d,
               ),
-              interventionType: form.scope.interventionType.map((t) =>
-                t === "Other" ? form.scope.otherInterventionType : t,
+              interventionType: form.scope.interventionType.map((t_item) =>
+                t_item === t("common.other")
+                  ? form.scope.otherInterventionType
+                  : t_item,
               ),
               a2DesignScope: form.scope.a2DesignScope.map((s) =>
-                s === "Other" ? form.scope.otherA2DesignScope : s,
+                s === t("common.other") ? form.scope.otherA2DesignScope : s,
               ),
               a2Deliverables: form.scope.a2Deliverables.map((d) =>
-                d === "Other" ? form.scope.otherA2Deliverable : d,
+                d === t("common.other") ? form.scope.otherA2Deliverable : d,
               ),
               spaceType:
-                form.scope.spaceType === "Other"
+                form.scope.spaceType === t("common.other")
                   ? form.scope.otherSpaceType
                   : form.scope.spaceType,
               a3Deliverables: form.scope.a3Deliverables.map((d) =>
-                d === "Other" ? form.scope.otherA3Deliverable : d,
+                d === t("common.other") ? form.scope.otherA3Deliverable : d,
               ),
               projectContext:
-                form.scope.projectContext === "Other"
+                form.scope.projectContext === t("common.other")
                   ? form.scope.otherProjectContext
                   : form.scope.projectContext,
               a4Deliverables: form.scope.a4Deliverables.map((d) =>
-                d === "Other" ? form.scope.otherA4Deliverable : d,
+                d === t("common.other") ? form.scope.otherA4Deliverable : d,
               ),
               boqPurpose:
-                form.scope.boqPurpose === "Other"
+                form.scope.boqPurpose === t("common.other")
                   ? form.scope.otherBoqPurpose
                   : form.scope.boqPurpose,
-              supervisionTypes: form.scope.supervisionTypes.map((t) =>
-                t === "Other" ? form.scope.otherSupervisionType : t,
+              supervisionTypes: form.scope.supervisionTypes.map((t_item) =>
+                t_item === t("common.other")
+                  ? form.scope.otherSupervisionType
+                  : t_item,
               ),
             },
           };
@@ -650,6 +669,11 @@ export function NewProjectPage() {
         endDate: isExistingMode
           ? new Date(Date.now() + 86400000).toISOString().slice(0, 10)
           : form.endDate,
+        department: isExistingMode ? "Linked Existing Project" : form.department,
+        contactPerson: isExistingMode ? "Linked Existing Project" : form.contactPerson,
+        contactPhone: isExistingMode ? "N/A" : form.contactPhone,
+        siteCondition: isExistingMode ? "Linked Existing Project" : (form.siteCondition === t("common.other") ? form.otherSiteCondition : form.siteCondition),
+        scope: requestBody.scope,
         createdAt: now,
         updatedAt: now,
         documents: form.files.map((f) => f.name),
@@ -722,31 +746,30 @@ export function NewProjectPage() {
           <CheckCircle size={40} className="text-green-500" />
         </div>
         <h2 className="text-2xl font-bold text-[#0E2271] mb-2">
-          Project Request Submitted!
+          {t("requests.submitted")}!
         </h2>
         <p className="text-muted-foreground mb-2">
-          Your request has been classified and routed to the appropriate team.
+          {t("bookings.allocationBeingReviewed")}
         </p>
         <p className="text-sm text-muted-foreground mb-4">
-          Auto-assigned to:{" "}
+          {t("config.autoAssignTech")}:{" "}
           <span className="font-semibold text-[#1A3580]">
             {getAssignmentInfo()}
           </span>
         </p>
         <div className="bg-[#EEF2FF] border border-[#1A3580]/20 rounded-xl p-4 mb-6">
           <p className="text-xs text-muted-foreground mb-1">
-            Generated Project ID
+            {t("bookings.generatedAllocationID")}
           </p>
           <p className="font-mono text-xl font-bold text-[#1A3580]">
             {submittedId}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Save this ID for tracking
+            {t("common.saveForTracking")}
           </p>
         </div>
         <p className="text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-lg p-3 mb-5">
-          <span className="font-semibold">Note:</span> If this is a BOQ request
-          (A5), ensure your linked project is approved before processing.
+          <span className="font-semibold">{t("requests.adminNote")}:</span> {t("projects.boq.checkMaterial")}
         </p>
         <div className="flex gap-3 justify-center">
           <button
@@ -771,7 +794,7 @@ export function NewProjectPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => router.push("/projects")}
+          onClick={() => router.push("/dashboard/projects")}
           className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft size={18} />
@@ -780,10 +803,10 @@ export function NewProjectPage() {
           <div className="flex items-center gap-2 mb-0.5">
             <div className="w-2.5 h-2.5 rounded-full bg-[#1A3580]" />
             <span className="text-xs font-semibold text-[#1A3580] uppercase tracking-wider">
-              Projects & Design
+              {t("config.streamA")}
             </span>
           </div>
-          <h1 className="text-[#0E2271]">New Project Request</h1>
+          <h1 className="text-[#0E2271]">{t("nav.projects")}</h1>
         </div>
       </div>
 
@@ -832,11 +855,10 @@ export function NewProjectPage() {
           <div className="space-y-4">
             <div>
               <h2 className="text-[#0E2271] border-b border-border pb-3 mb-1">
-                Select Project Classification
+                {t("projects.step.classification")}
               </h2>
               <p className="text-muted-foreground text-xs mb-4">
-                This determines the dynamic form fields and the team it will be
-                routed to.
+                {t("projects.classification.A1.desc")}
               </p>
             </div>
             {errors.classification && (
@@ -883,7 +905,7 @@ export function NewProjectPage() {
             {form.classification && (
               <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm">
                 <p className="font-medium text-[#1A3580]">
-                  🔀 Auto-routing to:{" "}
+                  🔀 {t("config.autoAssignTech")}:{" "}
                   <span className="font-bold">{getAssignmentInfo()}</span>
                 </p>
               </div>
@@ -904,7 +926,7 @@ export function NewProjectPage() {
                 {form.classification}
               </span>
               <h2 className="text-[#0E2271] border-b border-border pb-0 flex-1">
-                General Project Data
+                {t("projects.step.generalInfo")}
               </h2>
             </div>
 
@@ -974,12 +996,12 @@ export function NewProjectPage() {
               <>
                 <div>
                   <label className="block text-sm font-medium text-[#0E2271] mb-1">
-                    Project Title *
+                    {t("form.projectTitle")} *
                   </label>
                   <input
                     value={form.title}
                     onChange={(e) => update("title", e.target.value)}
-                    placeholder="e.g. Headquarters Block B Renovation"
+                    placeholder={t("form.projectTitle")}
                     className={inputClass("title")}
                   />
                   {errors.title && (
@@ -990,14 +1012,14 @@ export function NewProjectPage() {
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-[#0E2271] mb-1">
-                      Location *
+                      {t("form.location_site")} *
                     </label>
                     <select
                       value={form.location}
                       onChange={(e) => update("location", e.target.value)}
                       className={inputClass("location")}
                     >
-                      <option value="">Select Location</option>
+                      <option value="">{t("validation.selectOne")}</option>
                       {locations.map((loc) => (
                         <option key={loc} value={loc}>
                           {loc}
@@ -1127,7 +1149,7 @@ export function NewProjectPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-[#0E2271] mb-1">
-                    Current Site Condition *
+                    {t("form.siteCondition")} *
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                     {siteConditions.map((cond) => (
@@ -1193,7 +1215,7 @@ export function NewProjectPage() {
                 <div className="grid grid-cols-1 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-[#0E2271] mb-1">
-                      Total Project Budget (ETB)
+                      {t("form.estimatedBudget")}
                     </label>
                     <input
                       type="number"
@@ -1370,7 +1392,7 @@ export function NewProjectPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-[#0E2271] mb-2">
-                    Type of Intervention
+                    {t("projects.step.designScope")}
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {interventionTypes.map((t) => (
@@ -1407,7 +1429,7 @@ export function NewProjectPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[#0E2271] mb-2">
-                    Design Scope
+                    {t("projects.step.designScope")}
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {a2DesignScopes.map((s) => (
@@ -1487,7 +1509,7 @@ export function NewProjectPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-[#0E2271] mb-2">
-                    Space Type *
+                    {t("projects.buildingType.other")} *
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     {spaceTypes.map((t) => (
@@ -1791,7 +1813,7 @@ export function NewProjectPage() {
         {step === 3 && (
           <div className="space-y-4">
             <h2 className="text-[#0E2271] border-b border-border pb-3">
-              Supporting Documents
+              {t("projects.step.documents")}
             </h2>
             <p className="text-muted-foreground text-sm">
               Upload relevant documents, plans, or images. Max 10MB per file.
@@ -1878,7 +1900,7 @@ export function NewProjectPage() {
         {step === 4 && (
           <div className="space-y-4">
             <h2 className="text-[#0E2271] border-b border-border pb-3">
-              Review & Submit
+              {t("projects.step.review")}
             </h2>
 
             {/* Classification banner */}
@@ -1905,13 +1927,33 @@ export function NewProjectPage() {
 
             <div className="bg-secondary/50 rounded-xl p-4 space-y-3 text-sm">
               {(isExistingRequestMode
-                ? [
+                ? ([
                     ["Request Mode", "Existing Project"],
                     ["Project ID", form.existingProjectId],
                     ["Classification", form.classification],
+                    form.classification === "A5"
+                      ? [
+                          "BOQ Purpose",
+                          form.scope.boqPurpose === "Other"
+                            ? form.scope.otherBoqPurpose
+                            : form.scope.boqPurpose,
+                        ]
+                      : null,
+                    form.classification === "A6"
+                      ? [
+                          "Supervision Types",
+                          form.scope.supervisionTypes
+                            .map((t) =>
+                              t === "Other"
+                                ? form.scope.otherSupervisionType
+                                : t,
+                            )
+                            .join(", "),
+                        ]
+                      : null,
                     ["Auto-Assign To", getAssignmentInfo()],
                     ["Documents", `${form.files.length} file(s) attached`],
-                  ]
+                  ].filter(Boolean) as [string, string][])
                 : [
                     ["Request Mode", "New Project"],
                     ["Title", form.title],
@@ -1979,7 +2021,7 @@ export function NewProjectPage() {
             onClick={() => setStep((s) => s - 1)}
             className="flex items-center gap-2 px-5 py-2.5 rounded-lg border-2 border-[#1A3580] text-[#1A3580] text-sm font-semibold hover:bg-secondary transition-colors"
           >
-            <ArrowLeft size={16} /> Back
+            <ArrowLeft size={16} /> {t("common.back")}
           </button>
         )}
         <div className="flex-1" />
@@ -2007,7 +2049,7 @@ export function NewProjectPage() {
             ) : (
               <CheckCircle size={16} />
             )}
-            {loading ? "Submitting..." : "Submit Request"}
+            {loading ? t("common.submitting") : t("bookings.confirmAndSubmit")}
           </button>
         )}
       </div>

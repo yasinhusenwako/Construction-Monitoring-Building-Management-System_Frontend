@@ -1,6 +1,7 @@
 "use client";
 
 import { Eye, MapPin, Send, User, UserCheck } from "lucide-react";
+import { useLanguage } from "../../context/LanguageContext";
 import {
   PriorityBadge,
   StatusBadge,
@@ -20,6 +21,8 @@ export function TaskCard({
   onSubmitReport: (id: string) => void;
   onView: (id: string) => void;
 }) {
+  const { t } = useLanguage();
+
   return (
     <div className="bg-white rounded-lg border border-border p-3 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -48,7 +51,7 @@ export function TaskCard({
           onClick={() => onView(m.id)}
           className="flex-1 flex items-center justify-center gap-1 py-1 text-xs text-[#1A3580] border border-border rounded hover:bg-secondary"
         >
-          <Eye size={10} /> View
+          <Eye size={10} /> {t("action.view")}
         </button>
         {m.status === "Assigned to Supervisor" && (
           <button
@@ -56,7 +59,7 @@ export function TaskCard({
             className="flex-1 flex items-center justify-center gap-1 py-1 text-xs text-white rounded"
             style={{ background: "#7C3AED" }}
           >
-            <UserCheck size={10} /> Assign
+            <UserCheck size={10} /> {t("action.assign")}
           </button>
         )}
         {m.status === "Completed" && (
@@ -65,7 +68,7 @@ export function TaskCard({
             className="flex-1 flex items-center justify-center gap-1 py-1 text-xs text-white rounded"
             style={{ background: "#0891B2" }}
           >
-            <Send size={10} /> Submit
+            <Send size={10} /> {t("action.submit")}
           </button>
         )}
       </div>

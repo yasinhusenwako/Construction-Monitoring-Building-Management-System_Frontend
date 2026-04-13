@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { spaces } from "../../data/mockData";
+import { spaces, mockBookings } from "../../data/mockData";
 import {
   CheckCircle,
   ArrowLeft,
@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { DatePicker } from "../../components/common/DatePicker";
-import { addBooking } from "../../lib/storage";
+import { addBooking, getBookingsWithStored } from "../../lib/storage";
 import type { Booking } from "../../data/mockData";
 import {
   addNotifications,
@@ -25,24 +25,10 @@ import {
 } from "../../lib/notifications";
 
 // ─── B1: Office Space Allocation ─────────────────────────────────
-const allocationReasons = ["New Hire", "Team Expansion", "Relocation"];
-const officeTypes = ["Private Office", "Open Plan"];
-const specialRequirements = [
-  "Security",
-  "Dedicated Data Line",
-  "Accessibility",
-];
+// Constants migrated inside component for translation support
 
 // ─── B2: Shared Hall Booking ──────────────────────────────────────
-const layouts = ["U-shape", "Theater", "Classroom", "Boardroom"];
-const amenities = [
-  "Projector",
-  "Sound System",
-  "Catering",
-  "Wi-Fi",
-  "Video Conferencing",
-  "Whiteboard",
-];
+// Constants migrated inside component for translation support
 
 function Toggle({
   label,
@@ -74,6 +60,36 @@ function Toggle({
 export function NewBookingPage() {
   const router = useRouter();
   const { t } = useLanguage();
+
+  const allocationReasons = [
+    t("bookings.allocationReasons.newHire"),
+    t("bookings.allocationReasons.expansion"),
+    t("bookings.allocationReasons.relocation"),
+  ];
+  const officeTypes = [
+    t("bookings.officeTypes.private"),
+    t("bookings.officeTypes.openPlan"),
+  ];
+  const specialRequirements = [
+    t("bookings.specialReqs.security"),
+    t("bookings.specialReqs.dataLine"),
+    t("bookings.specialReqs.accessibility"),
+  ];
+  const layouts = [
+    t("bookings.layouts.ushape"),
+    t("bookings.layouts.theater"),
+    t("bookings.layouts.classroom"),
+    t("bookings.layouts.boardroom"),
+  ];
+  const amenities = [
+    t("bookings.amenities.projector"),
+    t("bookings.amenities.soundSystem"),
+    t("bookings.amenities.catering"),
+    t("bookings.amenities.wifi"),
+    t("bookings.amenities.videoConf"),
+    t("bookings.amenities.whiteboard"),
+  ];
+
   const [bookingType, setBookingType] = useState<"B1" | "B2" | "">("");
   const [step, setStep] = useState(0);
   const [submitted, setSubmitted] = useState(false);
@@ -132,7 +148,27 @@ export function NewBookingPage() {
     );
 
   const selectedSpace = spaces.find((s) => s.id === b2Form.space);
-  const hasConflict = b2Form.date === "2024-04-30" && b2Form.space === "SP-004";
+
+  // Dynamic conflict check for B2 (Shared Hall Booking)
+  const allBookings = getBookingsWithStored(mockBookings);
+  const hasConflict =
+    bookingType === "B2" &&
+    allBookings.some((b) => {
+      if (b.space !== (selectedSpace?.name || b2Form.space)) return false;
+      if (b.date !== b2Form.date) return false;
+
+      // Overlap detection
+      const start = b2Form.startTime;
+      const end = b2Form.endTime;
+      const bStart = b.startTime;
+      const bEnd = b.endTime;
+
+      return (
+        (start >= bStart && start < bEnd) ||
+        (end > bStart && end <= bEnd) ||
+        (start <= bStart && end >= bEnd)
+      );
+    });
 
   const B1_STEPS = [
     t("bookings.step.classification"),
@@ -154,49 +190,49 @@ export function NewBookingPage() {
   const validate = () => {
     const errs: Record<string, string> = {};
     if (step === 0 && !bookingType) {
-      errs.bookingType = "Please select a booking type";
+      errs.bookingType = t("validation.selectOne");
     }
 
     if (bookingType === "B1") {
       if (step === 1) {
         if (!b1Form.department.trim())
-          errs.department = "Department is required";
-        if (!b1Form.reason) errs.reason = "Reason for allocation is required";
-        if (!b1Form.officeType) errs.officeType = "Office type is required";
+          errs.department = t("validation.required");
+        if (!b1Form.reason) errs.reason = t("validation.selectOne");
+        if (!b1Form.officeType) errs.officeType = t("validation.selectOne");
         if (!b1Form.contactName.trim())
-          errs.contactName = "Contact name is required";
+          errs.contactName = t("validation.required");
         if (!b1Form.contactPhone.trim())
-          errs.contactPhone = "Contact phone is required";
+          errs.contactPhone = t("validation.required");
       }
       if (step === 2) {
         if (!b1Form.seniorStaff.trim())
-          errs.seniorStaff = "Senior staff count is required";
+          errs.seniorStaff = t("validation.required");
       }
     }
 
     if (bookingType === "B2") {
-      if (step === 1 && !b2Form.space) errs.space = "Please select a space";
+      if (step === 1 && !b2Form.space) errs.space = t("validation.selectOne");
       if (step === 2) {
-        if (!b2Form.date) errs.date = "Date is required";
-        if (!b2Form.startTime) errs.startTime = "Start time is required";
-        if (!b2Form.endTime) errs.endTime = "End time is required";
+        if (!b2Form.date) errs.date = t("validation.required");
+        if (!b2Form.startTime) errs.startTime = t("validation.required");
+        if (!b2Form.endTime) errs.endTime = t("validation.required");
         if (
           b2Form.startTime &&
           b2Form.endTime &&
           b2Form.startTime >= b2Form.endTime
         )
-          errs.endTime = "End time must be after start time";
+          errs.endTime = t("validation.endDateAfterStart");
       }
       if (step === 3) {
-        if (!b2Form.title.trim()) errs.title = "Event title is required";
-        if (!b2Form.purpose.trim()) errs.purpose = "Purpose is required";
+        if (!b2Form.title.trim()) errs.title = t("validation.required");
+        if (!b2Form.purpose.trim()) errs.purpose = t("validation.required");
         if (!b2Form.attendees || parseInt(b2Form.attendees) < 1)
-          errs.attendees = "Number of attendees is required";
+          errs.attendees = t("validation.required");
         if (
           selectedSpace &&
           parseInt(b2Form.attendees) > selectedSpace.capacity
         )
-          errs.attendees = `Exceeds space capacity of ${selectedSpace.capacity}`;
+          errs.attendees = `${t("validation.invalidNumber")} (max: ${selectedSpace.capacity})`;
       }
     }
 
@@ -226,11 +262,11 @@ export function NewBookingPage() {
     const bookingItem: Booking = {
       id,
       title: isOfficeAllocation
-        ? `Office Allocation - ${b1Form.department || "New Request"}`
+        ? `${t("bookings.officeAllocation")} - ${b1Form.department || t("requests.submitted")}`
         : b2Form.title,
       space: isOfficeAllocation
-        ? b1Form.preferredLocation || "Unassigned"
-        : selectedSpace?.name || b2Form.space || "Unassigned",
+        ? b1Form.preferredLocation || t("bookings.noPreference")
+        : selectedSpace?.name || b2Form.space || t("bookings.noPreference"),
       type: isOfficeAllocation
         ? "Office"
         : (selectedSpace?.type as Booking["type"]) || "Conference Hall",
@@ -255,8 +291,8 @@ export function NewBookingPage() {
     addNotifications(
       adminIds.map((adminId) =>
         createNotification({
-          title: "New Space Booking Request",
-          message: `New booking request ${id} requires review.`,
+          title: t("notifications.title"),
+          message: `${t("bookings.allocationBeingReviewed")} (${id})`,
           userId: adminId,
           link: "/dashboard/bookings",
           type: "info",
@@ -507,7 +543,7 @@ export function NewBookingPage() {
                 <input
                   value={b1Form.department}
                   onChange={(e) => updateB1("department", e.target.value)}
-                  placeholder="e.g. Network Operations"
+                  placeholder={t("bookings.placeholder.department")}
                   className={inputClass("department")}
                 />
                 {errors.department && (
@@ -523,7 +559,7 @@ export function NewBookingPage() {
                 <input
                   value={b1Form.contactName}
                   onChange={(e) => updateB1("contactName", e.target.value)}
-                  placeholder="Full name"
+                  placeholder={t("bookings.placeholder.contactName")}
                   className={inputClass("contactName")}
                 />
                 {errors.contactName && (
@@ -541,7 +577,7 @@ export function NewBookingPage() {
               <input
                 value={b1Form.contactPhone}
                 onChange={(e) => updateB1("contactPhone", e.target.value)}
-                placeholder="+251 911 000 000"
+                placeholder={t("bookings.placeholder.contactPhone")}
                 className={inputClass("contactPhone")}
               />
               {errors.contactPhone && (
@@ -608,7 +644,7 @@ export function NewBookingPage() {
               <input
                 value={b1Form.preferredLocation}
                 onChange={(e) => updateB1("preferredLocation", e.target.value)}
-                placeholder="e.g. Block A, Floor 2 (near IT Department)"
+                placeholder={t("bookings.placeholder.preferredLocation")}
                 className={inputClass("preferredLocation")}
               />
             </div>
@@ -631,7 +667,7 @@ export function NewBookingPage() {
                   type="number"
                   value={b1Form.seniorStaff}
                   onChange={(e) => updateB1("seniorStaff", e.target.value)}
-                  placeholder="e.g. 3"
+                  placeholder={t("bookings.placeholder.staffCount")}
                   className={inputClass("seniorStaff")}
                   min="0"
                 />
@@ -649,7 +685,7 @@ export function NewBookingPage() {
                   type="number"
                   value={b1Form.supportStaff}
                   onChange={(e) => updateB1("supportStaff", e.target.value)}
-                  placeholder="e.g. 5"
+                  placeholder={t("bookings.placeholder.staffCount")}
                   className={inputClass("supportStaff")}
                   min="0"
                 />
@@ -693,7 +729,7 @@ export function NewBookingPage() {
                 value={b1Form.notes}
                 onChange={(e) => updateB1("notes", e.target.value)}
                 rows={3}
-                placeholder="Any additional requirements or context..."
+                placeholder={t("bookings.placeholder.additionalNotes")}
                 className={`${inputClass("notes")} resize-none`}
               />
             </div>
@@ -745,16 +781,12 @@ export function NewBookingPage() {
               ))}
             </div>
             <div className="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-green-800">
-              <p className="font-medium">🏢 What happens next?</p>
+              <p className="font-medium">🏢 {t("bookings.whatHappensNext")}</p>
               <ul className="text-xs space-y-1 mt-1 text-green-700 list-disc list-inside">
-                <li>Request is routed to the Space Manager automatically</li>
-                <li>Space inventory will be checked for availability</li>
-                <li>You'll receive a confirmation with an Allocation ID</li>
-                <li>
-                  Status follows: Submitted → Under Review → Assigned to
-                  Supervisor → WorkOrder Created → Assigned to Professional → In
-                  Progress → Completed → Reviewed → Approved/Rejected → Closed
-                </li>
+                <li>{t("bookings.nextSteps.allocation.1")}</li>
+                <li>{t("bookings.nextSteps.allocation.2")}</li>
+                <li>{t("bookings.nextSteps.allocation.3")}</li>
+                <li>{t("bookings.nextSteps.allocation.4")}</li>
               </ul>
             </div>
           </div>
@@ -848,7 +880,7 @@ export function NewBookingPage() {
               <DatePicker
                 value={b2Form.date}
                 onChange={(val) => updateB2("date", val)}
-                placeholder="Select booking date"
+                placeholder={t("bookings.placeholder.date")}
                 hasError={!!errors.date}
               />
               {errors.date && (
@@ -904,7 +936,7 @@ export function NewBookingPage() {
               <input
                 value={b2Form.title}
                 onChange={(e) => updateB2("title", e.target.value)}
-                placeholder="e.g. Quarterly Security Review"
+                placeholder={t("bookings.placeholder.eventTitle")}
                 className={inputClass("title")}
               />
               {errors.title && (
@@ -920,7 +952,7 @@ export function NewBookingPage() {
                 value={b2Form.purpose}
                 onChange={(e) => updateB2("purpose", e.target.value)}
                 rows={3}
-                placeholder="Describe the purpose of this booking..."
+                placeholder={t("bookings.placeholder.purpose")}
                 className={`${inputClass("purpose")} resize-none`}
               />
               {errors.purpose && (
@@ -936,7 +968,7 @@ export function NewBookingPage() {
                 type="number"
                 value={b2Form.attendees}
                 onChange={(e) => updateB2("attendees", e.target.value)}
-                placeholder="e.g. 25"
+                placeholder={t("bookings.placeholder.attendees")}
                 className={inputClass("attendees")}
               />
               {selectedSpace && b2Form.attendees && (
@@ -954,7 +986,7 @@ export function NewBookingPage() {
                     >
                       {b2Form.attendees}/{selectedSpace.capacity}
                       {parseInt(b2Form.attendees) > selectedSpace.capacity &&
-                        " ⚠️ Over capacity"}
+                        ` ⚠️ ${t("bookings.overCapacity")}`}
                     </span>
                   </div>
                   <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
@@ -1056,17 +1088,12 @@ export function NewBookingPage() {
               ))}
             </div>
             <div className="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-green-800">
-              <p className="font-medium">📅 What happens next?</p>
+              <p className="font-medium">📅 {t("bookings.whatHappensNext")}</p>
               <ul className="text-xs space-y-1 mt-1 text-green-700 list-disc list-inside">
-                <li>Routed to: Hall Officer & IT Department</li>
-                <li>IT receives setup request for required amenities</li>
-                <li>Cleaning & Security teams receive preparation tasks</li>
-                <li>
-                  Status: Submitted → Under Review → Assigned to Supervisor →
-                  WorkOrder Created → Assigned to Professional → In Progress →
-                  Completed → Reviewed → Approved/Rejected → Closed
-                </li>
-                <li>You'll receive a confirmation with Booking ID</li>
+                <li>{t("bookings.nextSteps.booking.1")}</li>
+                <li>{t("bookings.nextSteps.booking.2")}</li>
+                <li>{t("bookings.nextSteps.booking.3")}</li>
+                <li>{t("bookings.nextSteps.booking.4")}</li>
               </ul>
             </div>
           </div>

@@ -30,6 +30,8 @@ import {
   Building2,
   ClipboardList,
   ChevronDown,
+  List,
+  Activity,
 } from "lucide-react";
 import logoImg from "@/assets/f90b53223fdaa6590fb74226dca7ff83be56c9f0.png";
 
@@ -97,29 +99,66 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       roles: ["admin", "user", "supervisor", "professional"],
     },
     {
-      label: t("nav.projects"),
+      label: t("nav.allRequests"),
+      path: "/admin/requests",
+      icon: <List size={18} />,
+      roles: ["admin"],
+    },
+    {
+      label: t("nav.myRequests"),
+      path: "/dashboard/my-requests",
+      icon: <List size={18} />,
+      roles: ["user"],
+    },
+    {
+      label:
+        currentUser?.role === "admin"
+          ? t("nav.projectManagement")
+          : t("nav.projects"),
       path: "/dashboard/projects",
       icon: <FolderOpen size={18} />,
       roles: ["admin", "user"],
       badge: currentUser?.role === "admin" ? 3 : undefined,
     },
     {
-      label: t("nav.bookings"),
+      label:
+        currentUser?.role === "admin"
+          ? t("nav.spaceBooking")
+          : currentUser?.role === "user"
+            ? t("nav.bookSpace")
+            : t("nav.bookings"),
       path: "/dashboard/bookings",
       icon: <Calendar size={18} />,
       roles: ["admin", "user"],
     },
     {
-      label: t("nav.maintenance"),
+      label:
+        currentUser?.role === "supervisor"
+          ? t("nav.assignedRequests")
+          : currentUser?.role === "professional"
+            ? t("nav.myTasks")
+            : t("nav.maintenance"),
       path: "/dashboard/maintenance",
       icon: <Wrench size={18} />,
       roles: ["admin", "user", "supervisor", "professional"],
       badge: currentUser?.role === "admin" ? 2 : undefined,
     },
     {
-      label: "Supervisor",
+      label: t("nav.progressUpdates"),
+      path: "/dashboard/updates",
+      icon: <Activity size={18} />,
+      roles: ["professional"],
+    },
+    {
+      label: t("nav.taskManagement"),
       path: "/dashboard/supervisor",
       icon: <ClipboardList size={18} />,
+      roles: ["supervisor"],
+    },
+    {
+      label: t("nav.teamOverview"),
+      path: "/dashboard/team",
+      icon: <Users size={18} />,
       roles: ["supervisor"],
     },
     {
@@ -130,19 +169,34 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       badge: unreadCount || undefined,
     },
     {
-      label: t("nav.reports"),
-      path: "/dashboard/reports",
-      icon: <BarChart3 size={18} />,
-      roles: ["admin"],
-    },
-    {
-      label: t("nav.users"),
+      label:
+        currentUser?.role === "admin"
+          ? t("nav.usersManagement")
+          : t("nav.users"),
       path: "/admin/users",
       icon: <Users size={18} />,
       roles: ["admin"],
     },
     {
-      label: t("nav.config"),
+      label: t("nav.divisions"),
+      path: "/admin/divisions",
+      icon: <Building2 size={18} />,
+      roles: ["admin"],
+    },
+    {
+      label:
+        currentUser?.role === "admin"
+          ? t("nav.reportsAnalytics")
+          : t("nav.reports"),
+      path: "/dashboard/reports",
+      icon: <BarChart3 size={18} />,
+      roles: ["admin"],
+    },
+    {
+      label:
+        currentUser?.role === "admin"
+          ? t("nav.systemSettings")
+          : t("nav.config"),
       path: "/admin/config",
       icon: <Settings size={18} />,
       roles: ["admin"],
@@ -173,37 +227,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </p>
         </div>
       </div>
-
-      {/* Role indicator */}
-      {sidebarOpen && (
-        <div className="mx-3 mt-3 mb-1 px-3 py-2 rounded-lg bg-white/5 dark:bg-white/10 border border-white/10 dark:border-white/20">
-          <p className="text-blue-200 dark:text-blue-300 text-xs">
-            {t("auth.loggedInAs")}
-          </p>
-          <p className="text-white text-sm font-medium truncate">
-            {currentUser?.name}
-          </p>
-          <span
-            className={`text-xs px-2 py-0.5 rounded mt-1 inline-block font-semibold ${
-              currentUser?.role === "admin"
-                ? "bg-[#1A3580] dark:bg-[#60A5FA] text-white dark:text-gray-900"
-                : currentUser?.role === "supervisor"
-                  ? "bg-[#7C3AED] dark:bg-[#A78BFA] text-white"
-                  : currentUser?.role === "professional"
-                    ? "bg-[#CC1F1A] dark:bg-[#EF4444] text-white"
-                    : "bg-[#F5B800] dark:bg-[#FCD34D] text-gray-900"
-            }`}
-          >
-            {currentUser?.role === "admin"
-              ? "Administration"
-              : currentUser?.role === "supervisor"
-                ? "Div. Supervisor"
-                : currentUser?.role === "professional"
-                  ? "Professional"
-                  : "User"}
-          </span>
-        </div>
-      )}
 
       {/* Navigation */}
       <nav className="flex-1 px-2 py-3 space-y-1 overflow-y-auto">

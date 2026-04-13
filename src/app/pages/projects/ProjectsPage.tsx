@@ -153,7 +153,9 @@ export function ProjectsPage() {
             className="px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none focus:border-[#1A3580] cursor-pointer"
           >
             {statuses.map((s) => (
-              <option key={s}>{s}</option>
+              <option key={s} value={s}>
+                {s === "All" ? t("status.all") : t(`status.${s.charAt(0).toLowerCase() + s.slice(1).replace(/\s+/g, "")}`)}
+              </option>
             ))}
           </select>
           <select
@@ -162,7 +164,9 @@ export function ProjectsPage() {
             className="px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none focus:border-[#1A3580] cursor-pointer"
           >
             {priorities.map((p) => (
-              <option key={p}>{p}</option>
+              <option key={p} value={p}>
+                {p === "All" ? t("status.all") : t(`priority.${p.toLowerCase()}`)}
+              </option>
             ))}
           </select>
         </div>
@@ -179,7 +183,7 @@ export function ProjectsPage() {
                   : "bg-secondary text-muted-foreground hover:bg-muted"
               }`}
             >
-              {s}
+              {s === "All" ? t("status.all") : t(`status.${s.charAt(0).toLowerCase() + s.slice(1).replace(/\s+/g, "")}`)}
             </button>
           ))}
         </div>

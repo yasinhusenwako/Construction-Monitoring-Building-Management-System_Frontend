@@ -28,6 +28,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
+import { exportToCSV } from "../../lib/exportUtils";
 import {
   Users,
   ShieldCheck,
@@ -57,6 +58,7 @@ import {
   Package,
   Bell,
   Inbox,
+  Download,
 } from "lucide-react";
 import {
   KpiCard,
@@ -191,11 +193,12 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
   ];
 
   const projectStatusData = [
-    { name: "Submitted", value: pendingProjects.length, color: "#F5B800" },
-    { name: "In Progress", value: inProgressProjects.length, color: "#1A3580" },
-    { name: "Completed", value: completedProjects.length, color: "#16A34A" },
-    { name: "Rejected", value: rejectedProjects.length, color: "#CC1F1A" },
+    { name: t("status.submitted"), value: pendingProjects.length, color: "#F5B800" },
+    { name: t("status.inProgress"), value: inProgressProjects.length, color: "#1A3580" },
+    { name: t("status.completed"), value: completedProjects.length, color: "#16A34A" },
+    { name: t("status.rejected"), value: rejectedProjects.length, color: "#CC1F1A" },
   ].filter((d) => d.value > 0);
+
 
   const maintTypeData = (() => {
     const counts: Record<string, number> = {};
@@ -206,18 +209,19 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
   })();
 
   const activityTrend = [
-    { month: "Nov", projects: 2, bookings: 3, maintenance: 4 },
-    { month: "Dec", projects: 3, bookings: 4, maintenance: 5 },
-    { month: "Jan", projects: 4, bookings: 5, maintenance: 3 },
-    { month: "Feb", projects: 3, bookings: 6, maintenance: 6 },
-    { month: "Mar", projects: 5, bookings: 4, maintenance: 4 },
+    { month: t("month.nov"), projects: 2, bookings: 3, maintenance: 4 },
+    { month: t("month.dec"), projects: 3, bookings: 4, maintenance: 5 },
+    { month: t("month.jan"), projects: 4, bookings: 5, maintenance: 3 },
+    { month: t("month.feb"), projects: 3, bookings: 6, maintenance: 6 },
+    { month: t("month.mar"), projects: 5, bookings: 4, maintenance: 4 },
     {
-      month: "Apr",
+      month: t("month.apr"),
       projects: projects.length,
       bookings: bookings.length,
       maintenance: maintenanceItems.length,
     },
   ];
+
 
   // Alerts / workflow items
   const workflowAlerts = [
@@ -225,7 +229,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
       type: "project" as const,
       id: p.id,
       title: p.title,
-      issue: `Awaiting review — ${p.priority} priority`,
+      issue: `${t("admin.awaitingReview")} — ${t(`priority.${p.priority.toLowerCase()}` as any)} ${t("priority.title")}`,
+
       color: "#1A3580",
       path: `/dashboard/projects/${p.id}`,
       cta: "Review",
@@ -234,7 +239,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
       type: "maintenance" as const,
       id: m.id,
       title: m.title,
-      issue: `New submission — ${m.priority} priority`,
+      issue: `${t("admin.newSubmission")} — ${t(`priority.${m.priority.toLowerCase()}` as any)} ${t("priority.title")}`,
+
       color: "#CC1F1A",
       path: `/dashboard/maintenance/${m.id}`,
       cta: "Assign",
@@ -243,7 +249,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
       type: "maintenance" as const,
       id: m.id,
       title: m.title,
-      issue: `Supervisor reviewed — awaiting approval`,
+      issue: t("admin.supervisorReviewedAwaiting"),
+
       color: "#0891B2",
       path: `/dashboard/maintenance/${m.id}`,
       cta: "Approve",
@@ -252,7 +259,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
       type: "booking" as const,
       id: b.id,
       title: b.title,
-      issue: `Space booking under review`,
+      issue: t("admin.spaceBookingUnderReview"),
+
       color: "#7C3AED",
       path: `/dashboard/bookings`,
       cta: "Approve",
@@ -266,12 +274,48 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
     return t("greeting.evening");
   };
 
+  const handleExportReport = () => {
+    const projectData = projects.map(p => ({
+      ID: p.id,
+      Type: 'Project',
+      Title: p.title,
+      Status: p.status,
+      Priority: p.priority,
+      Requester: mockUsers.find(u => u.id === p.requestedBy)?.name || p.requestedBy,
+      Date: p.createdAt
+    }));
+
+    const bookingData = bookings.map(b => ({
+      ID: b.id,
+      Type: 'Booking',
+      Title: b.title || b.space,
+      Status: b.status,
+      Priority: 'Medium',
+      Requester: mockUsers.find(u => u.id === b.requestedBy)?.name || b.requestedBy,
+      Date: b.createdAt
+    }));
+
+    const maintenanceData = maintenanceItems.map(m => ({
+      ID: m.id,
+      Type: 'Maintenance',
+      Title: m.title,
+      Status: m.status,
+      Priority: m.priority,
+      Requester: mockUsers.find(u => u.id === m.requestedBy)?.name || m.requestedBy,
+      Date: m.createdAt
+    }));
+
+    const allData = [...projectData, ...bookingData, ...maintenanceData];
+    exportToCSV(allData, `INSA_CMBMS_Global_Report_${new Date().toISOString().split('T')[0]}`);
+  };
+
   // ── Quick control actions ──────────────────────────────────────────────────
   const controlActions = [
     {
       label: t("users.title"),
       icon: <UserCog size={18} />,
-      desc: "Create, edit, deactivate users",
+      desc: t("admin.usersDesc"),
+
       path: "/admin/users",
       color: "#0E2271",
       badge: null,
@@ -279,7 +323,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
     {
       label: t("admin.allUserRequests"),
       icon: <Inbox size={18} />,
-      desc: "View every request in detail",
+      desc: t("admin.allRequestsDesc"),
+
       path: "/admin/requests",
       color: "#1A3580",
       badge:
@@ -291,7 +336,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
     {
       label: t("nav.config"),
       icon: <Settings size={18} />,
-      desc: "Workflows, priorities, SLA rules",
+      desc: t("admin.configDesc"),
+
       path: "/admin/config",
       color: "#7C3AED",
       badge: null,
@@ -299,7 +345,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
     {
       label: t("projects.title"),
       icon: <FolderOpen size={18} />,
-      desc: "Approve, reject, escalate",
+      desc: t("admin.projectsDesc"),
+
       path: "/dashboard/projects",
       color: "#1A3580",
       badge: pendingProjects.length || null,
@@ -307,7 +354,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
     {
       label: t("module.bookings"),
       icon: <Calendar size={18} />,
-      desc: "Override bookings, handle conflicts",
+      desc: t("admin.bookingsDesc"),
+
       path: "/dashboard/bookings",
       color: "#7C3AED",
       badge: pendingBookings.length || null,
@@ -315,7 +363,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
     {
       label: t("maintenance.assignTechnician"),
       icon: <Wrench size={18} />,
-      desc: "Manage tickets & workload",
+      desc: t("admin.maintenanceDesc"),
+
       path: "/dashboard/maintenance",
       color: "#CC1F1A",
       badge: unassignedTickets.length || null,
@@ -323,7 +372,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
     {
       label: t("nav.reports"),
       icon: <BarChart3 size={18} />,
-      desc: "Analytics, exports, trends",
+      desc: t("admin.reportsDesc"),
+
       path: "/dashboard/reports",
       color: "#16A34A",
       badge: null,
@@ -361,20 +411,30 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
             <p className="text-white/70 text-sm mt-1.5 flex items-center gap-2">
               <Activity size={12} className="text-green-400" />
               <span>
-                System Online ·{" "}
-                {new Date().toLocaleDateString("en-US", {
+                {t("admin.systemOnline")} ·{" "}
+                {new Date().toLocaleDateString(t("lang.code") === "am" ? "am-ET" : "en-US", {
                   weekday: "long",
                   year: "numeric",
                   month: "long",
                   day: "numeric",
                 })}
+
               </span>
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
+            <button 
+              onClick={handleExportReport}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-sm font-bold text-white transition-all backdrop-blur-md shadow-lg"
+            >
+              <Download size={16} />
+              {t("admin.exportGlobalReport")}
+
+            </button>
             <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-5 py-3 text-center">
               <p className="text-white/60 text-[10px] uppercase font-bold tracking-wider mb-1">
-                Global Health
+                {t("admin.globalHealth")}
+
               </p>
               <div className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.5)]" />
@@ -384,7 +444,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
             {criticalTickets.length > 0 && (
               <div className="bg-red-500/20 backdrop-blur-md border border-red-500/30 rounded-2xl px-5 py-3 text-center">
                 <p className="text-red-200 text-[10px] uppercase font-bold tracking-wider mb-1">
-                  Critical Issues
+                  {t("admin.criticalIssues")}
+
                 </p>
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-red-400 animate-ping" />
@@ -430,8 +491,9 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
               label={t("admin.activeUsers")}
               color="#0E2271"
               value={activeUsers}
-              sub={`of ${totalUsers} total`}
-              trend={{ val: "+2 this month", up: true }}
+              sub={`${t("common.of")} ${totalUsers} ${t("common.total")}`}
+              trend={{ val: t("admin.usersTrend"), up: true }}
+
               onClick={() => router.push("/admin/users")}
             />
             <KpiCard
@@ -459,23 +521,22 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
             />
             <KpiCard
               icon={<Wrench size={18} />}
-              label="System Requests"
-              color="#CC1F1A"
               value={
                 openTickets.length +
                 pendingProjects.length +
                 pendingBookings.length
               }
-              sub={`${unassignedTickets.length} new · ${criticalTickets.length} critical`}
+              sub={`${unassignedTickets.length} ${t("admin.new")} · ${criticalTickets.length} ${t("admin.critical")}`}
               trend={{
                 val:
                   criticalTickets.length > 0
                     ? t("admin.urgent")
                     : unassignedTickets.length > 0
-                      ? "Action required"
+                      ? t("admin.actionRequired")
                       : t("admin.ok"),
                 up: criticalTickets.length === 0,
               }}
+
               onClick={() => router.push("/admin/requests")}
             />
             <KpiCard
@@ -494,7 +555,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
             />
             <KpiCard
               icon={<RefreshCw size={18} />}
-              label="Review Queue"
+              label={t("admin.reviewQueue")}
               color="#0891B2"
               value={
                 pendingSupervisorReview.length + pendingAdminFinalReview.length
@@ -503,10 +564,11 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
               trend={{
                 val:
                   pendingAdminFinalReview.length > 0
-                    ? "Action needed"
-                    : "Clear",
+                    ? t("admin.actionNeeded")
+                    : t("admin.clear"),
                 up: pendingAdminFinalReview.length === 0,
               }}
+
               onClick={() => router.push("/admin/requests")}
             />
             <KpiCard
@@ -760,7 +822,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                 <div className="px-4 py-3 border-b border-border">
                   <h3 className="text-sm font-semibold text-[#0E2271] flex items-center gap-2">
                     <UserCog size={14} className="text-[#CC1F1A]" />{" "}
-                    Professional Workload
+                    {t("admin.professionalWorkload")}
+
                   </h3>
                 </div>
                 <div className="p-3 space-y-2.5">
@@ -815,8 +878,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
               <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
                 <div className="px-4 py-3 border-b border-border">
                   <h3 className="text-sm font-semibold text-[#0E2271] flex items-center gap-2">
-                    <Users size={14} className="text-[#0E2271]" /> User
-                    Distribution
+                    {t("admin.userDistribution")}
+
                   </h3>
                 </div>
                 <div className="p-3 space-y-2">
@@ -935,7 +998,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
             {/* Activity Trend */}
             <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
               <h3 className="text-sm font-semibold text-[#0E2271] mb-4 flex items-center gap-2">
-                <TrendingUp size={14} /> System Activity Trend (6 months)
+                <TrendingUp size={14} /> {t("admin.systemActivityTrend")}
+
               </h3>
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart
@@ -969,7 +1033,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                   <Area
                     type="monotone"
                     dataKey="projects"
-                    name="Projects"
+                    name={t("module.projects")}
+
                     stroke="#1A3580"
                     fill="url(#gProj)"
                     strokeWidth={2}
@@ -977,7 +1042,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                   <Area
                     type="monotone"
                     dataKey="bookings"
-                    name="Bookings"
+                    name={t("module.bookings")}
+
                     stroke="#7C3AED"
                     fill="url(#gBook)"
                     strokeWidth={2}
@@ -985,7 +1051,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                   <Area
                     type="monotone"
                     dataKey="maintenance"
-                    name="Maintenance"
+                    name={t("module.maintenance")}
+
                     stroke="#CC1F1A"
                     fill="url(#gMaint)"
                     strokeWidth={2}
@@ -997,7 +1064,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
             {/* Project Status Donut */}
             <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
               <h3 className="text-sm font-semibold text-[#0E2271] mb-4 flex items-center gap-2">
-                <FolderOpen size={14} /> Project Status Distribution
+                <FolderOpen size={14} /> {t("admin.projectStatusDistribution")}
+
               </h3>
               <div className="flex items-center gap-4">
                 <ResponsiveContainer width="55%" height={200}>
@@ -1030,7 +1098,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                           style={{ background: d.color }}
                         />
                         <span className="text-xs text-muted-foreground">
-                          {d.name}
+                          {t(`status.${d.name.charAt(0).toLowerCase()}${d.name.slice(1).replace(/\s+/g, "")}` as any)}
+
                         </span>
                       </div>
                       <span className="text-xs font-bold text-foreground">
@@ -1041,7 +1110,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                   <div className="mt-3 pt-2 border-t border-border">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground font-medium">
-                        Total Budget
+                        {t("admin.totalBudget")}
+
                       </span>
                       <span className="text-xs font-bold text-[#0E2271]">
                         {(totalBudget / 1_000_000).toFixed(1)}M ETB
@@ -1058,7 +1128,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
             {/* Request Volume by Module */}
             <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
               <h3 className="text-sm font-semibold text-[#0E2271] mb-4 flex items-center gap-2">
-                <BarChart3 size={14} /> Request Volume by Module
+                <BarChart3 size={14} /> {t("admin.requestVolumeByModule")}
+
               </h3>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart
@@ -1071,19 +1142,22 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   <Bar
                     dataKey="total"
-                    name="Total"
+                    name={t("common.total")}
+
                     fill="#0E2271"
                     radius={[4, 4, 0, 0]}
                   />
                   <Bar
                     dataKey="pending"
-                    name="Submitted"
+                    name={t("status.submitted")}
+
                     fill="#F5B800"
                     radius={[4, 4, 0, 0]}
                   />
                   <Bar
                     dataKey="done"
-                    name="Approved/Closed"
+                    name={t("admin.completedThisCycle")}
+
                     fill="#16A34A"
                     radius={[4, 4, 0, 0]}
                   />
@@ -1094,7 +1168,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
             {/* Maintenance by Category */}
             <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
               <h3 className="text-sm font-semibold text-[#0E2271] mb-4 flex items-center gap-2">
-                <Wrench size={14} /> Maintenance by Category
+                <Wrench size={14} /> {t("admin.maintenanceByCategory")}
+
               </h3>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart
@@ -1112,7 +1187,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                   <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
                   <Bar
                     dataKey="value"
-                    name="Tickets"
+                    name={t("maintenance.title")}
+
                     fill="#CC1F1A"
                     radius={[0, 4, 4, 0]}
                   />
@@ -1125,8 +1201,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
           <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-border">
               <h3 className="text-sm font-semibold text-[#0E2271] flex items-center gap-2">
-                <UserCog size={14} className="text-[#CC1F1A]" /> Technician
-                Performance Overview
+                {t("admin.technicianPerformanceOverview")}
+
               </h3>
             </div>
             <div className="overflow-x-auto">
@@ -1146,9 +1222,10 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                         key={h}
                         className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider"
                       >
-                        {h}
+                        {t(`table.${h.toLowerCase().replace(/\s+/g, "")}` as any) || h}
                       </th>
                     ))}
+
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -1169,7 +1246,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                     const loadColor =
                       pct > 70 ? "#CC1F1A" : pct > 40 ? "#F5B800" : "#16A34A";
                     const loadLabel =
-                      pct > 70 ? "High" : pct > 40 ? "Medium" : "Available";
+                      pct > 70 ? t("admin.high") : pct > 40 ? t("admin.medium") : t("admin.available");
+
                     return (
                       <tr
                         key={t.id}
@@ -1251,34 +1329,35 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               {
-                label: "Awaiting Approval",
+                label: t("admin.awaitingApproval"),
                 value: pendingProjects.length + pendingBookings.length,
                 color: "#F5B800",
                 icon: <Clock size={18} />,
-                desc: "Projects + Bookings",
+                desc: `${t("module.projects")} + ${t("module.bookings")}`,
               },
               {
-                label: "Unassigned Tickets",
+                label: t("admin.unassignedTickets"),
                 value: unassignedTickets.length,
                 color: "#CC1F1A",
                 icon: <AlertTriangle size={18} />,
-                desc: "Needs technician",
+                desc: t("admin.needsTechnician"),
               },
               {
-                label: "Active Workflows",
+                label: t("admin.activeWorkflows"),
                 value: inProgressProjects.length + openTickets.length,
                 color: "#1A3580",
                 icon: <GitBranch size={18} />,
-                desc: "In execution",
+                desc: t("dashboard.inExecution"),
               },
               {
-                label: "Completed This Cycle",
+                label: t("admin.completedThisCycle"),
                 value: completedProjects.length + resolvedTickets.length,
                 color: "#16A34A",
                 icon: <CheckCircle2 size={18} />,
-                desc: "Resolved & closed",
+                desc: t("admin.resolvedClosed"),
               },
             ].map((k) => (
+
               <div
                 key={k.label}
                 className="bg-white rounded-2xl border border-border p-4 shadow-sm"
@@ -1302,17 +1381,18 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
           <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <h3 className="text-sm font-semibold text-[#0E2271] flex items-center gap-2">
-                <Bell size={14} className="text-amber-500" /> Pending Admin
-                Actions
+                <Bell size={14} className="text-amber-500" /> {t("admin.pendingAdminActions")}
                 <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">
                   {workflowAlerts.length}
                 </span>
               </h3>
+
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                 <span className="text-xs text-muted-foreground">
-                  Requires your attention
+                  {t("admin.requiresAttention")}
                 </span>
+
               </div>
             </div>
             <div className="p-4 space-y-2.5">
@@ -1323,12 +1403,13 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                     className="mx-auto text-green-500 mb-2"
                   />
                   <p className="font-medium text-foreground">
-                    All workflows are on track
+                    {t("admin.allWorkflowsOnTrack")}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    No pending actions required
+                    {t("admin.noPendingActions")}
                   </p>
                 </div>
+
               ) : (
                 workflowAlerts.map((a) => (
                   <AlertRow
@@ -1359,9 +1440,9 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
             <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-border">
                 <h3 className="text-sm font-semibold text-[#0E2271] flex items-center gap-2">
-                  <FolderOpen size={14} className="text-[#1A3580]" /> Project
-                  Pipeline
+                  <FolderOpen size={14} className="text-[#1A3580]" /> {t("admin.projectPipeline")}
                 </h3>
+
               </div>
               <div className="p-4 space-y-2">
                 {[
@@ -1403,8 +1484,9 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                         style={{ background: row.color }}
                       />
                       <span className="text-xs text-muted-foreground">
-                        {row.stage}
+                        {t(`status.${row.stage.charAt(0).toLowerCase()}${row.stage.slice(1).replace(/\s+/g, "")}` as any) || row.stage}
                       </span>
+
                     </div>
                     <div className="flex-1 bg-secondary rounded-full h-5 relative overflow-hidden">
                       <div
@@ -1427,9 +1509,9 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
             <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-border">
                 <h3 className="text-sm font-semibold text-[#0E2271] flex items-center gap-2">
-                  <Wrench size={14} className="text-[#CC1F1A]" /> Maintenance
-                  Pipeline
+                  <Wrench size={14} className="text-[#CC1F1A]" /> {t("admin.maintenancePipeline")}
                 </h3>
+
               </div>
               <div className="p-4 space-y-2">
                 {[
@@ -1476,8 +1558,9 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                         style={{ background: row.color }}
                       />
                       <span className="text-xs text-muted-foreground">
-                        {row.stage}
+                        {t(`status.${row.stage.charAt(0).toLowerCase()}${row.stage.slice(1).replace(/\s+/g, "")}` as any) || row.stage}
                       </span>
+
                     </div>
                     <div className="flex-1 bg-secondary rounded-full h-5 relative overflow-hidden">
                       <div
@@ -1510,7 +1593,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                         color: slaCompliance >= 70 ? "#16A34A" : "#CC1F1A",
                       }}
                     >
-                      SLA Compliance: {slaCompliance}%
+                      {t("admin.slaCompliance")}: {slaCompliance}%
+
                     </span>
                     <button
                       onClick={() => router.push("/dashboard/reports")}
@@ -1519,7 +1603,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                         color: slaCompliance >= 70 ? "#16A34A" : "#CC1F1A",
                       }}
                     >
-                      View Report
+                      {t("action.viewReport")}
+
                     </button>
                   </div>
                   <div className="w-full bg-white rounded-full h-2 mt-2">
@@ -1540,30 +1625,33 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
           <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-border">
               <h3 className="text-sm font-semibold text-[#0E2271] flex items-center gap-2">
-                <ShieldCheck size={14} className="text-[#0E2271]" /> Admin
-                Governance Reminders
+                <ShieldCheck size={14} className="text-[#0E2271]" /> {t("admin.adminGovernanceReminders")}
               </h3>
+
             </div>
             <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
               {[
                 {
-                  title: "Strategic Control Only",
-                  desc: "Admin configures, monitors, and controls — not for day-to-day operational work.",
+                  title: t("admin.strategicControlOnly"),
+                  desc: t("admin.adminMonitoringDesc"),
+
                   icon: "🎯",
                   color: "#0E2271",
                 },
                 {
-                  title: "Override with Justification",
-                  desc: "Any booking override, ticket escalation, or decision reversal should be logged.",
+                  title: t("admin.overrideWithJustification"),
+                  desc: t("admin.overrideDesc"),
                   icon: "⚖️",
                   color: "#CC1F1A",
                 },
+
                 {
-                  title: "RBAC Enforcement",
-                  desc: "Ensure roles are correctly assigned. Requesters, Technicians, and Coordinators have separate permissions.",
+                  title: t("admin.rbacEnforcement"),
+                  desc: t("admin.rbacDesc"),
                   icon: "🔐",
                   color: "#F5B800",
                 },
+
               ].map((n) => (
                 <div
                   key={n.title}

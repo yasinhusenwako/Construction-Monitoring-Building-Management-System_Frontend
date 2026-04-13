@@ -101,10 +101,10 @@ export function UsersPage() {
         <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
           className="px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none cursor-pointer">
           <option value="All">{t('users.allRoles')}</option>
-          <option value="admin">Administration</option>
-          <option value="supervisor">Division Supervisor</option>
-          <option value="professional">Professionals</option>
-          <option value="user">User</option>
+          <option value="admin">{t('role.admin')}</option>
+          <option value="supervisor">{t('role.supervisor')}</option>
+          <option value="professional">{t('role.professional')}</option>
+          <option value="user">{t('role.user')}</option>
         </select>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
           className="px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none cursor-pointer">
@@ -118,9 +118,9 @@ export function UsersPage() {
       {/* Role Stats */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { role: 'admin', label: 'Administration', color: '#1A3580' },
-          { role: 'supervisor', label: 'Div. Supervisors', color: '#7C3AED' },
-          { role: 'professional', label: 'Professionals', color: '#CC1F1A' },
+          { role: 'admin', label: t('role.admin'), color: '#1A3580' },
+          { role: 'supervisor', label: t('role.supervisor'), color: '#7C3AED' },
+          { role: 'professional', label: t('role.professional'), color: '#CC1F1A' },
           { role: 'user', label: t('users.standardUsers'), color: '#F5B800' },
         ].map(r => (
           <div key={r.role} className="bg-white rounded-xl border-2 border-border p-4 shadow-sm" style={{ borderColor: r.color + '30' }}>
@@ -227,10 +227,10 @@ export function UsersPage() {
                   <label className="block text-xs font-medium text-[#0E2271] mb-1">{t('users.role_label')}</label>
                   <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as any }))}
                     className="w-full px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none">
-                    <option value="user">User</option>
-                    <option value="supervisor">Division Supervisor</option>
-                    <option value="professional">Professional</option>
-                    <option value="admin">Administration</option>
+                    <option value="user">{t('role.user')}</option>
+                    <option value="supervisor">{t('role.supervisor')}</option>
+                    <option value="professional">{t('role.professional')}</option>
+                    <option value="admin">{t('role.admin')}</option>
                   </select>
                 </div>
                 <div>

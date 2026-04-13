@@ -45,6 +45,11 @@ export interface Project {
   budget: number;
   startDate: string;
   endDate: string;
+  department?: string;
+  contactPerson?: string;
+  contactPhone?: string;
+  siteCondition?: string;
+  scope?: any;
   createdAt: string;
   updatedAt: string;
   documents: string[];
@@ -91,7 +96,9 @@ export interface Maintenance {
   divisionId?: string; // Division assigned by admin
   workOrderId?: string;
   location: string;
+  building?: string;
   floor: string;
+  roomArea?: string;
   createdAt: string;
   updatedAt: string;
   resolvedAt?: string;

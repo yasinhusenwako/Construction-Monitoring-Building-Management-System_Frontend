@@ -136,8 +136,9 @@ export function MaintenancePage() {
     msg: string,
   ) => {
     if (!canTransition(actorRole, m.status, to)) {
-      setActionMsg("Action not allowed for current status.");
+      setActionMsg(t("maintenance.notAllowed"));
       setTimeout(() => setActionMsg(""), 3000);
+
       return false;
     }
     m.status = to;
@@ -201,9 +202,10 @@ export function MaintenancePage() {
           m,
           "Assigned to Supervisor",
           "admin",
-          `Assigned ${m.id} to ${tech?.name}`,
+          `${t("maintenance.assigned_to")} ${tech?.name}`,
         )
       ) {
+
         return;
       }
       m.supervisorId = selectedTech;
@@ -224,9 +226,10 @@ export function MaintenancePage() {
           m,
           "Assigned to Professional",
           "supervisor",
-          `Assigned ${m.id} to ${tech?.name}`,
+          `${t("maintenance.assigned_to")} ${tech?.name}`,
         )
       ) {
+
         return;
       }
       m.assignedTo = selectedTech;
@@ -253,8 +256,9 @@ export function MaintenancePage() {
       m,
       "WorkOrder Created",
       "supervisor",
-      `WorkOrder created for ${m.id}`,
+      `${t("maintenance.workOrderCreatedFor")} ${m.id}`,
     );
+
     if (created && !m.workOrderId) {
       m.workOrderId = `WO-${m.id}`;
     }
@@ -279,8 +283,9 @@ export function MaintenancePage() {
           </h1>
           <p className="text-muted-foreground text-sm">
             {role === "professional"
-              ? "Your Assigned Tasks"
+              ? t("maintenance.yourAssignedTasks")
               : `${filtered.length} ${t("maintenance.ticketsCount")}`}
+
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -316,8 +321,9 @@ export function MaintenancePage() {
                 {professionalSpecificStats.assigned}
               </p>
               <p className="text-xs text-muted-foreground uppercase font-semibold">
-                Assigned Tasks
+                {t("maintenance.assignedTasks")}
               </p>
+
             </div>
           </div>
           <div className="bg-white rounded-xl border border-border p-4 shadow-sm flex items-center gap-4">
@@ -329,8 +335,9 @@ export function MaintenancePage() {
                 {professionalSpecificStats.inProgress}
               </p>
               <p className="text-xs text-muted-foreground uppercase font-semibold">
-                In Progress
+                {t("maintenance.inProgress")}
               </p>
+
             </div>
           </div>
           <div className="bg-white rounded-xl border border-border p-4 shadow-sm flex items-center gap-4">
@@ -342,8 +349,9 @@ export function MaintenancePage() {
                 {professionalSpecificStats.completed}
               </p>
               <p className="text-xs text-muted-foreground uppercase font-semibold">
-                Completed
+                {t("maintenance.completed")}
               </p>
+
             </div>
           </div>
         </div>
@@ -359,8 +367,9 @@ export function MaintenancePage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by title or ID..."
+            placeholder={t("maintenance.searchByTitleOrID")}
             className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-input-background text-sm outline-none focus:border-[#CC1F1A]"
+
           />
         </div>
         <select
@@ -368,9 +377,10 @@ export function MaintenancePage() {
           onChange={(e) => setTypeFilter(e.target.value)}
           className="px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none cursor-pointer"
         >
-          {types.map((t) => (
-            <option key={t}>{t}</option>
+          {types.map((t_item) => (
+            <option key={t_item}>{t_item === "All" ? t("status.all") : t_item}</option>
           ))}
+
         </select>
         <select
           value={priorityFilter}
@@ -378,8 +388,9 @@ export function MaintenancePage() {
           className="px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none cursor-pointer"
         >
           {priorities.map((p) => (
-            <option key={p}>{p}</option>
+            <option key={p}>{p === "All" ? t("status.all") : p}</option>
           ))}
+
         </select>
       </div>
 
@@ -391,10 +402,11 @@ export function MaintenancePage() {
               size={48}
               className="mx-auto text-muted-foreground/40 mb-3"
             />
-            <h3 className="text-[#0E2271]">No Tickets Found</h3>
+            <h3 className="text-[#0E2271]">{t("maintenance.noTicketsFound")}</h3>
             <p className="text-muted-foreground text-sm">
-              No maintenance tickets match your filters
+              {t("maintenance.noTicketsMatch")}
             </p>
+
           </div>
         ) : (
           filtered.map((m) => {
@@ -411,7 +423,7 @@ export function MaintenancePage() {
                   setAssignTarget(assignTarget === id ? null : id)
                 }
                 onStartReview={(m) =>
-                  applyTransition(m, "Under Review", "admin", "Review started")
+                  applyTransition(m, "Under Review", "admin", t("maintenance.reviewStarted"))
                 }
                 onCreateWorkOrder={handleCreateWorkOrder}
                 onStartWork={(m) =>
@@ -419,7 +431,7 @@ export function MaintenancePage() {
                     m,
                     "In Progress",
                     "professional",
-                    "Task started",
+                    t("maintenance.taskStarted"),
                   )
                 }
                 onCompleteWork={(m) =>
@@ -427,7 +439,7 @@ export function MaintenancePage() {
                     m,
                     "Completed",
                     "professional",
-                    "Work submitted",
+                    t("maintenance.workSubmitted"),
                   )
                 }
                 onApprove={(m) =>
@@ -435,16 +447,17 @@ export function MaintenancePage() {
                     m,
                     "Reviewed",
                     "supervisor",
-                    "Review submitted",
+                    t("maintenance.reviewSubmitted"),
                   )
                 }
                 onFinalApprove={(m) =>
-                  applyTransition(m, "Approved", "admin", "Approved")
+                  applyTransition(m, "Approved", "admin", t("status.approved"))
                 }
                 onReject={(m) =>
-                  applyTransition(m, "Rejected", "admin", "Rejected")
+                  applyTransition(m, "Rejected", "admin", t("status.rejected"))
                 }
-                onClose={(m) => applyTransition(m, "Closed", "admin", "Closed")}
+                onClose={(m) => applyTransition(m, "Closed", "admin", t("status.closed"))}
+
                 assignTarget={assignTarget}
                 selectedTech={selectedTech}
                 onSelectTech={setSelectedTech}
