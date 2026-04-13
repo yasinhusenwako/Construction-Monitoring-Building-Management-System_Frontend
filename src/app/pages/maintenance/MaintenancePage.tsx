@@ -205,7 +205,6 @@ export function MaintenancePage() {
           `${t("maintenance.assigned_to")} ${tech?.name}`,
         )
       ) {
-
         return;
       }
       m.supervisorId = selectedTech;
@@ -229,7 +228,6 @@ export function MaintenancePage() {
           `${t("maintenance.assigned_to")} ${tech?.name}`,
         )
       ) {
-
         return;
       }
       m.assignedTo = selectedTech;
@@ -285,7 +283,6 @@ export function MaintenancePage() {
             {role === "professional"
               ? t("maintenance.yourAssignedTasks")
               : `${filtered.length} ${t("maintenance.ticketsCount")}`}
-
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -323,7 +320,6 @@ export function MaintenancePage() {
               <p className="text-xs text-muted-foreground uppercase font-semibold">
                 {t("maintenance.assignedTasks")}
               </p>
-
             </div>
           </div>
           <div className="bg-white rounded-xl border border-border p-4 shadow-sm flex items-center gap-4">
@@ -337,7 +333,6 @@ export function MaintenancePage() {
               <p className="text-xs text-muted-foreground uppercase font-semibold">
                 {t("maintenance.inProgress")}
               </p>
-
             </div>
           </div>
           <div className="bg-white rounded-xl border border-border p-4 shadow-sm flex items-center gap-4">
@@ -351,7 +346,6 @@ export function MaintenancePage() {
               <p className="text-xs text-muted-foreground uppercase font-semibold">
                 {t("maintenance.completed")}
               </p>
-
             </div>
           </div>
         </div>
@@ -369,7 +363,6 @@ export function MaintenancePage() {
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("maintenance.searchByTitleOrID")}
             className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-input-background text-sm outline-none focus:border-[#CC1F1A]"
-
           />
         </div>
         <select
@@ -378,9 +371,10 @@ export function MaintenancePage() {
           className="px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none cursor-pointer"
         >
           {types.map((t_item) => (
-            <option key={t_item}>{t_item === "All" ? t("status.all") : t_item}</option>
+            <option key={t_item}>
+              {t_item === "All" ? t("status.all") : t_item}
+            </option>
           ))}
-
         </select>
         <select
           value={priorityFilter}
@@ -390,7 +384,6 @@ export function MaintenancePage() {
           {priorities.map((p) => (
             <option key={p}>{p === "All" ? t("status.all") : p}</option>
           ))}
-
         </select>
       </div>
 
@@ -402,11 +395,12 @@ export function MaintenancePage() {
               size={48}
               className="mx-auto text-muted-foreground/40 mb-3"
             />
-            <h3 className="text-[#0E2271]">{t("maintenance.noTicketsFound")}</h3>
+            <h3 className="text-[#0E2271]">
+              {t("maintenance.noTicketsFound")}
+            </h3>
             <p className="text-muted-foreground text-sm">
               {t("maintenance.noTicketsMatch")}
             </p>
-
           </div>
         ) : (
           filtered.map((m) => {
@@ -423,7 +417,12 @@ export function MaintenancePage() {
                   setAssignTarget(assignTarget === id ? null : id)
                 }
                 onStartReview={(m) =>
-                  applyTransition(m, "Under Review", "admin", t("maintenance.reviewStarted"))
+                  applyTransition(
+                    m,
+                    "Under Review",
+                    "admin",
+                    t("maintenance.reviewStarted"),
+                  )
                 }
                 onCreateWorkOrder={handleCreateWorkOrder}
                 onStartWork={(m) =>
@@ -456,8 +455,9 @@ export function MaintenancePage() {
                 onReject={(m) =>
                   applyTransition(m, "Rejected", "admin", t("status.rejected"))
                 }
-                onClose={(m) => applyTransition(m, "Closed", "admin", t("status.closed"))}
-
+                onClose={(m) =>
+                  applyTransition(m, "Closed", "admin", t("status.closed"))
+                }
                 assignTarget={assignTarget}
                 selectedTech={selectedTech}
                 onSelectTech={setSelectedTech}

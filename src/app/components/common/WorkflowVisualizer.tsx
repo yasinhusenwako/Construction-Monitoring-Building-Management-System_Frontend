@@ -1,18 +1,17 @@
 import React from "react";
-import { 
-  User, 
-  ShieldCheck, 
-  MapPin, 
-  Wrench, 
-  ClipboardCheck, 
-  CheckCircle, 
+import {
+  User,
+  ShieldCheck,
+  MapPin,
+  Wrench,
+  ClipboardCheck,
+  CheckCircle,
   Archive,
-  Clock
+  Clock,
 } from "lucide-react";
 import { WorkflowStatus } from "../../lib/workflow";
 import "./WorkflowVisualizer.css";
 import { useLanguage } from "../../context/LanguageContext";
-
 
 interface WorkflowVisualizerProps {
   currentStatus: WorkflowStatus;
@@ -82,13 +81,14 @@ const steps: Step[] = [
     icon: Archive,
     statuses: ["Closed"],
   },
-
 ];
 
-export const WorkflowVisualizer: React.FC<WorkflowVisualizerProps> = ({ currentStatus }) => {
+export const WorkflowVisualizer: React.FC<WorkflowVisualizerProps> = ({
+  currentStatus,
+}) => {
   const { t } = useLanguage();
-  const currentStepIndex = steps.findIndex((step) => 
-    step.statuses.includes(currentStatus)
+  const currentStepIndex = steps.findIndex((step) =>
+    step.statuses.includes(currentStatus),
   );
 
   return (
@@ -105,18 +105,20 @@ export const WorkflowVisualizer: React.FC<WorkflowVisualizerProps> = ({ currentS
               <div className="workflow-step">
                 {/* Connector Line */}
                 {index > 0 && (
-                  <div 
+                  <div
                     className={`workflow-connector ${isCompleted || isActive ? "completed" : ""}`}
                   />
                 )}
 
                 {/* Step Node */}
-                <div className={`workflow-node ${isCompleted ? "completed" : ""} ${isActive ? "active" : ""} ${isUpcoming ? "upcoming" : ""}`}>
+                <div
+                  className={`workflow-node ${isCompleted ? "completed" : ""} ${isActive ? "active" : ""} ${isUpcoming ? "upcoming" : ""}`}
+                >
                   <div className="node-icon-wrapper">
                     <Icon className="node-icon" size={20} />
                     {isActive && <div className="node-pulse" />}
                   </div>
-                  
+
                   {isCompleted && (
                     <div className="node-checkmark">
                       <CheckCircle size={10} fill="white" stroke="white" />
@@ -126,22 +128,29 @@ export const WorkflowVisualizer: React.FC<WorkflowVisualizerProps> = ({ currentS
 
                 {/* Step Info */}
                 <div className="step-info">
-                  <span className={`step-label ${isActive ? "active" : ""}`}>{t(`workflow.${step.label}`)}</span>
+                  <span className={`step-label ${isActive ? "active" : ""}`}>
+                    {t(`workflow.${step.label}`)}
+                  </span>
                   <span className="step-role">{t(`role.${step.role}`)}</span>
                 </div>
-
               </div>
             </div>
           );
         })}
       </div>
-      
+
       {/* Current Status Badge for Mobile/Brief */}
       <div className="current-status-brief">
         <Clock size={14} className="text-[#1A3580] animate-pulse" />
-        <span>{t("workflow.currently")}: <strong>{t(`status.${currentStatus.charAt(0).toLowerCase()}${currentStatus.slice(1).replace(/\s+/g, "")}` as any) || currentStatus}</strong></span>
+        <span>
+          {t("workflow.currently")}:{" "}
+          <strong>
+            {t(
+              `status.${currentStatus.charAt(0).toLowerCase()}${currentStatus.slice(1).replace(/\s+/g, "")}` as any,
+            ) || currentStatus}
+          </strong>
+        </span>
       </div>
-
     </div>
   );
 };

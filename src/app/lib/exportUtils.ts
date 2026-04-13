@@ -12,11 +12,12 @@ export function exportToCSV(data: any[], filename: string) {
         .map((header) => {
           const val = row[header];
           // Handle values that might contain commas, quotes, or newlines
-          const stringVal = val === null || val === undefined ? "" : String(val);
+          const stringVal =
+            val === null || val === undefined ? "" : String(val);
           const escaped = stringVal.replace(/"/g, '""');
           return `"${escaped}"`;
         })
-        .join(",")
+        .join(","),
     ),
   ].join("\n");
 

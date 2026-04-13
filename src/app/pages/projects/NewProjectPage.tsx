@@ -21,7 +21,6 @@ import {
 } from "../../lib/notifications";
 import { useLanguage } from "../../context/LanguageContext";
 
-
 interface DynamicScope {
   // A1
   buildingType: string;
@@ -370,8 +369,7 @@ export function NewProjectPage() {
   const validate = () => {
     const errs: Record<string, string> = {};
     if (step === 0) {
-      if (!form.classification)
-        errs.classification = t("validation.selectOne");
+      if (!form.classification) errs.classification = t("validation.selectOne");
     }
     if (step === 1) {
       if (isExistingRequestMode) {
@@ -384,14 +382,12 @@ export function NewProjectPage() {
           errs.otherLocation = t("validation.required");
         if (!form.block) errs.block = t("validation.selectOne");
         if (!form.floor) errs.floor = t("validation.selectOne");
-        if (!form.department.trim())
-          errs.department = t("validation.required");
+        if (!form.department.trim()) errs.department = t("validation.required");
         if (!form.contactPerson.trim())
           errs.contactPerson = t("validation.required");
         if (!form.contactPhone.trim())
           errs.contactPhone = t("validation.required");
-        if (!form.siteCondition)
-          errs.siteCondition = t("validation.selectOne");
+        if (!form.siteCondition) errs.siteCondition = t("validation.selectOne");
         if (
           form.siteCondition === t("common.other") &&
           !form.otherSiteCondition.trim()
@@ -441,8 +437,7 @@ export function NewProjectPage() {
           errs.a2Deliverables = t("validation.required");
       }
       if (cls === "A3") {
-        if (!form.scope.spaceType)
-          errs.spaceType = t("validation.selectOne");
+        if (!form.scope.spaceType) errs.spaceType = t("validation.selectOne");
         if (
           form.scope.spaceType === t("common.other") &&
           !form.scope.otherSpaceType.trim()
@@ -669,10 +664,18 @@ export function NewProjectPage() {
         endDate: isExistingMode
           ? new Date(Date.now() + 86400000).toISOString().slice(0, 10)
           : form.endDate,
-        department: isExistingMode ? "Linked Existing Project" : form.department,
-        contactPerson: isExistingMode ? "Linked Existing Project" : form.contactPerson,
+        department: isExistingMode
+          ? "Linked Existing Project"
+          : form.department,
+        contactPerson: isExistingMode
+          ? "Linked Existing Project"
+          : form.contactPerson,
         contactPhone: isExistingMode ? "N/A" : form.contactPhone,
-        siteCondition: isExistingMode ? "Linked Existing Project" : (form.siteCondition === t("common.other") ? form.otherSiteCondition : form.siteCondition),
+        siteCondition: isExistingMode
+          ? "Linked Existing Project"
+          : form.siteCondition === t("common.other")
+            ? form.otherSiteCondition
+            : form.siteCondition,
         scope: requestBody.scope,
         createdAt: now,
         updatedAt: now,
@@ -769,7 +772,8 @@ export function NewProjectPage() {
           </p>
         </div>
         <p className="text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-lg p-3 mb-5">
-          <span className="font-semibold">{t("requests.adminNote")}:</span> {t("projects.boq.checkMaterial")}
+          <span className="font-semibold">{t("requests.adminNote")}:</span>{" "}
+          {t("projects.boq.checkMaterial")}
         </p>
         <div className="flex gap-3 justify-center">
           <button

@@ -10,7 +10,6 @@ import { Maintenance, User as UserType } from "../../data/mockData";
 import { getUserFacingStatus, WorkflowRole } from "../../lib/workflow";
 import { useLanguage } from "../../context/LanguageContext";
 
-
 export function MaintenanceListItem({
   m,
   role,
@@ -58,7 +57,6 @@ export function MaintenanceListItem({
   const router = useRouter();
   return (
     <div className="bg-white rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-shadow">
-
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -111,7 +109,6 @@ export function MaintenanceListItem({
             >
               {t("maintenance.startReview")}
             </button>
-
           )}
 
           {/* Admin: Assign Supervisor */}
@@ -122,7 +119,6 @@ export function MaintenanceListItem({
             >
               {t("maintenance.assignSupervisor")}
             </button>
-
           )}
 
           {/* Supervisor: Create WorkOrder */}
@@ -133,7 +129,6 @@ export function MaintenanceListItem({
             >
               {t("maintenance.createWorkOrder")}
             </button>
-
           )}
 
           {/* Supervisor: Assign to Professional */}
@@ -144,7 +139,6 @@ export function MaintenanceListItem({
             >
               {t("maintenance.assignProfessional")}
             </button>
-
           )}
 
           {/* Professional Actions */}
@@ -156,7 +150,6 @@ export function MaintenanceListItem({
               >
                 {t("maintenance.startWork")}
               </button>
-
             )}
 
           {role === "professional" && m.status === "In Progress" && (
@@ -177,7 +170,6 @@ export function MaintenanceListItem({
               >
                 {t("maintenance.submitReviewAdmin")}
               </button>
-
             </div>
           )}
 
@@ -197,7 +189,6 @@ export function MaintenanceListItem({
               >
                 {t("status.rejected")}
               </button>
-
             </div>
           )}
 
@@ -209,16 +200,14 @@ export function MaintenanceListItem({
             >
               {t("status.closed")}
             </button>
-
           )}
 
-            <button
+          <button
             onClick={() => router.push(`/dashboard/maintenance/${m.id}`)}
             className="flex items-center gap-1 text-xs text-[#1A3580] hover:underline"
           >
             <ExternalLink size={12} /> {t("projects.review")}
           </button>
-
         </div>
       </div>
       {/* Inline assign panel */}
@@ -233,7 +222,6 @@ export function MaintenanceListItem({
               {role === "admin"
                 ? t("maintenance.selectSupervisor")
                 : t("maintenance.selectProfessional")}
-
             </option>
             {filteredProfessionals.map((t) => (
               <option key={t.id} value={t.id}>
@@ -241,7 +229,7 @@ export function MaintenanceListItem({
               </option>
             ))}
           </select>
-            <button
+          <button
             onClick={() => onConfirmAssign(m)}
             disabled={!selectedTech}
             className="px-4 py-1.5 bg-[#1A3580] text-white text-sm rounded-lg disabled:opacity-50"
@@ -255,7 +243,6 @@ export function MaintenanceListItem({
           >
             {t("projects.cancel")}
           </button>
-
         </div>
       )}
     </div>

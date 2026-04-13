@@ -217,7 +217,11 @@ export function ConfigPage() {
                         {i + 1}
                       </span>
                     </div>
-                    <span className="text-sm font-medium flex-1">{t(`requests.${status.toLowerCase().replace(/\s+/g, "_")}`)}</span>
+                    <span className="text-sm font-medium flex-1">
+                      {t(
+                        `requests.${status.toLowerCase().replace(/\s+/g, "_")}`,
+                      )}
+                    </span>
                     <ChevronIcon />
                   </div>
                 ))}
@@ -254,7 +258,9 @@ export function ConfigPage() {
                   style={{ background: p.color }}
                 />
                 <div className="flex-1">
-                  <p className="font-semibold text-foreground">{t(`maintenance.priority.${p.label.toLowerCase()}`)}</p>
+                  <p className="font-semibold text-foreground">
+                    {t(`maintenance.priority.${p.label.toLowerCase()}`)}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {t("config.slaTarget")} {p.sla}
                   </p>

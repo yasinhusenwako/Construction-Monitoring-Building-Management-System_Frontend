@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
  * Theme Toggle Component
  * ═══════════════════════════════════════════════════════════════════════════════
- * 
+ *
  * Provides a button to switch between light, dark, and system themes
  * - Shows current theme icon
  * - Smooth transitions with INSA color styling
  * - Persists preference to localStorage
  */
 
-import { Moon, Sun, Monitor } from 'lucide-react';
-import { useTheme } from 'next-themes';
-import { useEffect, useState } from 'react';
+import { Moon, Sun, Monitor } from "lucide-react";
+import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
 
 export function ThemeToggle() {
   const { theme, setTheme, systemTheme } = useTheme();
@@ -32,15 +32,15 @@ export function ThemeToggle() {
     );
   }
 
-  const currentTheme = theme === 'system' ? systemTheme : theme;
+  const currentTheme = theme === "system" ? systemTheme : theme;
 
   const cycleTheme = () => {
-    if (theme === 'light') {
-      setTheme('dark');
-    } else if (theme === 'dark') {
-      setTheme('system');
+    if (theme === "light") {
+      setTheme("dark");
+    } else if (theme === "dark") {
+      setTheme("system");
     } else {
-      setTheme('light');
+      setTheme("light");
     }
   };
 
@@ -50,14 +50,23 @@ export function ThemeToggle() {
       className="p-2 rounded-lg hover:bg-secondary transition-colors group relative"
       title={`Current: ${theme} (${currentTheme}) - Click to switch`}
     >
-      {theme === 'light' && (
-        <Sun size={18} className="text-[#1A3580] dark:text-[#F5B800] transition-colors" />
+      {theme === "light" && (
+        <Sun
+          size={18}
+          className="text-[#1A3580] dark:text-[#F5B800] transition-colors"
+        />
       )}
-      {theme === 'dark' && (
-        <Moon size={18} className="text-[#1A3580] dark:text-[#F5B800] transition-colors" />
+      {theme === "dark" && (
+        <Moon
+          size={18}
+          className="text-[#1A3580] dark:text-[#F5B800] transition-colors"
+        />
       )}
-      {theme === 'system' && (
-        <Monitor size={18} className="text-[#1A3580] dark:text-[#F5B800] transition-colors" />
+      {theme === "system" && (
+        <Monitor
+          size={18}
+          className="text-[#1A3580] dark:text-[#F5B800] transition-colors"
+        />
       )}
     </button>
   );

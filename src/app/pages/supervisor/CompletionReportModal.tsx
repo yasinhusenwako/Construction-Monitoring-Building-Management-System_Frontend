@@ -50,7 +50,9 @@ export function CompletionReportModal({
             />
           </div>
           <div className="bg-cyan-50 border border-cyan-200 rounded-lg p-3 text-xs text-cyan-800">
-            <p className="font-semibold mb-1">📋 {t("supervisor.whatHappensNext")}</p>
+            <p className="font-semibold mb-1">
+              📋 {t("supervisor.whatHappensNext")}
+            </p>
             <ul className="space-y-0.5 list-disc list-inside">
               <li>{t("supervisor.nextStep1")}</li>
               <li>{t("supervisor.nextStep2")}</li>

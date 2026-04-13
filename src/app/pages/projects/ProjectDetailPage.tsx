@@ -115,7 +115,7 @@ export function ProjectDetailPage() {
     if (!canTransition(actorRole, project.status, action)) {
       setActionDone(t("maintenance.atLeastOneLocation")); // Using atLeastOneLocation as placeholder for "Action not allowed" if no specific key exists, but better to use a dedicated one.
       // Wait, I should've added a specific key for "Action not allowed". Let's check common keys.
-      setActionDone(t("message.error")); 
+      setActionDone(t("message.error"));
       setTimeout(() => setActionDone(""), 3000);
       return;
     }
@@ -252,13 +252,11 @@ export function ProjectDetailPage() {
         <WorkflowVisualizer currentStatus={project.status} />
       </div>
 
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Main Details */}
         <div className="lg:col-span-2 space-y-5">
           {/* Combined Card for Description, Details, Contact, and Scope */}
           <div className="bg-white rounded-xl border border-border p-5 shadow-sm space-y-8">
-            
             {/* Description Section */}
             <div>
               <h3 className="text-sm font-semibold text-[#0E2271] mb-3">
@@ -303,11 +301,15 @@ export function ProjectDetailPage() {
                     label: t("form.assignedTo"),
                     value: assignee?.name || t("projects.notYetAssigned"),
                   },
-                  ...(project.siteCondition ? [{
-                    icon: <Info size={14} />,
-                    label: t("common.other"),
-                    value: project.siteCondition,
-                  }] : []),
+                  ...(project.siteCondition
+                    ? [
+                        {
+                          icon: <Info size={14} />,
+                          label: t("common.other"),
+                          value: project.siteCondition,
+                        },
+                      ]
+                    : []),
                 ].map((item) => (
                   <div key={item.label} className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-full bg-[#EEF2FF] flex items-center justify-center flex-shrink-0">
@@ -341,21 +343,33 @@ export function ProjectDetailPage() {
                     label: t("form.createdBy"),
                     value: requester?.name || project.requestedBy,
                   },
-                  ...(project.department ? [{
-                    icon: <Briefcase size={14} />,
-                    label: t("users.department"),
-                    value: project.department,
-                  }] : []),
-                  ...(project.contactPerson ? [{
-                    icon: <User size={14} />,
-                    label: t("maintenance.contactPerson"),
-                    value: project.contactPerson,
-                  }] : []),
-                  ...(project.contactPhone ? [{
-                    icon: <Phone size={14} />,
-                    label: t("form.contactPhone"),
-                    value: project.contactPhone,
-                  }] : []),
+                  ...(project.department
+                    ? [
+                        {
+                          icon: <Briefcase size={14} />,
+                          label: t("users.department"),
+                          value: project.department,
+                        },
+                      ]
+                    : []),
+                  ...(project.contactPerson
+                    ? [
+                        {
+                          icon: <User size={14} />,
+                          label: t("maintenance.contactPerson"),
+                          value: project.contactPerson,
+                        },
+                      ]
+                    : []),
+                  ...(project.contactPhone
+                    ? [
+                        {
+                          icon: <Phone size={14} />,
+                          label: t("form.contactPhone"),
+                          value: project.contactPhone,
+                        },
+                      ]
+                    : []),
                 ].map((item) => (
                   <div key={item.label} className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
@@ -385,11 +399,19 @@ export function ProjectDetailPage() {
                   </h3>
                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-5">
                     {Object.entries(project.scope).map(([key, value]) => {
-                      if (!value || (Array.isArray(value) && value.length === 0)) return null;
-                      
+                      if (
+                        !value ||
+                        (Array.isArray(value) && value.length === 0)
+                      )
+                        return null;
+
                       // Make the key readable camelCase -> Title Case
-                      const formattedKey = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-                      const displayValue = Array.isArray(value) ? value.join(", ") : String(value);
+                      const formattedKey = key
+                        .replace(/([A-Z])/g, " $1")
+                        .replace(/^./, (str) => str.toUpperCase());
+                      const displayValue = Array.isArray(value)
+                        ? value.join(", ")
+                        : String(value);
 
                       return (
                         <div key={key} className="flex items-start gap-3">
@@ -397,8 +419,12 @@ export function ProjectDetailPage() {
                             <Info size={14} className="text-muted-foreground" />
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground">{formattedKey}</p>
-                            <p className="text-sm font-medium text-foreground">{displayValue}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formattedKey}
+                            </p>
+                            <p className="text-sm font-medium text-foreground">
+                              {displayValue}
+                            </p>
                           </div>
                         </div>
                       );
@@ -407,7 +433,6 @@ export function ProjectDetailPage() {
                 </div>
               </>
             )}
-
           </div>
 
           {/* Documents */}
@@ -485,23 +510,33 @@ export function ProjectDetailPage() {
             <div className="bg-gradient-to-br from-[#ffffff] to-[#f4f7fc] rounded-xl border border-border p-5 shadow-md relative overflow-hidden">
               <div className="absolute top-0 left-0 w-1 h-full bg-[#0E2271]"></div>
               <h3 className="text-sm font-bold text-[#0E2271] mb-5 flex items-center gap-2">
-                <CheckCircle size={16} className="text-[#CC1F1A]" /> 
+                <CheckCircle size={16} className="text-[#CC1F1A]" />
                 {t("projects.adminActions")}
               </h3>
 
               {actionDone && (
                 <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 text-sm text-green-700 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
-                  <CheckCircle size={16} /> <span className="font-medium">{t("projects.actionApplied")}:</span> {actionDone}
+                  <CheckCircle size={16} />{" "}
+                  <span className="font-medium">
+                    {t("projects.actionApplied")}:
+                  </span>{" "}
+                  {actionDone}
                 </div>
               )}
 
               <div className="space-y-4">
                 {project.status === "Submitted" && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-3">{t("requests.submitted")}: Ready for initial review.</p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      {t("requests.submitted")}: Ready for initial review.
+                    </p>
                     <button
                       onClick={() =>
-                        handleAction("Under Review", "admin", t("requests.under_review"))
+                        handleAction(
+                          "Under Review",
+                          "admin",
+                          t("requests.under_review"),
+                        )
                       }
                       className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
                       style={{ background: "#7C3AED" }}
@@ -510,7 +545,7 @@ export function ProjectDetailPage() {
                     </button>
                   </div>
                 )}
-                
+
                 {project.status === "Under Review" && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
                     <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
@@ -521,7 +556,12 @@ export function ProjectDetailPage() {
                       onChange={(e) => setSelectedTech(e.target.value)}
                       className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none mb-3 focus:ring-2 focus:ring-[#1A3580]/20 focus:border-[#1A3580] transition-all"
                     >
-                      <option value="">{t("maintenance.placeholder.selectCategory").replace("category", "supervisor")}</option>
+                      <option value="">
+                        {t("maintenance.placeholder.selectCategory").replace(
+                          "category",
+                          "supervisor",
+                        )}
+                      </option>
                       {mockUsers
                         .filter((u) => u.role === "supervisor")
                         .map((u) => (
@@ -555,7 +595,9 @@ export function ProjectDetailPage() {
 
                 {project.status === "Reviewed" && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm flex flex-col gap-3">
-                    <p className="text-xs text-muted-foreground mb-1">Final decision required for this project.</p>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      Final decision required for this project.
+                    </p>
                     <button
                       onClick={() =>
                         handleAction("Approved", "admin", "Approved")
@@ -578,7 +620,9 @@ export function ProjectDetailPage() {
                 {["Approved", "Rejected"].includes(project.status) && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
                     <button
-                      onClick={() => handleAction("Closed", "admin", t("requests.closed"))}
+                      onClick={() =>
+                        handleAction("Closed", "admin", t("requests.closed"))
+                      }
                       className="w-full py-2.5 rounded-lg text-white text-sm font-bold bg-slate-700 hover:bg-slate-800 transition-all shadow-sm flex items-center justify-center gap-2"
                     >
                       <CheckCircle size={16} /> {t("projects.closeRequest")}
@@ -619,20 +663,23 @@ export function ProjectDetailPage() {
               <div className="bg-gradient-to-br from-[#ffffff] to-[#fff5f5] rounded-xl border border-border p-5 shadow-md relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-1 h-full bg-[#CC1F1A]"></div>
                 <h3 className="text-sm font-bold text-[#CC1F1A] mb-5 flex items-center gap-2">
-                  <Briefcase size={16} /> 
+                  <Briefcase size={16} />
                   {t("projects.supervisorActions")}
                 </h3>
-                
+
                 {actionDone && (
                   <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 text-sm text-green-700 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
                     <CheckCircle size={16} /> {actionDone}
                   </div>
                 )}
-                
+
                 <div className="space-y-4">
                   {project.status === "Assigned to Supervisor" && (
                     <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                      <p className="text-xs text-muted-foreground mb-3">Task has been assigned to you. Generate a work order to begin.</p>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Task has been assigned to you. Generate a work order to
+                        begin.
+                      </p>
                       <button
                         onClick={() => {
                           const workOrderId =
@@ -647,7 +694,8 @@ export function ProjectDetailPage() {
                         className="w-full py-2.5 rounded-lg text-white text-sm font-bold hover:shadow-md transition-all flex items-center justify-center gap-2"
                         style={{ background: "#1A3580" }}
                       >
-                        <FileText size={16} /> {t("maintenance.createWorkOrder")}
+                        <FileText size={16} />{" "}
+                        {t("maintenance.createWorkOrder")}
                       </button>
                     </div>
                   )}
@@ -662,7 +710,12 @@ export function ProjectDetailPage() {
                         onChange={(e) => setSelectedTech(e.target.value)}
                         className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all"
                       >
-                        <option value="">{t("maintenance.placeholder.selectCategory").replace("category", "professional")}</option>
+                        <option value="">
+                          {t("maintenance.placeholder.selectCategory").replace(
+                            "category",
+                            "professional",
+                          )}
+                        </option>
                         {mockUsers
                           .filter((u) => u.role === "professional")
                           .map((u) => (
@@ -684,22 +737,31 @@ export function ProjectDetailPage() {
                         disabled={!selectedTech}
                         className="w-full py-2.5 rounded-lg text-sm font-bold bg-[#CC1F1A] text-white hover:bg-[#aa1814] disabled:bg-red-200 disabled:text-red-400 disabled:cursor-not-allowed transition-all shadow-sm flex items-center justify-center gap-2"
                       >
-                        <UserPlus size={16} /> {t("maintenance.assignProfessional")}
+                        <UserPlus size={16} />{" "}
+                        {t("maintenance.assignProfessional")}
                       </button>
                     </div>
                   )}
 
                   {project.status === "Completed" && (
                     <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                      <p className="text-xs text-muted-foreground mb-3">Work has been completed by the professional. Review and submit to admin.</p>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Work has been completed by the professional. Review and
+                        submit to admin.
+                      </p>
                       <button
                         onClick={() =>
-                          handleAction("Reviewed", "supervisor", t("requests.reviewed"))
+                          handleAction(
+                            "Reviewed",
+                            "supervisor",
+                            t("requests.reviewed"),
+                          )
                         }
                         className="w-full py-2.5 rounded-lg text-white text-sm font-bold hover:shadow-md transition-all flex items-center justify-center gap-2"
                         style={{ background: "#0891B2" }}
                       >
-                        <CheckCircle size={16} /> {t("maintenance.submitToAdmin")}
+                        <CheckCircle size={16} />{" "}
+                        {t("maintenance.submitToAdmin")}
                       </button>
                     </div>
                   )}
@@ -738,7 +800,11 @@ export function ProjectDetailPage() {
                   {project.status === "In Progress" && (
                     <button
                       onClick={() =>
-                        handleAction("Completed", "professional", t("requests.completed"))
+                        handleAction(
+                          "Completed",
+                          "professional",
+                          t("requests.completed"),
+                        )
                       }
                       className="w-full py-2 rounded-lg text-white text-sm font-semibold"
                       style={{ background: "#0D9488" }}

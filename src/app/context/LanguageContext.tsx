@@ -14,7 +14,7 @@ type Language = "en" | "am";
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: string) => string;
+  t: (key: string, args?: Record<string, string | number>) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(
@@ -45,8 +45,14 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     setLanguageState(lang);
   };
 
-  const t = (key: string): string => {
-    return translations[language][key] || key;
+  const t = (key: string, args?: Record<string, string | number>): string => {
+    let str = translations[language][key] || key;
+    if (args) {
+      Object.entries(args).forEach(([k, v]) => {
+        str = str.replace(`{${k}}`, String(v));
+      });
+    }
+    return str;
   };
 
   return (
@@ -85,7 +91,6 @@ const translations: Translations = {
     "common.noNote": "No note provided",
     "common.unassigned": "Unassigned",
     "common.more": "more",
-
 
     "app.tagline": "Information Network Security Agency — Ethiopia",
 
@@ -135,11 +140,13 @@ const translations: Translations = {
     "auth.enterpriseSolution": "Enterprise Solution",
     "auth.brandingLoginTitle": "Construction Monitoring",
     "auth.brandingLoginTitleHighlight": "Building Management",
-    "auth.brandingLoginSubtitle": "Centralized platform for comprehensive project oversight, intelligent resource allocation, and streamlined maintenance operations.",
+    "auth.brandingLoginSubtitle":
+      "Centralized platform for comprehensive project oversight, intelligent resource allocation, and streamlined maintenance operations.",
     "auth.brandingRegisterTitle": "Join the",
     "auth.brandingRegisterTitleHighlight": "Digital Infrastructure",
     "auth.brandingRegisterTitleSuffix": "Network",
-    "auth.brandingRegisterSubtitle": "Create your government-grade account to access secure construction data, facility management tools, and organizational resources.",
+    "auth.brandingRegisterSubtitle":
+      "Create your government-grade account to access secure construction data, facility management tools, and organizational resources.",
     "auth.projectOversight": "Project Oversight",
     "auth.projectOversightDesc": "Real-time stage-by-stage monitoring.",
     "auth.spaceStrategy": "Space Strategy",
@@ -153,22 +160,17 @@ const translations: Translations = {
     "auth.stepPersonalInfo": "Personal Info",
     "auth.stepAccountDetails": "Account Details",
     "auth.stepConfirmation": "Confirmation",
-    "auth.fullName": "Full Name",
     "auth.fullNamePlaceholder": "Enter full name",
     "auth.phoneNumber": "Phone Number",
-    "auth.department": "Department",
     "auth.choosePassword": "Choose Password",
     "auth.choosePasswordPlaceholder": "Min 8 characters",
-    "auth.confirmPassword": "Confirm Password",
     "auth.assignRole": "Assign System Role",
     "auth.processing": "Processing...",
     "auth.nextStep": "Next Step",
     "auth.authAccessOnly": "Authorized Access Only",
-    "auth.copyright": "© 2026 INSA - Government Service Infrastructure Oversight",
+    "auth.copyright":
+      "© 2026 INSA - Government Service Infrastructure Oversight",
     "auth.alreadyHaveAccount": "Already have an account?",
-
-
-
 
     // Roles
     "role.admin": "Admin",
@@ -184,7 +186,6 @@ const translations: Translations = {
     "workflow.inspection": "Inspection",
     "workflow.approval": "Approval",
     "workflow.currently": "Currently",
-
 
     // ─────────────────────────────────────────────────────────────
     // Module Labels
@@ -217,7 +218,6 @@ const translations: Translations = {
     "status.inactive": "Inactive",
     "status.locked": "Locked",
 
-
     // ─────────────────────────────────────────────────────────────
     // Priority
     // ─────────────────────────────────────────────────────────────
@@ -249,12 +249,6 @@ const translations: Translations = {
     "action.viewAll": "View All",
     "action.viewDetails": "View Details",
     "action.collapse": "Collapse",
-    "common.showing": "Showing",
-    "common.of": "of",
-    "common.previous": "Previous",
-    "common.next": "Next",
-    "common.copyToClipboard": "Copy to Clipboard",
-
 
     // ─────────────────────────────────────────────────────────────
     // Form Fields
@@ -307,7 +301,6 @@ const translations: Translations = {
     "projects.allProjects": "All Projects",
     "projects.myProjects": "My Projects",
     "projects.viewProject": "View Project",
-    "projects.projectDetails": "Project Details",
     "projects.timeline": "Timeline",
     "projects.milestones": "Milestones",
 
@@ -330,9 +323,7 @@ const translations: Translations = {
     // Maintenance
     // ─────────────────────────────────────────────────────────────
     "maintenance.title": "Maintenance & Repairs",
-    "maintenance.newRequest": "New Maintenance Request",
     "maintenance.issueType": "Issue Type",
-    "maintenance.issueDescription": "Issue Description",
     "maintenance.affectedArea": "Affected Area",
     "maintenance.urgencyLevel": "Urgency Level",
     "maintenance.allRequests": "All Requests",
@@ -343,9 +334,6 @@ const translations: Translations = {
     // ─────────────────────────────────────────────────────────────
     // Notifications
     // ─────────────────────────────────────────────────────────────
-    "notifications.title": "Notifications",
-    "notifications.unread": "unread",
-    "notifications.markAllRead": "Mark All as Read",
     "notifications.noNotifications": "No notifications",
     "notifications.viewAll": "View all notifications →",
 
@@ -361,7 +349,6 @@ const translations: Translations = {
     // ─────────────────────────────────────────────────────────────
     // Users
     // ─────────────────────────────────────────────────────────────
-    "users.title": "User Management",
     "users.addUser": "Add User",
     "users.name": "Name",
     "users.email": "Email",
@@ -413,7 +400,6 @@ const translations: Translations = {
     // Projects - Extended
     // ─────────────────────────────────────────────────────────────
     "projects.submitProject": "Submit Project",
-    "projects.projectID": "Project ID",
     "projects.submittedOn": "Submitted On",
     "projects.noProjects": "No projects found",
     "projects.filterByStatus": "Filter by Status",
@@ -422,9 +408,6 @@ const translations: Translations = {
     "projects.budgetInfo": "Budget Information",
     "projects.attachedDocuments": "Attached Documents",
     "projects.noDocuments": "No documents attached",
-    "projects.adminActions": "Admin Actions",
-    "projects.approveProject": "Approve Project",
-    "projects.rejectProject": "Reject Project",
     "projects.statusHistory": "Status History",
     "projects.addNote": "Add Note",
     "projects.internalNotes": "Internal Notes",
@@ -555,12 +538,8 @@ const translations: Translations = {
     // Users Management - Extended
     // ─────────────────────────────────────────────────────────────
     "users.allUsers": "All Users",
-    "users.addNewUser": "Add New User",
-    "users.editUser": "Edit User",
     "users.deleteUser": "Delete User",
     "users.userDetails": "User Details",
-    "users.fullName": "Full Name",
-    "users.emailAddress": "Email Address",
     "users.phoneNumber": "Phone Number",
     "users.userRole": "User Role",
     "users.selectRole": "Select role",
@@ -575,21 +554,16 @@ const translations: Translations = {
     "users.searchUsers": "Search users",
     "users.filterByRole": "Filter by Role",
     "users.filterByStatus": "Filter by Status",
-    "users.userCreated": "User created successfully",
-    "users.userUpdated": "User updated successfully",
     "users.userDeleted": "User deleted successfully",
     "users.confirmDeleteUser": "Are you sure you want to delete this user?",
 
     // ─────────────────────────────────────────────────────────────
     // System Config - Extended
     // ─────────────────────────────────────────────────────────────
-    "config.title": "System Configuration",
-    "config.generalSettings": "General Settings",
     "config.emailSettings": "Email Settings",
     "config.notificationSettings": "Notification Settings",
     "config.slaSettings": "SLA Settings",
     "config.workflowSettings": "Workflow Settings",
-    "config.systemName": "System Name",
     "config.timezone": "Timezone",
     "config.language": "Default Language",
     "config.dateFormat": "Date Format",
@@ -686,40 +660,13 @@ const translations: Translations = {
     "dashboard.attendees": "attendees",
 
     // Projects - Page Specific
-    "projects.streamA": "Stream A",
-    "projects.projectsFound": "project(s) found",
-    "projects.newProjectRequest": "New Project Request",
-    "projects.searchByTitleOrID": "Search by title or ID...",
-    "projects.classification": "Classification",
-    "projects.budgetETB": "Budget (ETB)",
-    "projects.updated": "Updated",
-    "projects.actions": "Actions",
-    "projects.noProjectsFound": "No Projects Found",
-    "projects.tryAdjusting": "Try adjusting your search or filters",
-    "projects.submitFirstRequest": "Submit First Request",
-    "projects.review": "Review",
-    "projects.workflowProgress": "Workflow Progress",
-    "projects.projectNotFound": "Project not found",
-    "projects.backToProjects": "← Back to Projects",
     "projects.description": "Project Description",
-    "projects.notYetAssigned": "Not yet assigned",
-    "projects.activityTimeline": "Activity Timeline",
     "projects.documents": "Documents",
-    "projects.noDocumentsAttached": "No documents attached",
     "projects.download": "Download",
-    "projects.startReview": "Start Review",
     "projects.markInProgress": "Mark In Progress",
     "projects.markCompleted": "Mark Completed",
     "projects.assignProfessional": "Assign Professional",
     "projects.selectStaff": "Select staff...",
-    "projects.sendToRequester": "Send to Requester",
-    "projects.quickInfo": "Quick Info",
-    "projects.created": "Created",
-    "projects.lastUpdated": "Last Updated",
-    "projects.filesCount": "file(s)",
-    "projects.timelineEventsCount": "Timeline Events",
-    "projects.actionApplied": "Action applied",
-    "projects.addCommentOrReason": "Add a comment or reason...",
 
     // Bookings - Page Specific
     "bookings.spaceAllocation": "Space Allocation & Booking",
@@ -754,11 +701,7 @@ const translations: Translations = {
     "bookings.noBookingType": "New Request",
     "bookings.officeSpaceAllocation": "Office Space Allocation",
     "bookings.sharedHallBooking": "Shared Hall / Room Booking",
-    "bookings.selectRequestType": "Select Request Type",
     "bookings.reviewAndConfirm": "Review & Confirm",
-    "bookings.allocationSubmitted": "Allocation Request Submitted!",
-    "bookings.bookingSubmitted": "Booking Submitted!",
-    "bookings.viewBookings": "View Bookings",
 
     // Bookings - Additional keys
     "bookings.confirmDeleteText": "You are about to permanently delete:",
@@ -852,12 +795,7 @@ const translations: Translations = {
     "bookings.spaceAdded": "Space added successfully",
     "bookings.spaceDeleted": "Space deleted",
 
-
     // Reports - Additional
-    "reports.trendPlusTwo": "+2 this month",
-    "reports.trendMTTR": "-3h vs last",
-    "reports.trendBudget": "+12%",
-    "reports.trendBookings": "+5 this week",
 
     // Users - Additional
     "users.locked": "Locked",
@@ -869,9 +807,7 @@ const translations: Translations = {
       "Write a note, feedback, or clarification request...",
     "requests.noteSent": "Note sent to requester",
     "requests.sendNote": "Send Note",
-    "requests.openFullDetail": "Open Full Detail",
     "requests.allUsersOption": "All Users",
-    "requests.requester": "Requester",
     "requests.sortModule": "Module",
     "requests.requestsCount": "requests",
     "requests.filtersBtn": "Filters",
@@ -880,33 +816,6 @@ const translations: Translations = {
     "requests.sortRequester": "Requester",
 
     // Config - Additional
-    "config.streamA": "A – Projects",
-    "config.streamB": "B – Bookings",
-    "config.streamC": "C – Maintenance",
-    "config.addStatus": "Add Status",
-    "config.saveChanges": "Save Changes",
-    "config.priorityLevelConfig": "Priority Level Configuration",
-    "config.slaTarget": "SLA Target:",
-    "config.colorLabel": "Color",
-    "config.savePrioritySettings": "Save Priority Settings",
-    "config.addTemplate": "Add Template",
-    "config.saveAllTemplates": "Save All Templates",
-    "config.featureToggles": "Feature Toggles",
-    "config.adminEmail": "Admin Email",
-    "config.maxFileSize": "Max File Size (MB)",
-    "config.sessionTimeout": "Session Timeout (hours)",
-    "config.saveGeneralSettings": "Save General Settings",
-    "config.saveFeatureSettings": "Save Feature Settings",
-    "config.enableInAppNotif": "Enable In-App Notifications",
-    "config.showNotifBellDesc": "Show notification bell and alerts",
-    "config.enableEmailAlerts": "Enable Email Alerts",
-    "config.sendEmailStatusDesc": "Send email on status changes",
-    "config.enableSMSAlerts": "Enable SMS Alerts",
-    "config.sendSMSCriticalDesc": "Send SMS for critical events",
-    "config.autoAssignTech": "Auto-Assign Technicians",
-    "config.autoAssignDesc": "Automatically assign based on availability",
-    "config.requireBudgetProj": "Require Budget for Projects",
-    "config.requireBudgetDesc": "Make budget field mandatory",
 
     // Maintenance - Page Specific
     "maintenance.urgentRepairsHVAC": "Urgent Repairs & HVAC",
@@ -916,8 +825,6 @@ const translations: Translations = {
     "maintenance.list": "List",
     "maintenance.newRequest_btn": "New Request",
     "maintenance.noTickets": "No tickets",
-    "maintenance.noTicketsFound": "No Tickets Found",
-    "maintenance.noTicketsMatch": "No maintenance tickets match your filters",
     "maintenance.assignTech": "+ Assign Technician",
     "maintenance.assignTechBtn": "Assign Tech",
     "maintenance.selectTechOption": "Select tech...",
@@ -940,38 +847,16 @@ const translations: Translations = {
     "maintenance.roomOfficeNo": "Room / Office No.",
     "maintenance.contactPerson": "Contact Person",
     "maintenance.contactPhone": "Contact Phone *",
-    "maintenance.additionalNotes": "Additional Notes",
     "maintenance.attachPhotos": "Attach Photos / Documents",
     "maintenance.dragDropPhotos": "Drag & drop photos here",
     "maintenance.reviewAndSubmit": "Review & Submit",
     "maintenance.requestSubmitted_title": "Request Submitted!",
     "maintenance.autoAssignedTo": "Auto-assigned to:",
     "maintenance.viewMaintenance": "View Maintenance",
-    "maintenance.goToDashboard": "Go to Dashboard",
-    "maintenance.maintenanceWorkflow": "Maintenance Workflow",
-    "maintenance.ticketDetails": "Ticket Details",
-    "maintenance.location_label": "Location",
-    "maintenance.floor_label": "Floor",
-    "maintenance.reportedBy_label": "Reported By",
-    "maintenance.assignedTo_label": "Assigned To",
-    "maintenance.notAssigned": "Not assigned",
-    "maintenance.created_label": "Created",
-    "maintenance.resolved_label": "Resolved",
-    "maintenance.pending_label": "Pending",
     "maintenance.attachments_label": "Attachments",
-    "maintenance.noAttachments": "No attachments",
     "maintenance.uploadRepairProof": "Upload Repair Proof / Completion Photo",
-    "maintenance.repairCostTracking": "Repair Cost Tracking",
-    "maintenance.materialsCost": "Materials Cost (ETB)",
-    "maintenance.laborCostETB": "Labor Cost (ETB)",
-    "maintenance.partsUsed": "Parts / Materials Used",
-    "maintenance.totalRepairCost": "Total Repair Cost",
-    "maintenance.saveCostData": "Save Cost Data",
-    "maintenance.activityTimeline": "Activity Timeline",
     "maintenance.adminActions_label": "Admin Actions",
     "maintenance.assignAndNotify": "Assign & Notify",
-    "maintenance.verifyAndClose": "Verify & Close Ticket",
-    "maintenance.saveNote": "Save Note",
     "maintenance.technicianNote": "Technician Note",
     "maintenance.startRepair": "Start Repair",
     "maintenance.markAsRepaired": "Mark as Repaired",
@@ -985,7 +870,6 @@ const translations: Translations = {
     "maintenance.attachmentsCount": "Attachments",
     "maintenance.totalCost": "Total Cost",
     "maintenance.ticketNotFound": "Ticket not found",
-    "maintenance.costDataSaved": "Cost data saved successfully",
 
     // Notifications - Page Specific
     "notifications.allCaughtUp": "All caught up!",
@@ -1073,34 +957,8 @@ const translations: Translations = {
     "reports.pm.scheduled": "Scheduled",
 
     // Users - Page Specific
-    "users.usersCount": "user(s)",
-    "users.active_count": "active",
     "users.administrators": "Administrators",
-    "users.standardUsers": "Standard Users",
     "users.technicians": "Technicians",
-    "users.user_col": "User",
-    "users.id_col": "ID",
-    "users.department_col": "Department",
-    "users.role_col": "Role",
-    "users.status_col": "Status",
-    "users.joined_col": "Joined",
-    "users.actions_col": "Actions",
-    "users.edit_btn": "Edit",
-    "users.disable_btn": "Disable",
-    "users.enable_btn": "Enable",
-    "users.createNewUser": "Create New User",
-    "users.allRoles": "All Roles",
-    "users.allStatuses": "All Statuses",
-    "users.searchByNameEmailID": "Search by name, email, or ID...",
-    "users.phone_label": "Phone",
-    "users.department_label": "Department",
-    "users.role_label": "Role *",
-    "users.status_label": "Status",
-    "users.saveChanges_btn": "Save Changes",
-    "users.createUser_btn": "Create User",
-    "users.showing": "Showing",
-    "users.of": "of",
-    "users.users": "users",
 
     // Admin Dashboard - Extended
     "admin.masterControlLayer": "Master Control Layer",
@@ -1119,7 +977,6 @@ const translations: Translations = {
     "admin.openTickets": "Open Tickets",
     "admin.slaCompliance": "SLA Compliance",
     "admin.ticketsResolvedOnTime": "Tickets resolved on time",
-    "admin.totalBudget": "Total Budget",
     "admin.etbAcrossProjects": "ETB across all projects",
     "admin.adminControlPanel": "Admin Control Panel",
     "admin.navigateToKeyAreas": "Navigate to key management areas",
@@ -1152,23 +1009,13 @@ const translations: Translations = {
     "admin.normal": "Normal",
 
     // Config Page - Extended
-    "config.statusManagement": "Status Management",
-    "config.priorityLevels": "Priority Levels",
-    "config.notificationTemplates": "Notification Templates",
-    "config.systemSettings": "System Settings",
-    "config.manageSettings":
-      "Manage system settings, statuses, and notification templates",
-    "config.savedSuccess": "settings saved successfully",
 
     // All Requests Page
     "requests.allUserRequests": "All User Requests",
     "requests.unifiedView":
       "Unified view of all submitted requests across modules",
     "requests.searchRequests": "Search by title, ID, or requester...",
-    "requests.allModules": "All Modules",
-    "requests.noRequestsFound": "No Requests Found",
     "requests.noRequestsMatch": "No requests match your current filters",
-    "requests.submitted": "Submitted",
 
     // Projects - Stream A Form & Details
     "projects.step.classification": "Classification",
@@ -1177,20 +1024,27 @@ const translations: Translations = {
     "projects.step.documents": "Documents",
     "projects.step.review": "Review & Submit",
     "projects.classification.A1.label": "A1 – New Building Project",
-    "projects.classification.A1.desc": "Full design and construction of a new structure from the ground up.",
+    "projects.classification.A1.desc":
+      "Full design and construction of a new structure from the ground up.",
     "projects.classification.A2.label": "A2 – Expansion & Renovation",
-    "projects.classification.A2.desc": "Modifying or adding to existing facilities and structures.",
+    "projects.classification.A2.desc":
+      "Modifying or adding to existing facilities and structures.",
     "projects.classification.A3.label": "A3 – Interior Design & Partitioning",
-    "projects.classification.A3.desc": "Internal modifications, space optimization, and office partitioning.",
+    "projects.classification.A3.desc":
+      "Internal modifications, space optimization, and office partitioning.",
     "projects.classification.A4.label": "A4 – Site Work & Landscaping",
-    "projects.classification.A4.desc": "External improvements, parking, infrastructure, and green areas.",
+    "projects.classification.A4.desc":
+      "External improvements, parking, infrastructure, and green areas.",
     "projects.classification.A5.label": "A5 – BOQ Preparation Only",
-    "projects.classification.A5.desc": "Detailed quantity surveying and cost estimation for existing designs.",
+    "projects.classification.A5.desc":
+      "Detailed quantity surveying and cost estimation for existing designs.",
     "projects.classification.A6.label": "A6 – Construction Supervision Only",
-    "projects.classification.A6.desc": "Professional oversight of third-party construction works.",
+    "projects.classification.A6.desc":
+      "Professional oversight of third-party construction works.",
     "projects.siteCondition.vacant": "Vacant / Greenfield",
     "projects.siteCondition.occupied": "Existing & Occupied",
-    "projects.siteCondition.partiallyDemolished": "Existing & Partially Demolished",
+    "projects.siteCondition.partiallyDemolished":
+      "Existing & Partially Demolished",
     "projects.siteCondition.constrained": "Highly Constrained / Urban",
     "projects.buildingType.residential": "Residential / Dormitory",
     "projects.buildingType.office": "Office / Administrative",
@@ -1254,15 +1108,10 @@ const translations: Translations = {
     "maintenance.adminActions": "Admin Actions",
     "maintenance.supervisorActions": "Supervisor Actions",
     "maintenance.professionalActions": "Professional Actions",
-    "maintenance.startReview": "Start Review",
-    "maintenance.assignSupervisor": "Assign Supervisor",
-    "maintenance.assignProfessional": "Assign Professional",
     "maintenance.approveCompletion": "Approve Completion",
     "maintenance.rejectToDiv": "Reject to Division",
     "maintenance.verifyAndClose": "Verify & Close Request",
-    "maintenance.createWorkOrder": "Create WorkOrder",
     "maintenance.submitToAdmin": "Submit to Admin",
-    "maintenance.startWork": "Start Work",
     "maintenance.markFixed": "Mark as Fixed",
     "maintenance.addAdminNote": "Add Admin Note",
     "maintenance.saveNote": "Save Note",
@@ -1318,7 +1167,6 @@ const translations: Translations = {
     "maintenance.assigned_to": "Assigned to",
     "maintenance.workOrderCreatedFor": "WorkOrder created for",
 
-
     "projects.adminActions": "Admin Actions",
     "projects.supervisorActions": "Supervisor Actions",
     "projects.professionalActions": "Professional Actions",
@@ -1361,26 +1209,33 @@ const translations: Translations = {
     "notifications.title.completed": "Project Completed",
     "notifications.title.readyApproval": "Project Ready for Approval",
     "notifications.message.assigned": "You have been assigned for supervision.",
-    "notifications.message.taskAssigned": "You have been assigned to complete this task.",
-    "notifications.message.completed": "This task has been completed and needs review.",
-    "notifications.message.readyApproval": "Reviewed by supervisor, awaiting admin approval.",
+    "notifications.message.taskAssigned":
+      "You have been assigned to complete this task.",
+    "notifications.message.completed":
+      "This task has been completed and needs review.",
+    "notifications.message.readyApproval":
+      "Reviewed by supervisor, awaiting admin approval.",
 
     "maintenance.placeholder.shortSummary": "Short summary",
-    "maintenance.placeholder.detailedExplanation": "Detailed explanation of the issue",
+    "maintenance.placeholder.detailedExplanation":
+      "Detailed explanation of the issue",
     "maintenance.placeholder.building": "e.g. Block A",
     "maintenance.placeholder.floor": "e.g. Floor 2",
     "maintenance.placeholder.room": "e.g. Room 204",
     "maintenance.placeholder.selectCategory": "Select category...",
 
     "maintenance.submitSuccess": "Maintenance Request Submitted",
-    "maintenance.submitSuccessDesc": "Your request has been submitted and sent to Admin for review.",
+    "maintenance.submitSuccessDesc":
+      "Your request has been submitted and sent to Admin for review.",
     "maintenance.idLabel": "Maintenance ID",
     "maintenance.viewRequests": "View Requests",
     "maintenance.goToDashboard": "Go to Dashboard",
     "maintenance.dragDropImages": "Drag & drop images here",
     "maintenance.fileTypes": "PNG, JPG, JPEG, WEBP · Max 10MB each",
-    "maintenance.imageEvidence": "Upload images as supporting evidence. You can skip this step if no photos are available.",
-    "maintenance.whatHappensNext": "After submission this request is sent to Admin for review. Internal routing is managed by Admin.",
+    "maintenance.imageEvidence":
+      "Upload images as supporting evidence. You can skip this step if no photos are available.",
+    "maintenance.whatHappensNext":
+      "After submission this request is sent to Admin for review. Internal routing is managed by Admin.",
     "maintenance.atLeastOneLocation": "At least one location field is required",
     "maintenance.requestTitle": "Request Title",
     "maintenance.problemDesc": "Problem Description",
@@ -1428,21 +1283,29 @@ const translations: Translations = {
     "bookings.bookingSubmitted": "Booking Request Submitted",
     "bookings.overCapacity": "Over capacity",
     "bookings.whatHappensNext": "What happens next?",
-    "bookings.nextSteps.allocation.1": "Request is routed to the Space Manager automatically",
-    "bookings.nextSteps.allocation.2": "Space inventory will be checked for availability",
-    "bookings.nextSteps.allocation.3": "You'll receive a confirmation with an Allocation ID",
-    "bookings.nextSteps.allocation.4": "Status follows the standard CMBMS workflow (Submitted → Approved → Completed)",
+    "bookings.nextSteps.allocation.1":
+      "Request is routed to the Space Manager automatically",
+    "bookings.nextSteps.allocation.2":
+      "Space inventory will be checked for availability",
+    "bookings.nextSteps.allocation.3":
+      "You'll receive a confirmation with an Allocation ID",
+    "bookings.nextSteps.allocation.4":
+      "Status follows the standard CMBMS workflow (Submitted → Approved → Completed)",
     "bookings.nextSteps.booking.1": "Routed to: Hall Officer & IT Department",
-    "bookings.nextSteps.booking.2": "IT receives setup request for required amenities",
-    "bookings.nextSteps.booking.3": "Cleaning & Security teams receive preparation tasks",
-    "bookings.nextSteps.booking.4": "You'll receive a confirmation with Booking ID",
+    "bookings.nextSteps.booking.2":
+      "IT receives setup request for required amenities",
+    "bookings.nextSteps.booking.3":
+      "Cleaning & Security teams receive preparation tasks",
+    "bookings.nextSteps.booking.4":
+      "You'll receive a confirmation with Booking ID",
 
     "bookings.placeholder.department": "e.g. Network Operations",
     "bookings.placeholder.contactName": "Full name",
     "bookings.placeholder.contactPhone": "+251 911 000 000",
     "bookings.placeholder.preferredLocation": "e.g. Block A, Floor 2",
     "bookings.placeholder.staffCount": "e.g. 5",
-    "bookings.placeholder.additionalNotes": "Any additional requirements or context...",
+    "bookings.placeholder.additionalNotes":
+      "Any additional requirements or context...",
     "bookings.placeholder.date": "Select booking date",
     "bookings.placeholder.eventTitle": "e.g. Quarterly Security Review",
     "bookings.placeholder.purpose": "Describe the purpose of this booking...",
@@ -1455,7 +1318,6 @@ const translations: Translations = {
     "action.submitReport": "Submit Completion Report",
     "action.approveCompletion": "Approve Completion",
     "action.rejectToDiv": "Reject to Division",
-    "requests.submitted": "Submitted",
     "requests.under_review": "Under Review",
     "requests.assigned_to_supervisor": "Assigned to Supervisor",
     "requests.workorder_created": "WorkOrder Created",
@@ -1472,17 +1334,19 @@ const translations: Translations = {
     "maintenance.noteSaved": "Note saved",
     "maintenance.imagesCount": "image(s)",
     "admin.newSubmission": "New submission",
-    "admin.supervisorReviewedAwaiting": "Supervisor reviewed — awaiting approval",
+    "admin.supervisorReviewedAwaiting":
+      "Supervisor reviewed — awaiting approval",
     "admin.spaceBookingUnderReview": "Space booking under review",
     "admin.usersTrend": "+2 this month",
-    "admin.actionNeeded": "Action needed",
     "admin.clear": "Clear",
     "admin.new": "new",
     "admin.critical": "critical",
     "priority.title": "priority",
-    "admin.overrideDesc": "Any booking override, ticket escalation, or decision reversal should be logged.",
+    "admin.overrideDesc":
+      "Any booking override, ticket escalation, or decision reversal should be logged.",
     "admin.rbacEnforcement": "RBAC Enforcement",
-    "admin.rbacDesc": "Ensure roles are correctly assigned. Requesters, Technicians, and Coordinators have separate permissions.",
+    "admin.rbacDesc":
+      "Ensure roles are correctly assigned. Requesters, Technicians, and Coordinators have separate permissions.",
     "admin.totalBudget": "Total Budget",
     "action.viewReport": "View Report",
     "admin.actionNeeded": "Action Needed",
@@ -1536,7 +1400,8 @@ const translations: Translations = {
     "requests.selectDivisionForSupervisor": "Select Division (for Supervisor)",
     "requests.selectSupervisor": "Select Supervisor",
     "requests.supervisorAssigned": "Supervisor Assigned",
-    "requests.assignedToDivision": "{id} has been assigned to a division supervisor.",
+    "requests.assignedToDivision":
+      "{id} has been assigned to a division supervisor.",
 
     // Admin - Users
     "users.title": "User Management",
@@ -1627,7 +1492,8 @@ const translations: Translations = {
 
     // Admin - Divisions
     "divisions.title": "Divisions Management",
-    "divisions.description": "Monitor workloads and performance across all operational divisions.",
+    "divisions.description":
+      "Monitor workloads and performance across all operational divisions.",
     "divisions.reports": "Division Analytics",
     "divisions.active": "Active",
     "divisions.fixedTasks": "Service Tickets",
@@ -1635,7 +1501,8 @@ const translations: Translations = {
     "divisions.assignments": "Open Assignments",
     "divisions.viewTeam": "View Division Team",
     "divisions.globalDistribution": "Global Resource Distribution",
-    "divisions.reassignNote": "Administrators can reassign tasks between divisions or override assignments from the master console.",
+    "divisions.reassignNote":
+      "Administrators can reassign tasks between divisions or override assignments from the master console.",
     "divisions.openConsole": "Open Management Console",
 
     // Supervisor Terminology
@@ -1650,13 +1517,15 @@ const translations: Translations = {
     "supervisor.capabilityAssign": "Delegate tasks to professional staff",
     "supervisor.capabilityMonitor": "Track real-time engineering progress",
     "supervisor.capabilityReview": "Perform quality review on finished tasks",
-    "supervisor.capabilityReport": "Escalate completion reports to headquarters",
+    "supervisor.capabilityReport":
+      "Escalate completion reports to headquarters",
     "supervisor.restrictionClose": "Full closure reserved for Administration",
     "supervisor.teamOverview": "Division Personnel",
     "supervisor.manageMonitor": "Monitor professional workload and attendance",
     "supervisor.professionals": "Professional Staff",
     "supervisor.noProfessionals": "No personnel found",
-    "supervisor.noProfessionalsDesc": "No professionals are currently mapped to this division.",
+    "supervisor.noProfessionalsDesc":
+      "No professionals are currently mapped to this division.",
     "supervisor.activeTasks": "active tasks",
     "supervisor.viewPerformance": "Performance Log",
     "supervisor.viewWorkLog": "Daily Work Diary",
@@ -1664,16 +1533,19 @@ const translations: Translations = {
     "supervisor.selectProfessional": "Assign To Professional *",
     "supervisor.active": "Active",
     "supervisor.instructionsNotes": "Specific Directives / Safety Notes",
-    "supervisor.instructionsPlaceholder": "Provide technical details, safety precautions, or required tooling...",
+    "supervisor.instructionsPlaceholder":
+      "Provide technical details, safety precautions, or required tooling...",
     "supervisor.taskPriority": "Work Order Priority",
     "supervisor.reportModalTitle": "Submit Final Completion Report",
     "supervisor.reportFindings": "Engineering Findings / Closure Notes",
-    "supervisor.reportPlaceholder": "Document work performed, materials consumed, and diagnostic results...",
+    "supervisor.reportPlaceholder":
+      "Document work performed, materials consumed, and diagnostic results...",
     "supervisor.whatHappensNext": "Post-Submission Workflow",
     "supervisor.nextStep1": "Report is queued for Admin financial auditing",
     "supervisor.nextStep2": "Central Admin confirms operational closure",
     "supervisor.nextStep3": "Original requester is notified via Secure Gateway",
-    "supervisor.noTasksDesc": "No requests are currently assigned to your division.",
+    "supervisor.noTasksDesc":
+      "No requests are currently assigned to your division.",
     "supervisor.taskManagement": "Task Management",
     "supervisor.viewDetails": "View Details",
     "supervisor.assignProfessional": "Assign Professional",
@@ -1681,23 +1553,25 @@ const translations: Translations = {
     "supervisor.totalAssigned": "Total Assigned",
     "supervisor.withProfessionals": "With Professionals",
     "supervisor.submittedToAdmin": "Submitted to Admin",
-    "supervisor.action.assigned": "Task assigned to professional. Professional notified.",
-    "supervisor.action.reportSubmitted": "Completion report for {id} submitted to Administration.",
+    "supervisor.action.assigned":
+      "Task assigned to professional. Professional notified.",
+    "supervisor.action.reportSubmitted":
+      "Completion report for {id} submitted to Administration.",
     "supervisor.note.workOrderGenerated": "Work order {id} generated.",
     "supervisor.note.assignedToPro": "Assigned to {name}{instructions}",
     "supervisor.maintenanceAssigned": "Maintenance Task Assigned",
 
     // Professional - Progress Updates
-    "professional.progressUpdates": "Progress Updates",
-    "professional.updateStatusDesc": "Quickly update the status of your active maintenance tasks.",
     "professional.allClear": "All clear!",
-    "professional.noPendingTasks": "You have no pending tasks requiring immediate progress updates.",
+    "professional.noPendingTasks":
+      "You have no pending tasks requiring immediate progress updates.",
     "professional.addProgressNote": "Add Progress Note",
     "professional.notePlaceholder": "What was done today?...",
     "professional.markAs": "Mark",
     "professional.markInProgress": "Mark In Progress",
     "professional.markCompleted": "Mark Completed",
-    "professional.noActionsRequired": "No further actions required for this role",
+    "professional.noActionsRequired":
+      "No further actions required for this role",
 
     // Missing EN Keys
     "status.assignedtoSupervisor": "Assigned to Supervisor",
@@ -1724,7 +1598,8 @@ const translations: Translations = {
     "admin.activeWorkflows": "Active Workflows",
     "admin.adminGovernanceReminders": "Admin Governance Reminders",
     "admin.adminMonitoringDesc": "Administrative oversight of the system.",
-    "admin.allRequestsDesc": "View and manage all user requests across all workflows.",
+    "admin.allRequestsDesc":
+      "View and manage all user requests across all workflows.",
     "admin.allWorkflowsOnTrack": "All Workflows On Track",
     "admin.available": "Available",
     "admin.awaitingApproval": "Awaiting Approval",
@@ -1778,11 +1653,8 @@ const translations: Translations = {
     "common.noNote": "ማስታወሻ አልተሰጠም",
     "common.unassigned": "ያልተመደበ",
     "common.more": "ተጨማሪ",
-    
+
     // Roles
-    "role.admin": "አስተዳዳሪ",
-    "role.user": "ተጠቃሚ",
-    "role.technician": "ቴክኒሻን",
     "role.supervisor": "ሱፐርቫይዘር",
     "role.professional": "ባለሙያ",
     "role.system": "ስርዓት",
@@ -1796,7 +1668,6 @@ const translations: Translations = {
     "workflow.approval": "ማጽደቅ",
     "workflow.closed": "ተዘግቷል",
     "workflow.currently": "በአሁኑ ጊዜ",
-
 
     "app.tagline": "የመረጃ አውታረ መረብ ደህንነት ኤጀንሲ — ኢትዮጵያ",
 
@@ -1846,11 +1717,13 @@ const translations: Translations = {
     "auth.enterpriseSolution": "የድርጅት መፍትሔ",
     "auth.brandingLoginTitle": "የግንባታ ቁጥጥር",
     "auth.brandingLoginTitleHighlight": "የሕንፃ አስተዳደር",
-    "auth.brandingLoginSubtitle": "ለአጠቃላይ ፕሮጀክት ቁጥጥር፣ ብልህ የሀብት ክፍፍል እና የተሳለጠ የጥገና ስራዎች ማእከላዊ መድረክ።",
+    "auth.brandingLoginSubtitle":
+      "ለአጠቃላይ ፕሮጀክት ቁጥጥር፣ ብልህ የሀብት ክፍፍል እና የተሳለጠ የጥገና ስራዎች ማእከላዊ መድረክ።",
     "auth.brandingRegisterTitle": "ይቀላቀሉ",
     "auth.brandingRegisterTitleHighlight": "ዲጂታል መሠረተ ልማት",
     "auth.brandingRegisterTitleSuffix": "አውታረ መረብ",
-    "auth.brandingRegisterSubtitle": "ደህንነቱ የተጠበቀ የግንባታ መረጃን፣ የፋሲሊቲ አስተዳደር መሳሪያዎችን እና ድርጅታዊ ሀብቶችን ለማግኘት የመንግስት ደረጃ መለያዎን ይፍጠሩ።",
+    "auth.brandingRegisterSubtitle":
+      "ደህንነቱ የተጠበቀ የግንባታ መረጃን፣ የፋሲሊቲ አስተዳደር መሳሪያዎችን እና ድርጅታዊ ሀብቶችን ለማግኘት የመንግስት ደረጃ መለያዎን ይፍጠሩ።",
     "auth.projectOversight": "የፕሮጀክት ቁጥጥር",
     "auth.projectOversightDesc": "የእውነተኛ ጊዜ ደረጃ በደረጃ ክትትል።",
     "auth.spaceStrategy": "የቦታ ስትራቴጂ",
@@ -1864,22 +1737,16 @@ const translations: Translations = {
     "auth.stepPersonalInfo": "የግል መረጃ",
     "auth.stepAccountDetails": "የመለያ ዝርዝሮች",
     "auth.stepConfirmation": "ማረጋገጫ",
-    "auth.fullName": "ሙሉ ስም",
     "auth.fullNamePlaceholder": "ሙሉ ስም ያስገቡ",
     "auth.phoneNumber": "ስልክ ቁጥር",
-    "auth.department": "ክፍል",
     "auth.choosePassword": "የይለፍ ቃል ይምረጡ",
     "auth.choosePasswordPlaceholder": "ቢያንስ 8 ቁምፊዎች",
-    "auth.confirmPassword": "የይለፍ ቃሉን ያረጋግጡ",
     "auth.assignRole": "የስርዓት ሚና ይመድቡ",
     "auth.processing": "በማቀነባበር ላይ...",
     "auth.nextStep": "የሚቀጥለው ደረጃ",
     "auth.authAccessOnly": "የተፈቀደ መዳረሻ ብቻ",
     "auth.copyright": "© 2026 INSA - የመንግስት አገልግሎት መሠረተ ልማት ክትትል",
     "auth.alreadyHaveAccount": "አስቀድመው መለያ አለዎት?",
-
-
-
 
     // Roles
     "role.admin": "አስተዳዳሪ",
@@ -1917,7 +1784,6 @@ const translations: Translations = {
     "status.inactive": "ንቁ ያልሆነ",
     "status.locked": "የተቆለፈ",
 
-
     // ─────────────────────────────────────────────────────────────
     // Priority
     // ─────────────────────────────────────────────────────────────
@@ -1949,12 +1815,6 @@ const translations: Translations = {
     "action.viewAll": "ሁሉንም እይ",
     "action.viewDetails": "ዝርዝር እይ",
     "action.collapse": "ሰብስብ",
-    "common.showing": "በማሳየት ላይ",
-    "common.of": "ከ",
-    "common.previous": "የቀድሞ",
-    "common.next": "የሚቀጥለው",
-    "common.copyToClipboard": "ወደ ክሊፕቦርድ ቅዳ",
-
 
     // ─────────────────────────────────────────────────────────────
     // Form Fields
@@ -2007,7 +1867,6 @@ const translations: Translations = {
     "projects.allProjects": "ሁሉም ፕሮጀክቶች",
     "projects.myProjects": "የእኔ ፕሮጀክቶች",
     "projects.viewProject": "ፕሮጀክት እይ",
-    "projects.projectDetails": "የፕሮጀክት ዝርዝሮች",
     "projects.timeline": "የጊዜ መስመር",
     "projects.milestones": "ምዕራፎች",
 
@@ -2030,9 +1889,7 @@ const translations: Translations = {
     // Maintenance
     // ─────────────────────────────────────────────────────────────
     "maintenance.title": "ጥገናና ጥገና",
-    "maintenance.newRequest": "አዲስ የጥገና ጥያቄ",
     "maintenance.issueType": "የችግር ዓይነት",
-    "maintenance.issueDescription": "የችግር መግለጫ",
     "maintenance.affectedArea": "የተጎዳው አካባቢ",
     "maintenance.urgencyLevel": "የአስቸኳይነት ደረጃ",
     "maintenance.allRequests": "ሁሉም ጥያቄዎች",
@@ -2043,9 +1900,6 @@ const translations: Translations = {
     // ─────────────────────────────────────────────────────────────
     // Notifications
     // ─────────────────────────────────────────────────────────────
-    "notifications.title": "ማሳወቂያዎች",
-    "notifications.unread": "ያልተነበበ",
-    "notifications.markAllRead": "ሁሉንም እንደተነበበ አድርግ",
     "notifications.noNotifications": "ማሳወቂያዎች የሉም",
     "notifications.viewAll": "ሁሉንም ማሳወቂያዎች እይ →",
 
@@ -2061,7 +1915,6 @@ const translations: Translations = {
     // ─────────────────────────────────────────────────────────────
     // Users
     // ─────────────────────────────────────────────────────────────
-    "users.title": "የተጠቃሚ አስተዳደር",
     "users.addUser": "ተጠቃሚ ጨምር",
     "users.name": "ስም",
     "users.email": "ኢሜይል",
@@ -2113,7 +1966,6 @@ const translations: Translations = {
     // Projects - Extended
     // ─────────────────────────────────────────────────────────────
     "projects.submitProject": "ፕሮጀክት አቅርብ",
-    "projects.projectID": "የፕሮጀክት መለያ",
     "projects.submittedOn": "የቀረበበት",
     "projects.noProjects": "ፕሮጀክቶች አልተገኙም",
     "projects.filterByStatus": "በሁኔታ አጣራ",
@@ -2122,9 +1974,6 @@ const translations: Translations = {
     "projects.budgetInfo": "የበጀት መረጃ",
     "projects.attachedDocuments": "የተያያዙ ሰነዶች",
     "projects.noDocuments": "ምንም የተያያዙ ሰነዶች የሉም",
-    "projects.adminActions": "የአስተዳዳሪ ድርጊቶች",
-    "projects.approveProject": "ፕሮጀክት ፀድቅ",
-    "projects.rejectProject": "ፕሮጀክት ውድቅ አድርግ",
     "projects.statusHistory": "የሁኔታ ታሪክ",
     "projects.addNote": "ማስታወሻ ጨምር",
     "projects.internalNotes": "ውስጣዊ ማስታወሻዎች",
@@ -2254,12 +2103,8 @@ const translations: Translations = {
     // Users Management - Extended
     // ─────────────────────────────────────────────────────────────
     "users.allUsers": "ሁሉም ተጠቃሚዎች",
-    "users.addNewUser": "አዲስ ተጠቃሚ ጨምር",
-    "users.editUser": "ተጠቃሚ አርትዕ",
     "users.deleteUser": "ተጠቃሚ ሰርዝ",
     "users.userDetails": "የተጠቃሚ ዝርዝሮች",
-    "users.fullName": "ሙሉ ስም",
-    "users.emailAddress": "ኢሜይል አድራሻ",
     "users.phoneNumber": "ስልክ ቁጥር",
     "users.userRole": "የተጠቃሚ ሚና",
     "users.selectRole": "ሚና ይምረጡ",
@@ -2274,21 +2119,16 @@ const translations: Translations = {
     "users.searchUsers": "ተጠቃሚዎችን ፈልግ",
     "users.filterByRole": "በሚና አጣራ",
     "users.filterByStatus": "በሁኔታ አጣራ",
-    "users.userCreated": "ተጠቃሚ በተሳካ ሁኔታ ተፈጥሯል",
-    "users.userUpdated": "ተጠቃሚ በተሳካ ሁኔታ ተዘምኗል",
     "users.userDeleted": "ተጠቃሚ በተሳካ ሁኔታ ተሰርዟል",
     "users.confirmDeleteUser": "ይህን ተጠቃሚ መሰረዝ እርግጠኛ ነዎት?",
 
     // ─────────────────────────────────────────────────────────────
     // System Config - Extended
     // ─────────────────────────────────────────────────────────────
-    "config.title": "የስርዓት ማዋቀር",
-    "config.generalSettings": "አጠቃላይ ቅንብሮች",
     "config.emailSettings": "የኢሜይል ቅንብሮች",
     "config.notificationSettings": "የማሳወቂያ ቅንብሮች",
     "config.slaSettings": "SLA ቅንብሮች",
     "config.workflowSettings": "የስራ ፍሰት ቅንብሮች",
-    "config.systemName": "የስርዓት ስም",
     "config.timezone": "የጊዜ ሰቅ",
     "config.language": "ነባሪ ቋንቋ",
     "config.dateFormat": "የቀን ቅርጸት",
@@ -2385,35 +2225,13 @@ const translations: Translations = {
     "dashboard.attendees": "ተሳታፊዎች",
 
     // Projects - Page Specific
-    "projects.streamA": "ዥረት A",
-    "projects.projectsFound": "ፕሮጀክት(ዎች) ተገኝቷል",
-    "projects.newProjectRequest": "አዲስ የፕሮጀክት ጥያቄ",
-    "projects.searchByTitleOrID": "በርዕስ ወይም ምልክት ፈልግ...",
-    "projects.classification": "ምደባ",
-    "projects.budgetETB": "በጀት (ብር)",
-    "projects.updated": "ተዘምኗል",
-    "projects.actions": "ድርጊቶች",
-    "projects.noProjectsFound": "ፕሮጀክቶች አልተገኙም",
-    "projects.tryAdjusting": "ፍለጋዎን ወይም ማጣሪያዎን ያስተካክሉ",
-    "projects.submitFirstRequest": "የመጀመሪያ ጥያቄ አቅርብ",
-    "projects.review": "ግምግሙ",
-    "projects.workflowProgress": "የስራ ፍሰት ሂደት",
-    "projects.projectNotFound": "ፕሮጀክት አልተገኘም",
-    "projects.backToProjects": "← ወደ ፕሮጀክቶች ተመለስ",
     "projects.description": "የፕሮጀክት መግለጫ",
-    "projects.notYetAssigned": "ገና አልተሰጠም",
-    "projects.activityTimeline": "የእንቅስቃሴ ጊዜ ሰሌዳ",
     "projects.documents": "ሰነዶች",
-    "projects.noDocumentsAttached": "ምንም ሰነዶች ያልተያያዙ",
     "projects.download": "አውርድ",
-    "projects.startReview": "ግምግምት ጀምር",
     "projects.markInProgress": "እንደሚሠራ ምልክት አድርግ",
     "projects.markCompleted": "እንደተጠናቀቀ ምልክት አድርግ",
     "projects.assignProfessional": "ባለሙያ ሰጥ",
     "projects.selectStaff": "ሰራተኛ ምረጥ...",
-    "projects.sendToRequester": "ለጠያቂው ላክ",
-    "projects.quickInfo": "ፈጣን መረጃ",
-    "projects.created": "ተፈጥሯል",
     "projects.streamA": "ስትሪም ኤ – ካፒታል ፕሮጀክቶች",
     "projects.projectsFound": "ፕሮጀክቶች ተገኝተዋል",
     "projects.newProjectRequest": "አዲስ የፕሮጀክት ጥያቄ",
@@ -2427,12 +2245,6 @@ const translations: Translations = {
     "projects.updated": "ተሻሽሏል",
     "projects.actions": "ተግባራት",
     "projects.review": "ክለሳ",
-
-    "projects.lastUpdated": "ላቅ ዘምኗል",
-    "projects.filesCount": "ፋይል(ዎች)",
-    "projects.timelineEventsCount": "የጊዜ ሰሌዳ ክስተቶች",
-    "projects.actionApplied": "ድርጊቱ ተፈጻሚ ሆኗል",
-    "projects.addCommentOrReason": "አስተያየት ወይም ምክንያት ያስገቡ...",
 
     // Bookings - Page Specific
     "bookings.spaceAllocation": "የቦታ ምደባና ቅድሚያ",
@@ -2466,10 +2278,7 @@ const translations: Translations = {
     "bookings.noBookingType": "አዲስ ጥያቄ",
     "bookings.officeSpaceAllocation": "የቢሮ ቦታ ምደባ",
     "bookings.sharedHallBooking": "የጋራ አዳራሽ / ክፍል ቅድሚያ",
-    "bookings.selectRequestType": "የጥያቄ ዓይነት ምረጥ",
     "bookings.reviewAndConfirm": "ያረጋግጡ",
-    "bookings.allocationSubmitted": "የምደባ ጥያቄ ቀርቧል!",
-    "bookings.bookingSubmitted": "ቅድሚያ ቀርቧል!",
     "bookings.spaceType.conferenceHall": "የኮንፈረንስ አዳራሽ",
     "bookings.spaceType.trainingRoom": "የስልጠና ክፍል",
     "bookings.spaceType.lab": "ቤተ-ሙከራ",
@@ -2482,8 +2291,6 @@ const translations: Translations = {
     "bookings.spaceAdded": "ቦታው በተሳካ ሁኔታ ተጨምሯል",
     "bookings.spaceDeleted": "ቦታው ተሰርዟል",
 
-    "bookings.viewBookings": "ቅድሚያዎችን እይ",
-
     // Maintenance - Page Specific
     "maintenance.urgentRepairsHVAC": "አስቸኳይ ጥገናና HVAC",
     "maintenance.maintenanceAndRepairs": "ጥገናና ጥገናዎች",
@@ -2492,8 +2299,6 @@ const translations: Translations = {
     "maintenance.list": "ዝርዝር",
     "maintenance.newRequest_btn": "አዲስ ጥያቄ",
     "maintenance.noTickets": "ቲኬቶች የሉም",
-    "maintenance.noTicketsFound": "ቲኬቶች አልተገኙም",
-    "maintenance.noTicketsMatch": "ምንም የጥገና ቲኬቶች ማጣሪያዎን አያሟሉም",
     "maintenance.assignTech": "+ ቴክኒሺያን ምደባ",
     "maintenance.assignTechBtn": "ቴክ ምደባ",
     "maintenance.selectTechOption": "ቴክ ምረጥ...",
@@ -2515,15 +2320,12 @@ const translations: Translations = {
     "maintenance.roomOfficeNo": "ክፍል / ቢሮ ቁጥር",
     "maintenance.contactPerson": "ተገናኝ ሰው",
     "maintenance.contactPhone": "ተገናኝ ስልክ *",
-    "maintenance.additionalNotes": "ተጨማሪ ማስታወሻዎች",
     "maintenance.attachPhotos": "ፎቶ / ሰነዶች ያያይዙ",
     "maintenance.dragDropPhotos": "ፎቶዎችን ወደዚህ ጎትቶ ጣሉ",
     "maintenance.reviewAndSubmit": "ይገምግሙና ያቅርቡ",
     "maintenance.requestSubmitted_title": "ጥያቄ ቀርቧል!",
     "maintenance.autoAssignedTo": "ወደዚህ ተልኳል:",
     "maintenance.viewMaintenance": "ጥገናዎችን እይ",
-    "maintenance.goToDashboard": "ወደ ዳሽቦርድ ሂድ",
-    "maintenance.maintenanceWorkflow": "የጥገና ስራ ፍሰት",
     "maintenance.assignedTasks": "የተመደቡ ስራዎች",
     "maintenance.yourAssignedTasks": "የእርስዎ የተመደቡ ስራዎች",
     "maintenance.inProgress": "በሂደት ላይ",
@@ -2536,11 +2338,6 @@ const translations: Translations = {
     "maintenance.taskStarted": "ተግባር ተጀምሯል",
     "maintenance.workSubmitted": "ስራ ቀርቧል",
     "maintenance.reviewSubmitted": "ግምገማ ቀርቧል",
-    "maintenance.startReview": "ግምገማ ጀምር",
-    "maintenance.assignSupervisor": "ሱፐርቫይዘር መድብ",
-    "maintenance.createWorkOrder": "የሥራ ትዕዛዝ ፍጠር",
-    "maintenance.assignProfessional": "ባለሙያ መድብ",
-    "maintenance.startWork": "ስራ ጀምር",
     "maintenance.completeSubmit": "አጠናቅቅ እና አቅርብ",
     "maintenance.submitReviewAdmin": "ግምገማ ለአስተዳዳሪ ላክ",
     "maintenance.selectSupervisor": "ሱፐርቫይዘር ይምረጡ...",
@@ -2548,7 +2345,6 @@ const translations: Translations = {
     "maintenance.assign": "መድብ",
     "maintenance.assigned_to": "ተመድቧል ለ",
     "maintenance.workOrderCreatedFor": "የስራ ትዕዛዝ ተፈጥሯል ለ",
-    "requests.submitted": "ቀርቧል",
     "requests.under_review": "በግምገማ ላይ",
     "requests.assigned_to_supervisor": "ለሱፐርቫይዘር ተሰጥቷል",
     "requests.workorder_created": "የስራ ትዕዛዝ ተፈጥሯል",
@@ -2565,30 +2361,10 @@ const translations: Translations = {
     "maintenance.noteSaved": "ማስታወሻ ተቀምጧል",
     "maintenance.imagesCount": "ምስል(ሎች)",
 
-
-    "maintenance.ticketDetails": "የቲኬት ዝርዝሮች",
-    "maintenance.location_label": "አካባቢ",
-    "maintenance.floor_label": "ፎቅ",
-    "maintenance.reportedBy_label": "ዘግቧል",
-    "maintenance.assignedTo_label": "ተሰጥቷል",
-    "maintenance.notAssigned": "ያልተሰጠ",
-    "maintenance.created_label": "ተፈጥሯል",
-    "maintenance.resolved_label": "ተፈቷል",
-    "maintenance.pending_label": "በመጠባበቅ",
     "maintenance.attachments_label": "አባሪዎች",
-    "maintenance.noAttachments": "አባሪዎች የሉም",
     "maintenance.uploadRepairProof": "የጥገና ማረጋገጫ / ማጠናቀቂያ ፎቶ ስቀል",
-    "maintenance.repairCostTracking": "የጥገና ወጪ ክትትል",
-    "maintenance.materialsCost": "የቁሳቁስ ወጪ (ብር)",
-    "maintenance.laborCostETB": "የሰው ሃይል ወጪ (ብር)",
-    "maintenance.partsUsed": "ያገለገሉ ክፍሎች / ቁሳቁሶች",
-    "maintenance.totalRepairCost": "ጠቅላላ የጥገና ወጪ",
-    "maintenance.saveCostData": "የወጪ መረጃ አስቀምጥ",
-    "maintenance.activityTimeline": "የእንቅስቃሴ ጊዜ ሰሌዳ",
     "maintenance.adminActions_label": "የአስተዳዳሪ ድርጊቶች",
     "maintenance.assignAndNotify": "ምደባ እና ማሳወቅ",
-    "maintenance.verifyAndClose": "ያረጋግጡ እና ቲኬቱን ዝጉ",
-    "maintenance.saveNote": "ማስታወሻ አስቀምጥ",
     "maintenance.technicianNote": "የቴክኒሺያን ማስታወሻ",
     "maintenance.startRepair": "ጥገና ጀምር",
     "maintenance.markAsRepaired": "እንደተጠገነ ምልክት አድርግ",
@@ -2602,7 +2378,6 @@ const translations: Translations = {
     "maintenance.attachmentsCount": "አባሪዎች",
     "maintenance.totalCost": "ጠቅላላ ወጪ",
     "maintenance.ticketNotFound": "ቲኬት አልተገኘም",
-    "maintenance.costDataSaved": "የወጪ መረጃ በተሳካ ሁኔታ ተቀምጧል",
 
     // Notifications - Page Specific
     "notifications.allCaughtUp": "ሁሉም ቅደምተከተሉ ተጠናቋል!",
@@ -2674,34 +2449,8 @@ const translations: Translations = {
     "reports.completed": "ተጠናቋል",
 
     // Users - Page Specific
-    "users.usersCount": "ተጠቃሚ(ዎች)",
-    "users.active_count": "ንቁ",
     "users.administrators": "አስተዳዳሪዎች",
-    "users.standardUsers": "መደበኛ ተጠቃሚዎች",
     "users.technicians": "ቴክኒሺያኖች",
-    "users.user_col": "ተጠቃሚ",
-    "users.id_col": "መለያ",
-    "users.department_col": "ክፍል",
-    "users.role_col": "ሚና",
-    "users.status_col": "ሁኔታ",
-    "users.joined_col": "ተቀላቀለ",
-    "users.actions_col": "ድርጊቶች",
-    "users.edit_btn": "አርትዕ",
-    "users.disable_btn": "አሰናክል",
-    "users.enable_btn": "አንቃ",
-    "users.createNewUser": "አዲስ ተጠቃሚ ፍጠር",
-    "users.allRoles": "ሁሉም ሚናዎች",
-    "users.allStatuses": "ሁሉም ሁኔታዎች",
-    "users.searchByNameEmailID": "በስም፣ ኢሜይል ወይም መለያ ፈልግ...",
-    "users.phone_label": "ስልክ",
-    "users.department_label": "ክፍል",
-    "users.role_label": "ሚና *",
-    "users.status_label": "ሁኔታ",
-    "users.saveChanges_btn": "ለውጦችን አስቀምጥ",
-    "users.createUser_btn": "ተጠቃሚ ፍጠር",
-    "users.showing": "በማሳየት ላይ",
-    "users.of": "ከ",
-    "users.users": "ተጠቃሚዎች",
 
     // Admin Dashboard - Extended
     "admin.masterControlLayer": "ማስተር ቁጥጥር ንብርብር",
@@ -2720,7 +2469,6 @@ const translations: Translations = {
     "admin.openTickets": "ክፍት ቲኬቶች",
     "admin.slaCompliance": "SLA ተኳሃኝነት",
     "admin.ticketsResolvedOnTime": "ቲኬቶች በጊዜ ተፈተዋል",
-    "admin.totalBudget": "ጠቅላላ በጀት",
     "admin.etbAcrossProjects": "ብር በሁሉም ፕሮጀክቶች",
     "admin.adminControlPanel": "የአስተዳዳሪ መቆጣጠሪያ ፓነል",
     "admin.navigateToKeyAreas": "ወደ ቁልፍ አካባቢዎች ይሂዱ",
@@ -2748,14 +2496,15 @@ const translations: Translations = {
     "admin.supervisorReviewedAwaiting": "በሱፐርቫይዘር ተገምግሟል - ማጽደቅ በመጠባበቅ ላይ",
     "admin.spaceBookingUnderReview": "የቦታ ማስያዣ በግምገማ ላይ",
     "admin.usersTrend": "+2 በዚህ ወር",
-    "admin.actionNeeded": "እርምጃ ያስፈልጋል",
     "admin.clear": "ግልጽ",
     "admin.new": "አዲስ",
     "admin.critical": "ወሳኝ",
     "priority.title": "ቅድሚያ",
-    "admin.overrideDesc": "ማንኛውም የቦታ ማስያዣ መሻር፣ የጥያቄ መባባስ ወይም የውሳኔ መመለስ መመዝገብ አለበት።",
+    "admin.overrideDesc":
+      "ማንኛውም የቦታ ማስያዣ መሻር፣ የጥያቄ መባባስ ወይም የውሳኔ መመለስ መመዝገብ አለበት።",
     "admin.rbacEnforcement": "የRBAC ተገዢነት",
-    "admin.rbacDesc": "ሚናዎች በትክክል መመደባቸውን ያረጋግጡ። ጠያቂዎች፣ ቴክኒሻኖች እና አስተባባሪዎች የተለየ ፈቃዶች አሏቸው።",
+    "admin.rbacDesc":
+      "ሚናዎች በትክክል መመደባቸውን ያረጋግጡ። ጠያቂዎች፣ ቴክኒሻኖች እና አስተባባሪዎች የተለየ ፈቃዶች አሏቸው።",
     "admin.totalBudget": "ጠቅላላ በጀት",
     "action.viewReport": "ሪፖርት ተመልከት",
     "admin.actionNeeded": "እርምጃ ያስፈልጋል",
@@ -2774,26 +2523,16 @@ const translations: Translations = {
     "month.nov": "ህዳር",
     "month.dec": "ታህሳስ",
 
-
     "admin.high": "ከፍተኛ",
     "admin.normal": "መደበኛ",
 
     // Config Page - Extended
-    "config.statusManagement": "የሁኔታ አስተዳደር",
-    "config.priorityLevels": "የቅድሚያ ደረጃዎች",
-    "config.notificationTemplates": "የማሳወቂያ አብነቶች",
-    "config.systemSettings": "የስርዓት ቅንብሮች",
-    "config.manageSettings": "ቅንብሮችን፣ ሁኔታዎችን እና አብነቶችን ያስተዳድሩ",
-    "config.savedSuccess": "ቅንብሮች ተቀምጠዋል",
 
     // All Requests Page
     "requests.allUserRequests": "ሁሉም የተጠቃሚ ጥያቄዎች",
     "requests.unifiedView": "ወጥ እይታ ለሁሉም ቀርቧ ጥያቄዎች",
     "requests.searchRequests": "በርዕስ፣ መለያ ወይም ጠያቂ ፈልግ...",
-    "requests.allModules": "ሁሉም ሞጁሎች",
-    "requests.noRequestsFound": "ጥያቄዎች አልተገኙም",
     "requests.noRequestsMatch": "ምንም ጥያቄዎች ማጣሪያዎን አያሟሉም",
-    "requests.submitted": "ቀርቧል",
 
     // Bookings - Additional keys (am)
     "bookings.confirmDeleteText": "በቋሚነት ሊሰርዙት ምን ነው:",
@@ -2888,9 +2627,7 @@ const translations: Translations = {
     "requests.adminNotePlaceholder": "ማስታወሻ፣ ግብረ-መልስ ወይም ጥያቄ ይጻፉ...",
     "requests.noteSent": "ማስታወሻ ለጠያቂው ተልኳል",
     "requests.sendNote": "ማስታወሻ ላክ",
-    "requests.openFullDetail": "ሙሉ ዝርዝር ክፈት",
     "requests.allUsersOption": "ሁሉም ተጠቃሚዎች",
-    "requests.requester": "ጠያቂ",
     "requests.sortModule": "ሞጁል",
     "requests.requestsCount": "ጥያቄዎች",
     "requests.filtersBtn": "ማጣሪያዎች",
@@ -2899,33 +2636,6 @@ const translations: Translations = {
     "requests.sortRequester": "ጠያቂ",
 
     // Config - Additional (am)
-    "config.streamA": "A – ፕሮጀክቶች",
-    "config.streamB": "B – ቅድሚያዎች",
-    "config.streamC": "C – ጥገና",
-    "config.addStatus": "ሁኔታ ጨምር",
-    "config.saveChanges": "ለውጦችን አስቀምጥ",
-    "config.priorityLevelConfig": "የቅድሚያ ደረጃ ማዋቀር",
-    "config.slaTarget": "SLA ዒላማ:",
-    "config.colorLabel": "ቀለም",
-    "config.savePrioritySettings": "የቅድሚያ ቅንብሮችን አስቀምጥ",
-    "config.addTemplate": "አብነት ጨምር",
-    "config.saveAllTemplates": "ሁሉንም አብነቶች አስቀምጥ",
-    "config.featureToggles": "ባህሪ ቅናሾች",
-    "config.adminEmail": "የአስተዳዳሪ ኢሜይል",
-    "config.maxFileSize": "ከፍተኛ የፋይል መጠን (MB)",
-    "config.sessionTimeout": "የክፍለ ጊዜ ጊዜ ወሰን (ሰዓታት)",
-    "config.saveGeneralSettings": "አጠቃላይ ቅንብሮችን አስቀምጥ",
-    "config.saveFeatureSettings": "የባህሪ ቅንብሮችን አስቀምጥ",
-    "config.enableInAppNotif": "ውስጣዊ ማሳወቂያዎችን አንቃ",
-    "config.showNotifBellDesc": "የማሳወቂያ ደወልና ማሳወቂያዎችን አሳይ",
-    "config.enableEmailAlerts": "የኢሜይል ማሳወቂያዎችን አንቃ",
-    "config.sendEmailStatusDesc": "በሁኔታ ለውጥ ኢሜይል ላክ",
-    "config.enableSMSAlerts": "SMS ማሳወቂያዎችን አንቃ",
-    "config.sendSMSCriticalDesc": "ወሳኝ ክስተቶች SMS ላክ",
-    "config.autoAssignTech": "ቴክኒሺያኖችን ራሱ ምደባ",
-    "config.autoAssignDesc": "በተገኝነት ላይ ተመስርቶ ራሱ ምደባ",
-    "config.requireBudgetProj": "ለፕሮጀክቶች በጀት ያስፈልጋል",
-    "config.requireBudgetDesc": "የበጀት ሜዳ አስፈላጊ ያድርጉ",
     "validation.required": "ይህ ቦታ ግዴታ ነው",
     "validation.selectOne": "እባክዎን አንድ አማራጭ ይምረጡ",
     "validation.invalidNumber": "እባክዎን ትክክለኛ ቁጥር ያስገቡ",
@@ -2945,7 +2655,8 @@ const translations: Translations = {
     "projects.classification.A3.label": "A3 – የውስጥ ዲዛይን እና ክፍልፋይ",
     "projects.classification.A3.desc": "የውስጥ ማሻሻያዎች፣ የቦታ አጠቃቀም እና የቢሮ ክፍልፋዮች።",
     "projects.classification.A4.label": "A4 – የሳይት ስራ እና የመሬት ገጽታ",
-    "projects.classification.A4.desc": "የውጪ ማሻሻያዎች፣ የመኪና ማቆሚያ፣ መሠረተ ልማት እና አረንጓዴ ቦታዎች።",
+    "projects.classification.A4.desc":
+      "የውጪ ማሻሻያዎች፣ የመኪና ማቆሚያ፣ መሠረተ ልማት እና አረንጓዴ ቦታዎች።",
     "projects.classification.A5.label": "A5 – የBOQ ዝግጅት ብቻ",
     "projects.classification.A5.desc": "ላለው ንድፍ ዝርዝር የቁሳቁስ ጥናት እና የወጪ ግምት።",
     "projects.classification.A6.label": "A6 – የግንባታ ቁጥጥር ብቻ",
@@ -3012,7 +2723,6 @@ const translations: Translations = {
     "maintenance.priority.high": "ከፍተኛ",
     "maintenance.priority.high.desc": "ከፍተኛ ተፅእኖ አለው",
     "maintenance.priority.critical": "ወሳኝ",
-    "maintenance.priority.critical.desc": "ለሕይወት / ለንብረት አደገኛ",
 
     "maintenance.adminActions": "የአስተዳዳሪ እርምጃዎች",
     "maintenance.supervisorActions": "የሱፐርቫይዘር እርምጃዎች",
@@ -3087,7 +2797,8 @@ const translations: Translations = {
     "notifications.message.assigned": "ለሱፐርቪዥን ተመድበዋል።",
     "notifications.message.taskAssigned": "ይህንን ተግባር ለማጠናቀቅ ተመድበዋል።",
     "notifications.message.completed": "ይህ ተግባር ተጠናቅቋል እና ግምገማ ያስፈልገዋል።",
-    "notifications.message.readyApproval": "በሱፐርቫይዘር ተገምግሟል፣ የአስተዳዳሪ ማረጋገጫ ይጠበቃል።",
+    "notifications.message.readyApproval":
+      "በሱፐርቫይዘር ተገምግሟል፣ የአስተዳዳሪ ማረጋገጫ ይጠበቃል።",
     "maintenance.priority.critical.desc": "ለሕይወት / ለንብረት አደገኛ",
 
     "maintenance.placeholder.shortSummary": "አጭር ማጠቃለያ",
@@ -3104,8 +2815,10 @@ const translations: Translations = {
     "maintenance.goToDashboard": "ወደ ዳሽቦርድ ይሂዱ",
     "maintenance.dragDropImages": "ምስሎችን እዚህ ይጎትቱ እና ይጣሉ",
     "maintenance.fileTypes": "PNG, JPG, JPEG, WEBP · እያንዳንዳቸው ቢበዛ 10MB",
-    "maintenance.imageEvidence": "ምስሎችን እንደ ደጋፊ ማስረጃ ይስቀሉ. ምንም ፎቶዎች ከሌሉ ይህን ደረጃ መዝለል ይችላሉ.",
-    "maintenance.whatHappensNext": "ካቀረቡ በኋላ ይህ ጥያቄ ለግምገማ ወደ አስተዳዳሪ ይላካል። የውስጥ ምደባ በአስተዳዳሪው የሚመራ ይሆናል።",
+    "maintenance.imageEvidence":
+      "ምስሎችን እንደ ደጋፊ ማስረጃ ይስቀሉ. ምንም ፎቶዎች ከሌሉ ይህን ደረጃ መዝለል ይችላሉ.",
+    "maintenance.whatHappensNext":
+      "ካቀረቡ በኋላ ይህ ጥያቄ ለግምገማ ወደ አስተዳዳሪ ይላካል። የውስጥ ምደባ በአስተዳዳሪው የሚመራ ይሆናል።",
     "maintenance.atLeastOneLocation": "ቢያንስ አንድ የቦታ መረጃ ያስፈልጋል",
     "maintenance.requestTitle": "የጥያቄ ርዕስ",
     "maintenance.problemDesc": "የችግር መግለጫ",
@@ -3156,7 +2869,8 @@ const translations: Translations = {
     "bookings.nextSteps.allocation.1": "ጥያቄው በራሱ ለቦታ አስተዳዳሪ ይላካል",
     "bookings.nextSteps.allocation.2": "ያሉ ቦታዎች ተገኝነት ይረጋገጣል",
     "bookings.nextSteps.allocation.3": "ከምደባ መለያ ጋር ማረጋገጫ ይደርስዎታል",
-    "bookings.nextSteps.allocation.4": "ሁኔታው መደበኛውን የCMBMS ስራ ፍሰት ይከተላል (ቀርቧል → ፀድቋል → ተጠናቋል)",
+    "bookings.nextSteps.allocation.4":
+      "ሁኔታው መደበኛውን የCMBMS ስራ ፍሰት ይከተላል (ቀርቧል → ፀድቋል → ተጠናቋል)",
     "bookings.nextSteps.booking.1": "ተመርቷል ለ፡ አዳራሽ መኮንን እና አይቲ ክፍል",
     "bookings.nextSteps.booking.2": "አይቲ ለሚያስፈልጉ ምቾቶች የዝግጅት ጥያቄ ይደርሰዋል",
     "bookings.nextSteps.booking.3": "የጽዳት እና የደህንነት ቡድኖች የዝግጅት ተግባራት ይደርሳቸዋል",
@@ -3315,7 +3029,8 @@ const translations: Translations = {
     "divisions.assignments": "ክፍት ምደባዎች",
     "divisions.viewTeam": "የክፍሉን ቡድን ተመልከት",
     "divisions.globalDistribution": "አለምአቀፍ የሀብት ስርጭት",
-    "divisions.reassignNote": "አስተዳዳሪዎች ስራዎችን በክፍሎች መካከል እንደገና መመደብ ወይም ከማስተር ኮንሶሉ ምደባዎችን መሻር ይችላሉ።",
+    "divisions.reassignNote":
+      "አስተዳዳሪዎች ስራዎችን በክፍሎች መካከል እንደገና መመደብ ወይም ከማስተር ኮንሶሉ ምደባዎችን መሻር ይችላሉ።",
     "divisions.openConsole": "የአስተዳደር ኮንሶሉን ክፈት",
 
     // Supervisor Terminology
@@ -3344,11 +3059,13 @@ const translations: Translations = {
     "supervisor.selectProfessional": "ለባለሙያ መድብ *",
     "supervisor.active": "ንቁ",
     "supervisor.instructionsNotes": "ልዩ መመሪያዎች / የደህንነት ማሳሰቢያዎች",
-    "supervisor.instructionsPlaceholder": "ቴክኒካዊ ዝርዝሮችን፣ የደህንነት ጥንቃቄዎችን ወይም የሚያስፈልጉ መሳሪያዎችን ያቅርቡ...",
+    "supervisor.instructionsPlaceholder":
+      "ቴክኒካዊ ዝርዝሮችን፣ የደህንነት ጥንቃቄዎችን ወይም የሚያስፈልጉ መሳሪያዎችን ያቅርቡ...",
     "supervisor.taskPriority": "የስራ ትዕዛዝ ቅድሚያ",
     "supervisor.reportModalTitle": "የመጨረሻ ማጠናቀቂያ ሪፖርት ያቅርቡ",
     "supervisor.reportFindings": "የምህንድስና ግኝቶች / የማጠናቀቂያ ማስታወሻዎች",
-    "supervisor.reportPlaceholder": "የተከናወነውን ስራ፣ የፈሰሰውን ጥሬ እቃ እና የምርመራ ውጤቶችን ይመዝግቡ...",
+    "supervisor.reportPlaceholder":
+      "የተከናወነውን ስራ፣ የፈሰሰውን ጥሬ እቃ እና የምርመራ ውጤቶችን ይመዝግቡ...",
     "supervisor.whatHappensNext": "ከሪፖርት በኋላ ያለው ሂደት",
     "supervisor.nextStep1": "ሪፖርቱ ለአስተዳደር የፋይናንስ ኦዲት እንዲደረግ ይላካል",
     "supervisor.nextStep2": "ማዕከላዊ አስተዳደሩ ስራው መጠናቀቁን ያረጋግጣል",
@@ -3372,7 +3089,8 @@ const translations: Translations = {
     "professional.progressUpdates": "የስራ ሂደት ዝመናዎች",
     "professional.updateStatusDesc": "የነቁ የጥገና ስራዎችዎን ሁኔታ በፍጥነት ያዘምኑ።",
     "professional.allClear": "ሁሉም ነገር ግልጽ ነው!",
-    "professional.noPendingTasks": "አፋጣኝ የስራ ሂደት ዝመና የሚያስፈልጋቸው በመጠባበቅ ላይ ያሉ ስራዎች የሉዎትም።",
+    "professional.noPendingTasks":
+      "አፋጣኝ የስራ ሂደት ዝመና የሚያስፈልጋቸው በመጠባበቅ ላይ ያሉ ስራዎች የሉዎትም።",
     "professional.addProgressNote": "የሂደት ማስታወሻ ያክሉ",
     "professional.notePlaceholder": "ዛሬ ምን ተከናውኗል?...",
     "professional.markAs": "እንደ",

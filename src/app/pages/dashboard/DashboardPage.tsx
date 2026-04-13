@@ -254,9 +254,9 @@ export function DashboardPage() {
                 {getGreeting()}, {currentUser?.name?.split(" ")[0]}!
               </h1>
               <p className="text-muted-foreground text-sm mt-0.5">
-                {t("dashboard.divisionSupervisor")} · {t("dashboard.manageAssignedTasks")}
+                {t("dashboard.divisionSupervisor")} ·{" "}
+                {t("dashboard.manageAssignedTasks")}
               </p>
-
             </div>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -266,7 +266,6 @@ export function DashboardPage() {
               value={supervisorMaintenance.length}
               sub={t("dashboard.totalAssignedTasks")}
               color="#1A3580"
-
               onClick={() => router.push("/dashboard/maintenance")}
             />
             <StatCard
@@ -280,7 +279,6 @@ export function DashboardPage() {
                 ).length
               }
               sub={t("dashboard.inExecution")}
-
               color="#EA580C"
               onClick={() => router.push("/dashboard/maintenance")}
             />
@@ -292,7 +290,6 @@ export function DashboardPage() {
                   .length
               }
               sub={t("dashboard.awaitingReview")}
-
               color="#0D9488"
               onClick={() => router.push("/dashboard/maintenance")}
             />
@@ -307,7 +304,6 @@ export function DashboardPage() {
                 ).length
               }
               sub={t("dashboard.processed")}
-
               color="#10B981"
               onClick={() => router.push("/dashboard/maintenance")}
             />
@@ -325,7 +321,6 @@ export function DashboardPage() {
               }}
             >
               {t("dashboard.openSupervisor")} →
-
             </button>
           </div>
         </div>
@@ -348,13 +343,15 @@ export function DashboardPage() {
             <div className="flex items-center gap-2 text-xs text-muted-foreground bg-white border border-border rounded-lg px-3 py-2">
               <Clock size={14} />
               <span>
-                {new Date().toLocaleDateString(t("lang.code") === "am" ? "am-ET" : "en-US", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-
+                {new Date().toLocaleDateString(
+                  t("lang.code") === "am" ? "am-ET" : "en-US",
+                  {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  },
+                )}
               </span>
             </div>
           </div>
@@ -626,7 +623,6 @@ export function DashboardPage() {
                     <p className="text-center text-muted-foreground text-sm py-3">
                       {t("dashboard.noUpcomingBookings")}
                     </p>
-
                   )}
                 </div>
               </div>

@@ -7,6 +7,8 @@ import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 import {
   mockMaintenance,
+  mockProjects,
+  mockBookings,
   mockUsers,
   getProfessionalsByDivision,
   getDivisionById,
@@ -14,6 +16,10 @@ import {
 import {
   getMaintenanceWithStored,
   updateMaintenance,
+  getProjectsWithStored,
+  updateProject,
+  getBookingsWithStored,
+  updateBooking,
 } from "../../lib/storage";
 import {
   addNotification,
@@ -54,14 +60,20 @@ export function SupervisorDashboard() {
   const [assignTarget, setAssignTarget] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState("");
   const [reportTarget, setReportTarget] = useState<string | null>(null);
-  const [allMaintenance, setAllMaintenance] = useState(() =>
-    getMaintenanceWithStored(mockMaintenance),
-  );
+  const [allTasks, setAllTasks] = useState<any[]>(() => [
+    ...getMaintenanceWithStored(mockMaintenance),
+    ...getProjectsWithStored(mockProjects),
+    ...getBookingsWithStored(mockBookings),
+  ]);
 
   // Live refresh on any storage update
   useEffect(() => {
     const refresh = () =>
-      setAllMaintenance(getMaintenanceWithStored(mockMaintenance));
+      setAllTasks([
+        ...getMaintenanceWithStored(mockMaintenance),
+        ...getProjectsWithStored(mockProjects),
+        ...getBookingsWithStored(mockBookings),
+      ]);
     refresh();
     window.addEventListener("storage", refresh);
     window.addEventListener("insa-storage", refresh);
@@ -76,7 +88,7 @@ export function SupervisorDashboard() {
   const divisionInfo = userDivision ? getDivisionById(userDivision) : null;
 
   // My assigned tasks — primary key is supervisorId, divisionId is informational only
-  const myTasks = allMaintenance.filter(
+  const myTasks = allTasks.filter(
     (m) =>
       m.supervisorId === uid ||
       // Fallback: division-scoped tasks that haven't had supervisorId stamped yet
@@ -98,9 +110,11 @@ export function SupervisorDashboard() {
     const task = myTasks.find((m) => m.id === assignTarget);
     if (!task) return;
     const now = new Date().toISOString();
-    const workOrderId = task.workOrderId || `WO-${task.id.split("-")[1] || Math.floor(Math.random() * 1000)}`;
-    
-    const pro = mockUsers.find(u => u.id === professionalId);
+    const workOrderId =
+      task.workOrderId ||
+      `WO-${task.id.split("-")[1] || Math.floor(Math.random() * 1000)}`;
+
+    const pro = mockUsers.find((u) => u.id === professionalId);
     const updated = {
       ...task,
       workOrderId,
@@ -121,14 +135,24 @@ export function SupervisorDashboard() {
           action: "Assigned to Professional",
           actor: currentUser?.name || "Supervisor",
           timestamp: now,
-          note: t("supervisor.note.assignedToPro", { 
+          note: t("supervisor.note.assignedToPro", {
             name: pro?.name || professionalId,
-            instructions: instructions ? `. ${t("supervisor.instructionsNotes")}: ${instructions}` : "" 
+            instructions: instructions
+              ? `. ${t("supervisor.instructionsNotes")}: ${instructions}`
+              : "",
           }),
-        }
-      ]
+        },
+      ],
     };
-    updateMaintenance(updated);
+
+    if (updated.id.startsWith("PRJ-")) {
+      updateProject(updated);
+    } else if (updated.id.startsWith("BKG-")) {
+      updateBooking(updated);
+    } else {
+      updateMaintenance(updated);
+    }
+
     // Notify the professional
     addNotification(
       createNotification({
@@ -154,14 +178,25 @@ export function SupervisorDashboard() {
       status: "Reviewed" as const,
       updatedAt: new Date().toISOString(),
     };
-    updateMaintenance(updated);
+
+    if (updated.id.startsWith("PRJ-")) {
+      updateProject(updated);
+    } else if (updated.id.startsWith("BKG-")) {
+      updateBooking(updated);
+    } else {
+      updateMaintenance(updated);
+    }
+
     // Notify all admins
     const adminIds = getUserIdsByRole("admin");
     addNotifications(
       adminIds.map((adminId) =>
         createNotification({
           title: t("notifications.title.readyApproval"),
-          message: t("notifications.message.readyApproval_id", { id: updated.id, note: note || t("common.noNote") }),
+          message: t("notifications.message.readyApproval_id", {
+            id: updated.id,
+            note: note || t("common.noNote"),
+          }),
           userId: adminId,
           link: `/dashboard/maintenance/${updated.id}`,
           type: "info",
@@ -223,7 +258,9 @@ export function SupervisorDashboard() {
                   {t("supervisor.title")}
                 </span>
               </div>
-              <h1 className="text-white text-xl">{t("supervisor.dashboard")}</h1>
+              <h1 className="text-white text-xl">
+                {t("supervisor.dashboard")}
+              </h1>
               <p className="text-white/70 text-sm mt-0.5">
                 {currentUser?.name} ·{" "}
                 {divisionInfo?.name || currentUser?.department}
@@ -274,90 +311,6 @@ export function SupervisorDashboard() {
             )}
           </div>
         </div>
-
-        {/* Division Info & Capabilities */}
-        {divisionInfo && (
-          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 m-6 mt-0">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Division Responsibilities */}
-              <div>
-                <h3 className="text-white text-sm font-semibold mb-2 flex items-center gap-2">
-                  <Shield size={14} /> {t("supervisor.responsibilities")}
-                </h3>
-                <ul className="space-y-1">
-                  {divisionInfo.responsibilities.slice(0, 4).map((resp, i) => (
-                    <li
-                      key={i}
-                      className="text-white/80 text-xs flex items-start gap-2"
-                    >
-                      <CheckCircle
-                        size={12}
-                        className="mt-0.5 flex-shrink-0 text-green-300"
-                      />
-                      <span>{resp}</span>
-                    </li>
-                  ))}
-                  {divisionInfo.responsibilities.length > 4 && (
-                    <li className="text-white/60 text-xs italic">
-                      +{divisionInfo.responsibilities.length - 4} {t("common.more")}...
-                    </li>
-                  )}
-                </ul>
-              </div>
-
-              {/* Supervisor Capabilities */}
-              <div>
-                <h3 className="text-white text-sm font-semibold mb-2 flex items-center gap-2">
-                  <UserCheck size={14} /> {t("supervisor.capabilities")}
-                </h3>
-                <div className="space-y-1">
-                  <div className="text-white/80 text-xs flex items-start gap-2">
-                    <CheckCircle
-                      size={12}
-                      className="mt-0.5 flex-shrink-0 text-green-300"
-                    />
-                    <span>{t("supervisor.capabilityView")}</span>
-                  </div>
-                  <div className="text-white/80 text-xs flex items-start gap-2">
-                    <CheckCircle
-                      size={12}
-                      className="mt-0.5 flex-shrink-0 text-green-300"
-                    />
-                    <span>{t("supervisor.capabilityAssign")}</span>
-                  </div>
-                  <div className="text-white/80 text-xs flex items-start gap-2">
-                    <CheckCircle
-                      size={12}
-                      className="mt-0.5 flex-shrink-0 text-green-300"
-                    />
-                    <span>{t("supervisor.capabilityMonitor")}</span>
-                  </div>
-                  <div className="text-white/80 text-xs flex items-start gap-2">
-                    <CheckCircle
-                      size={12}
-                      className="mt-0.5 flex-shrink-0 text-green-300"
-                    />
-                    <span>{t("supervisor.capabilityReview")}</span>
-                  </div>
-                  <div className="text-white/80 text-xs flex items-start gap-2">
-                    <CheckCircle
-                      size={12}
-                      className="mt-0.5 flex-shrink-0 text-green-300"
-                    />
-                    <span>{t("supervisor.capabilityReport")}</span>
-                  </div>
-                  <div className="text-white/60 text-xs flex items-start gap-2">
-                    <XCircle
-                      size={12}
-                      className="mt-0.5 flex-shrink-0 text-red-300"
-                    />
-                    <span>{t("supervisor.restrictionClose")}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Action message */}
@@ -434,7 +387,9 @@ export function SupervisorDashboard() {
               size={48}
               className="mx-auto text-muted-foreground/40 mb-3"
             />
-            <h3 className="text-[#0E2271]">{t("supervisor.noTasksAssigned")}</h3>
+            <h3 className="text-[#0E2271]">
+              {t("supervisor.noTasksAssigned")}
+            </h3>
             <p className="text-muted-foreground text-sm">
               {t("supervisor.noTasksDesc")}
             </p>
@@ -478,21 +433,27 @@ export function SupervisorDashboard() {
                     </div>
                   </div>
                   <div className="flex flex-col gap-2 items-end">
-                      <button
-                        onClick={() =>
-                          router.push(`/dashboard/maintenance/${m.id}`)
-                        }
-                        className="flex items-center gap-1 text-xs text-[#7C3AED] hover:underline"
-                      >
-                        <Eye size={12} /> {t("supervisor.viewDetails")}
-                      </button>
+                    <button
+                      onClick={() => {
+                        const path = m.id.startsWith("PRJ-")
+                          ? `/dashboard/projects/${m.id}`
+                          : m.id.startsWith("BKG-")
+                            ? `/dashboard/bookings/${m.id}`
+                            : `/dashboard/maintenance/${m.id}`;
+                        router.push(path);
+                      }}
+                      className="flex items-center gap-1 text-xs text-[#7C3AED] hover:underline"
+                    >
+                      <Eye size={12} /> {t("supervisor.viewDetails")}
+                    </button>
                     {m.status === "Assigned to Supervisor" && (
                       <button
                         onClick={() => setAssignTarget(m.id)}
                         className="flex items-center gap-1 text-xs text-white px-3 py-1.5 rounded-lg"
                         style={{ background: "#7C3AED" }}
                       >
-                        <UserCheck size={12} /> {t("supervisor.assignProfessional")}
+                        <UserCheck size={12} />{" "}
+                        {t("supervisor.assignProfessional")}
                       </button>
                     )}
                     {m.status === "Completed" && (

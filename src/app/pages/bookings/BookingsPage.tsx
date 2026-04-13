@@ -186,14 +186,14 @@ function SpaceModal({
               {t("bookings.spaceType_label")}
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {SPACE_TYPES.map((t) => {
-                const meta = TYPE_META[t];
-                const selected = form.type === t;
+              {SPACE_TYPES.map((spaceType) => {
+                const meta = TYPE_META[spaceType];
+                const selected = form.type === spaceType;
                 return (
                   <button
-                    key={t}
+                    key={spaceType}
                     type="button"
-                    onClick={() => set("type", t)}
+                    onClick={() => set("type", spaceType)}
                     className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-xs font-medium transition-all text-left ${
                       selected
                         ? "border-[#1A3580] text-[#1A3580]"
@@ -201,8 +201,10 @@ function SpaceModal({
                     }`}
                     style={selected ? { background: meta.bg } : {}}
                   >
-                    <span className="text-base">{meta.icon}</span> {t(`bookings.spaceType.${t.charAt(0).toLowerCase() + t.slice(1).replace(/\s+/g, "")}`)}
-
+                    <span className="text-base">{meta.icon}</span>{" "}
+                    {t(
+                      `bookings.spaceType.${spaceType.charAt(0).toLowerCase() + spaceType.slice(1).replace(/\s+/g, "")}`,
+                    )}
                     {selected && (
                       <CheckCircle
                         size={12}
@@ -744,7 +746,11 @@ export function BookingsPage() {
                     : "bg-secondary text-muted-foreground hover:bg-muted"
                 }`}
               >
-                {s === "All" ? t("status.all") : t(`status.${s.charAt(0).toLowerCase() + s.slice(1).replace(/\s+/g, "")}`)}
+                {s === "All"
+                  ? t("status.all")
+                  : t(
+                      `status.${s.charAt(0).toLowerCase() + s.slice(1).replace(/\s+/g, "")}`,
+                    )}
               </button>
             ))}
           </div>
@@ -816,7 +822,9 @@ export function BookingsPage() {
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     <button
-                      onClick={() => router.push(`/dashboard/bookings/${booking.id}`)}
+                      onClick={() =>
+                        router.push(`/dashboard/bookings/${booking.id}`)
+                      }
                       className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 hover:shadow-md transition-all mt-2"
                     >
                       {t("projects.review") || "Review Booking"}

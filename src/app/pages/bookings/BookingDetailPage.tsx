@@ -44,7 +44,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [actionDone, setActionDone] = useState("");
-  
+
   // Assignment state
   const [selectedAssignee, setSelectedAssignee] = useState("");
 
@@ -80,9 +80,12 @@ export default function BookingDetailPage({ id }: { id: string }) {
   if (!booking) {
     return (
       <div className="text-center py-20 bg-white rounded-xl border border-border">
-        <h2 className="text-[#0E2271] text-xl font-bold mb-2">{t("bookings.notFound") || "Booking Not Found"}</h2>
+        <h2 className="text-[#0E2271] text-xl font-bold mb-2">
+          {t("bookings.notFound") || "Booking Not Found"}
+        </h2>
         <p className="text-muted-foreground mb-6">
-          {t("bookings.noPermission") || "The booking doesn't exist or you don't have permission to view it."}
+          {t("bookings.noPermission") ||
+            "The booking doesn't exist or you don't have permission to view it."}
         </p>
         <button
           onClick={() => router.push("/dashboard/bookings")}
@@ -118,7 +121,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
     nextStatus: Booking["status"],
     actorRole: string,
     message: string,
-    extraUpdates?: Partial<Booking>
+    extraUpdates?: Partial<Booking>,
   ) => {
     if (!canTransition(actorRole as WorkflowRole, booking.status, nextStatus)) {
       setActionDone(t("bookings.notAllowed") || "Transition not allowed.");
@@ -145,7 +148,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
           userId: extraUpdates.supervisorId,
           link: `/dashboard/bookings/${updated.id}`,
           type: "warning",
-        })
+        }),
       );
     }
     if (extraUpdates?.assignedTo) {
@@ -156,10 +159,14 @@ export default function BookingDetailPage({ id }: { id: string }) {
           userId: extraUpdates.assignedTo,
           link: `/dashboard/bookings/${updated.id}`,
           type: "warning",
-        })
+        }),
       );
     }
-    if (nextStatus === "Completed" && actorRole === "professional" && updated.supervisorId) {
+    if (
+      nextStatus === "Completed" &&
+      actorRole === "professional" &&
+      updated.supervisorId
+    ) {
       addNotification(
         createNotification({
           title: "Booking Completed",
@@ -167,7 +174,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
           userId: updated.supervisorId,
           link: `/dashboard/bookings/${updated.id}`,
           type: "info",
-        })
+        }),
       );
     }
     if (nextStatus === "Reviewed" && actorRole === "supervisor") {
@@ -180,19 +187,29 @@ export default function BookingDetailPage({ id }: { id: string }) {
             userId: id,
             link: `/dashboard/bookings/${updated.id}`,
             type: "info",
-          })
-        )
+          }),
+        ),
       );
     }
-    if ((nextStatus === "Approved" || nextStatus === "Rejected" || nextStatus === "Closed") && actorRole === "admin") {
+    if (
+      (nextStatus === "Approved" ||
+        nextStatus === "Rejected" ||
+        nextStatus === "Closed") &&
+      actorRole === "admin"
+    ) {
       addNotification(
         createNotification({
           title: `Booking ${nextStatus}`,
           message: `Your booking request ${updated.id} has been ${nextStatus.toLowerCase()}.`,
           userId: updated.requestedBy,
           link: `/dashboard/bookings/${updated.id}`,
-          type: nextStatus === "Approved" ? "success" : nextStatus === "Rejected" ? "error" : "info",
-        })
+          type:
+            nextStatus === "Approved"
+              ? "success"
+              : nextStatus === "Rejected"
+                ? "error"
+                : "info",
+        }),
       );
     }
 
@@ -220,7 +237,11 @@ export default function BookingDetailPage({ id }: { id: string }) {
                 onClick={copyId}
                 className="text-muted-foreground hover:text-green-700"
               >
-                {copied ? <CheckCircle size={14} className="text-green-500" /> : <Copy size={14} />}
+                {copied ? (
+                  <CheckCircle size={14} className="text-green-500" />
+                ) : (
+                  <Copy size={14} />
+                )}
               </button>
               <StatusBadge status={booking.status} size="md" />
               <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
@@ -236,7 +257,6 @@ export default function BookingDetailPage({ id }: { id: string }) {
         <div className="lg:col-span-2 space-y-5">
           {/* Main Details Mega Card */}
           <div className="bg-white rounded-xl border border-border overflow-hidden shadow-sm">
-            
             {/* Description / Purpose */}
             <div className="p-6">
               <h3 className="text-sm font-bold text-[#0E2271] mb-3">
@@ -245,13 +265,15 @@ export default function BookingDetailPage({ id }: { id: string }) {
               <p className="text-sm text-foreground leading-relaxed">
                 {booking.purpose}
               </p>
-              
+
               {booking.requirements && (
                 <div className="mt-4 pt-4 border-t border-border border-dashed">
                   <p className="text-xs font-semibold text-muted-foreground mb-1">
                     {t("bookings.requirements") || "Requirements"}
                   </p>
-                  <p className="text-sm text-foreground">{booking.requirements}</p>
+                  <p className="text-sm text-foreground">
+                    {booking.requirements}
+                  </p>
                 </div>
               )}
             </div>
@@ -304,7 +326,9 @@ export default function BookingDetailPage({ id }: { id: string }) {
                       <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">
                         {item.label}
                       </p>
-                      <p className="font-medium text-foreground text-sm">{item.value}</p>
+                      <p className="font-medium text-foreground text-sm">
+                        {item.value}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -328,7 +352,9 @@ export default function BookingDetailPage({ id }: { id: string }) {
                       {t("requests.supervisor") || "Supervisor"}
                     </p>
                     <p className="font-bold text-[#0E2271]">
-                      {supervisorUser?.name || t("maintenance.notAssigned") || "Not Assigned"}
+                      {supervisorUser?.name ||
+                        t("maintenance.notAssigned") ||
+                        "Not Assigned"}
                     </p>
                   </div>
                 </div>
@@ -341,13 +367,14 @@ export default function BookingDetailPage({ id }: { id: string }) {
                       {t("requests.professional") || "Professional"}
                     </p>
                     <p className="font-bold text-[#0E2271]">
-                      {assignee?.name || t("maintenance.notAssigned") || "Not Assigned"}
+                      {assignee?.name ||
+                        t("maintenance.notAssigned") ||
+                        "Not Assigned"}
                     </p>
                   </div>
                 </div>
               </div>
             </div>
-
           </div>
         </div>
 
@@ -364,14 +391,17 @@ export default function BookingDetailPage({ id }: { id: string }) {
 
               {actionDone && (
                 <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 text-sm text-green-700 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
-                  <CheckCircle size={16} /> <span className="font-medium">Applied:</span> "{actionDone}"
+                  <CheckCircle size={16} />{" "}
+                  <span className="font-medium">Applied:</span> "{actionDone}"
                 </div>
               )}
 
               <div className="space-y-4">
                 {booking.status === "Submitted" && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-3">Ready for initial review.</p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Ready for initial review.
+                    </p>
                     <button
                       onClick={() =>
                         handleAction("Under Review", "admin", "Started Review")
@@ -405,7 +435,12 @@ export default function BookingDetailPage({ id }: { id: string }) {
                     <button
                       onClick={() => {
                         if (!selectedAssignee) return;
-                        handleAction("Assigned to Supervisor", "admin", "Assigned Supervisor", { supervisorId: selectedAssignee });
+                        handleAction(
+                          "Assigned to Supervisor",
+                          "admin",
+                          "Assigned Supervisor",
+                          { supervisorId: selectedAssignee },
+                        );
                       }}
                       disabled={!selectedAssignee}
                       className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all disabled:opacity-50 hover:shadow-md flex items-center justify-center gap-2"
@@ -417,17 +452,24 @@ export default function BookingDetailPage({ id }: { id: string }) {
                 )}
                 {booking.status === "Reviewed" && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-3">Supervisor has submitted their review. Final decision required.</p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Supervisor has submitted their review. Final decision
+                      required.
+                    </p>
                     <div className="grid grid-cols-2 gap-3">
                       <button
-                        onClick={() => handleAction("Approved", "admin", "Booking Approved")}
+                        onClick={() =>
+                          handleAction("Approved", "admin", "Booking Approved")
+                        }
                         className="py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
                         style={{ background: "#16A34A" }}
                       >
                         <ThumbsUp size={16} /> Approve
                       </button>
                       <button
-                        onClick={() => handleAction("Rejected", "admin", "Booking Rejected")}
+                        onClick={() =>
+                          handleAction("Rejected", "admin", "Booking Rejected")
+                        }
                         className="py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
                         style={{ background: "#CC1F1A" }}
                       >
@@ -438,9 +480,13 @@ export default function BookingDetailPage({ id }: { id: string }) {
                 )}
                 {["Approved", "Rejected"].includes(booking.status) && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm text-center">
-                     <p className="text-xs text-muted-foreground mb-3">Process completed. Finalize the ticket.</p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Process completed. Finalize the ticket.
+                    </p>
                     <button
-                      onClick={() => handleAction("Closed", "admin", "Booking Closed")}
+                      onClick={() =>
+                        handleAction("Closed", "admin", "Booking Closed")
+                      }
                       className="w-full py-2 rounded-lg border-2 border-gray-300 text-gray-600 text-sm font-bold hover:bg-gray-50 flex items-center justify-center gap-2 transition-all"
                     >
                       Close Booking
@@ -462,16 +508,25 @@ export default function BookingDetailPage({ id }: { id: string }) {
 
               {actionDone && (
                 <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 text-sm text-green-700 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
-                  <CheckCircle size={16} /> <span className="font-medium">Applied:</span> "{actionDone}"
+                  <CheckCircle size={16} />{" "}
+                  <span className="font-medium">Applied:</span> "{actionDone}"
                 </div>
               )}
 
               <div className="space-y-4">
                 {booking.status === "Assigned to Supervisor" && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-3">Initiate process to prepare space.</p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Initiate process to prepare space.
+                    </p>
                     <button
-                      onClick={() => handleAction("WorkOrder Created", "supervisor", "WorkOrder Created")}
+                      onClick={() =>
+                        handleAction(
+                          "WorkOrder Created",
+                          "supervisor",
+                          "WorkOrder Created",
+                        )
+                      }
                       className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
                       style={{ background: "#1A3580" }}
                     >
@@ -501,7 +556,12 @@ export default function BookingDetailPage({ id }: { id: string }) {
                     <button
                       onClick={() => {
                         if (!selectedAssignee) return;
-                        handleAction("Assigned to Professional", "supervisor", "Assigned Professional", { assignedTo: selectedAssignee });
+                        handleAction(
+                          "Assigned to Professional",
+                          "supervisor",
+                          "Assigned Professional",
+                          { assignedTo: selectedAssignee },
+                        );
                       }}
                       disabled={!selectedAssignee}
                       className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all disabled:opacity-50 hover:shadow-md flex items-center justify-center gap-2"
@@ -513,9 +573,17 @@ export default function BookingDetailPage({ id }: { id: string }) {
                 )}
                 {booking.status === "Completed" && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-3">Professional indicated task is complete. Verify condition.</p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Professional indicated task is complete. Verify condition.
+                    </p>
                     <button
-                      onClick={() => handleAction("Reviewed", "supervisor", "Submitted Review")}
+                      onClick={() =>
+                        handleAction(
+                          "Reviewed",
+                          "supervisor",
+                          "Submitted Review",
+                        )
+                      }
                       className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
                       style={{ background: "#0891B2" }}
                     >
@@ -538,7 +606,8 @@ export default function BookingDetailPage({ id }: { id: string }) {
 
               {actionDone && (
                 <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 text-sm text-green-700 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
-                  <CheckCircle size={16} /> <span className="font-medium">Applied:</span> "{actionDone}"
+                  <CheckCircle size={16} />{" "}
+                  <span className="font-medium">Applied:</span> "{actionDone}"
                 </div>
               )}
 
@@ -546,7 +615,13 @@ export default function BookingDetailPage({ id }: { id: string }) {
                 {booking.status === "Assigned to Professional" && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
                     <button
-                      onClick={() => handleAction("In Progress", "professional", "Started Work")}
+                      onClick={() =>
+                        handleAction(
+                          "In Progress",
+                          "professional",
+                          "Started Work",
+                        )
+                      }
                       className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
                       style={{ background: "#EA580C" }}
                     >
@@ -557,7 +632,13 @@ export default function BookingDetailPage({ id }: { id: string }) {
                 {booking.status === "In Progress" && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
                     <button
-                      onClick={() => handleAction("Completed", "professional", "Task Completed")}
+                      onClick={() =>
+                        handleAction(
+                          "Completed",
+                          "professional",
+                          "Task Completed",
+                        )
+                      }
                       className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
                       style={{ background: "#16A34A" }}
                     >
@@ -568,7 +649,6 @@ export default function BookingDetailPage({ id }: { id: string }) {
               </div>
             </div>
           )}
-
         </div>
       </div>
     </div>

@@ -71,13 +71,31 @@ export function NewMaintenancePage() {
     { value: "Electrical Issue", label: t("maintenance.category.electrical") },
     { value: "Plumbing Issue", label: t("maintenance.category.plumbing") },
     { value: "HVAC / Air Conditioning", label: t("maintenance.category.hvac") },
-    { value: "Elevator / Lift Issue", label: t("maintenance.category.elevator") },
-    { value: "Generator / UPS Issue", label: t("maintenance.category.generator") },
+    {
+      value: "Elevator / Lift Issue",
+      label: t("maintenance.category.elevator"),
+    },
+    {
+      value: "Generator / UPS Issue",
+      label: t("maintenance.category.generator"),
+    },
     { value: "Cleaning Request", label: t("maintenance.category.cleaning") },
-    { value: "Gardening / Landscaping", label: t("maintenance.category.gardening") },
-    { value: "Furniture / Carpentry", label: t("maintenance.category.furniture") },
-    { value: "Building Damage / Structural", label: t("maintenance.category.structural") },
-    { value: "Water / Sewerage Issue", label: t("maintenance.category.sewerage") },
+    {
+      value: "Gardening / Landscaping",
+      label: t("maintenance.category.gardening"),
+    },
+    {
+      value: "Furniture / Carpentry",
+      label: t("maintenance.category.furniture"),
+    },
+    {
+      value: "Building Damage / Structural",
+      label: t("maintenance.category.structural"),
+    },
+    {
+      value: "Water / Sewerage Issue",
+      label: t("maintenance.category.sewerage"),
+    },
     { value: "Other", label: t("maintenance.category.other") },
   ];
 
@@ -155,11 +173,9 @@ export function NewMaintenancePage() {
     for (const f of files) {
       if (!f.type.startsWith("image/")) {
         return t("maintenance.imageOnlyExc");
-
       }
       if (f.size > 10 * 1024 * 1024) {
         return t("maintenance.maxFileSizeExc");
-
       }
     }
     return "";
@@ -312,10 +328,7 @@ export function NewMaintenancePage() {
     } catch (error) {
       setErrors((e) => ({
         ...e,
-        submit:
-          error instanceof Error
-            ? error.message
-            : t("message.error"),
+        submit: error instanceof Error ? error.message : t("message.error"),
       }));
     } finally {
       setLoading(false);
@@ -342,7 +355,9 @@ export function NewMaintenancePage() {
           {t("maintenance.submitSuccessDesc")}
         </p>
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
-          <p className="text-xs text-muted-foreground mb-1">{t("maintenance.idLabel")}</p>
+          <p className="text-xs text-muted-foreground mb-1">
+            {t("maintenance.idLabel")}
+          </p>
           <p className="font-mono text-xl font-bold text-[#CC1F1A]">
             {submittedId}
           </p>
@@ -488,7 +503,9 @@ export function NewMaintenancePage() {
                 aria-label="Category"
                 title="Category"
               >
-                <option value="">{t("maintenance.placeholder.selectCategory")}</option>
+                <option value="">
+                  {t("maintenance.placeholder.selectCategory")}
+                </option>
                 {categories.map((c) => (
                   <option key={c.value} value={c.value}>
                     {c.label}
@@ -589,7 +606,10 @@ export function NewMaintenancePage() {
         {step === 3 && (
           <div className="space-y-4">
             <h2 className="text-[#0E2271] border-b border-border pb-3">
-              {t("maintenance.step.attachments")} <span className="text-sm font-normal text-muted-foreground">({t("bookings.preferredLocationOpt").split("(")[1]}</span>
+              {t("maintenance.step.attachments")}{" "}
+              <span className="text-sm font-normal text-muted-foreground">
+                ({t("bookings.preferredLocationOpt").split("(")[1]}
+              </span>
             </h2>
             <p className="text-muted-foreground text-sm">
               {t("maintenance.imageEvidence")}
@@ -616,7 +636,9 @@ export function NewMaintenancePage() {
                 size={32}
                 className="mx-auto text-muted-foreground mb-3"
               />
-              <p className="text-sm font-medium">{t("maintenance.dragDropImages")}</p>
+              <p className="text-sm font-medium">
+                {t("maintenance.dragDropImages")}
+              </p>
               <p className="text-xs text-muted-foreground mt-1">
                 {t("maintenance.fileTypes")}
               </p>
@@ -699,8 +721,10 @@ export function NewMaintenancePage() {
                     .filter(Boolean)
                     .join(" / ") || "—",
                 ],
-                [t("form.attachments"), `${form.files.length} ${t("maintenance.imagesCount")}`],
-
+                [
+                  t("form.attachments"),
+                  `${form.files.length} ${t("maintenance.imagesCount")}`,
+                ],
               ].map(([k, v]) => (
                 <div key={String(k)} className="flex justify-between gap-4">
                   <span className="text-muted-foreground flex-shrink-0">
@@ -742,7 +766,8 @@ export function NewMaintenancePage() {
             onClick={nextStep}
             className="px-6 py-2.5 rounded-lg text-white text-sm font-semibold transition-all bg-gradient-to-br from-[#7A0E0E] to-[#CC1F1A]"
           >
-            {t("action.next")} <ChevronRight size={14} className="inline-block ml-1" />
+            {t("action.next")}{" "}
+            <ChevronRight size={14} className="inline-block ml-1" />
           </button>
         ) : (
           <button

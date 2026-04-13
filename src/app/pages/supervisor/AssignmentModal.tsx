@@ -2,7 +2,7 @@
 
 import { CheckCircle, UserCheck } from "lucide-react";
 import { useState } from "react";
-import { User, Maintenance } from "../../data/mockData";
+import { User } from "../../data/mockData";
 import { useLanguage } from "../../context/LanguageContext";
 
 export function AssignmentModal({
@@ -16,7 +16,7 @@ export function AssignmentModal({
   ticketId: string;
   ticketTitle: string;
   professionals: User[];
-  activeTasks: Maintenance[];
+  activeTasks: any[];
   onAssign: (professionalId: string, instructions: string) => void;
   onClose: () => void;
 }) {

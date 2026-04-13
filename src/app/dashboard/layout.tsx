@@ -2,7 +2,7 @@
  * Dashboard layout - wraps all protected routes with AppLayout
  */
 
-import { AppLayout } from '../components/layout/AppLayout';
+import { AppLayout } from "../components/layout/AppLayout";
 
 export default function DashboardLayout({
   children,

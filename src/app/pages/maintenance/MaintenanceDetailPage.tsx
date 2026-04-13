@@ -22,6 +22,7 @@ import {
   DollarSign,
   Package,
   MessageSquare,
+  UserPlus,
 } from "lucide-react";
 import {
   canTransition,
@@ -296,7 +297,6 @@ export function MaintenanceDetailPage() {
         <div className="lg:col-span-2 space-y-5">
           {/* Main Details Mega Card */}
           <div className="bg-white rounded-xl border border-border overflow-hidden shadow-sm">
-            
             {/* Description */}
             <div className="p-6">
               <h3 className="text-sm font-bold text-[#0E2271] mb-3">
@@ -329,21 +329,30 @@ export function MaintenanceDetailPage() {
                     label: t("maintenance.location_label"),
                     value: maint.location,
                   },
-                  ...(maint.building ? [{
-                    icon: <MapPin size={16} />,
-                    label: t("maintenance.placeholder.building") || "Building",
-                    value: maint.building,
-                  }] : []),
+                  ...(maint.building
+                    ? [
+                        {
+                          icon: <MapPin size={16} />,
+                          label:
+                            t("maintenance.placeholder.building") || "Building",
+                          value: maint.building,
+                        },
+                      ]
+                    : []),
                   {
                     icon: <MapPin size={16} />,
                     label: t("maintenance.floor_label"),
                     value: maint.floor,
                   },
-                  ...(maint.roomArea ? [{
-                    icon: <MapPin size={16} />,
-                    label: t("bookings.spaceKey") || "Room / Area",
-                    value: maint.roomArea,
-                  }] : []),
+                  ...(maint.roomArea
+                    ? [
+                        {
+                          icon: <MapPin size={16} />,
+                          label: t("bookings.spaceKey") || "Room / Area",
+                          value: maint.roomArea,
+                        },
+                      ]
+                    : []),
                   {
                     icon: <User size={16} />,
                     label: t("maintenance.reportedBy_label"),
@@ -373,7 +382,9 @@ export function MaintenanceDetailPage() {
                       <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">
                         {item.label}
                       </p>
-                      <p className="font-medium text-foreground text-sm">{item.value}</p>
+                      <p className="font-medium text-foreground text-sm">
+                        {item.value}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -399,7 +410,9 @@ export function MaintenanceDetailPage() {
                       className="flex items-center gap-3 bg-secondary/30 border border-border rounded-lg px-4 py-3 hover:bg-secondary/60 transition-colors"
                     >
                       <FileText size={18} className="text-[#CC1F1A]" />
-                      <span className="text-sm flex-1 font-medium truncate">{att}</span>
+                      <span className="text-sm flex-1 font-medium truncate">
+                        {att}
+                      </span>
                       <button className="text-xs font-bold text-[#1A3580] hover:underline bg-[#1A3580]/10 px-2 py-1 rounded">
                         {t("action.download")}
                       </button>
@@ -411,7 +424,8 @@ export function MaintenanceDetailPage() {
               {role === "professional" && maint.status === "In Progress" && (
                 <div className="mt-5 border border-dashed border-slate-300 rounded-xl p-5 bg-slate-50">
                   <p className="text-[11px] font-bold text-[#CC1F1A] uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <Upload size={14} /> {t("maintenance.uploadCompletionProof")}
+                    <Upload size={14} />{" "}
+                    {t("maintenance.uploadCompletionProof")}
                   </p>
                   <input
                     id="pro-upload"
@@ -422,11 +436,16 @@ export function MaintenanceDetailPage() {
                   />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div
-                      onClick={() => document.getElementById("pro-upload")?.click()}
+                      onClick={() =>
+                        document.getElementById("pro-upload")?.click()
+                      }
                       className="border border-border rounded-xl p-5 text-center cursor-pointer hover:border-[#CC1F1A] hover:bg-white transition-all shadow-sm group"
                     >
                       <div className="bg-red-50 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-[#CC1F1A] transition-colors">
-                        <Upload size={18} className="text-[#CC1F1A] group-hover:text-white" />
+                        <Upload
+                          size={18}
+                          className="text-[#CC1F1A] group-hover:text-white"
+                        />
                       </div>
                       <p className="text-sm font-bold text-[#0E2271] group-hover:text-[#CC1F1A] transition-colors">
                         {t("maintenance.uploadPhotos")}
@@ -436,11 +455,16 @@ export function MaintenanceDetailPage() {
                       </p>
                     </div>
                     <div
-                      onClick={() => document.getElementById("pro-upload")?.click()}
+                      onClick={() =>
+                        document.getElementById("pro-upload")?.click()
+                      }
                       className="border border-border rounded-xl p-5 text-center cursor-pointer hover:border-[#CC1F1A] hover:bg-white transition-all shadow-sm group"
                     >
                       <div className="bg-red-50 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-[#CC1F1A] transition-colors">
-                        <FileText size={18} className="text-[#CC1F1A] group-hover:text-white" />
+                        <FileText
+                          size={18}
+                          className="text-[#CC1F1A] group-hover:text-white"
+                        />
                       </div>
                       <p className="text-sm font-bold text-[#0E2271] group-hover:text-[#CC1F1A] transition-colors">
                         {t("maintenance.uploadDocs")}
@@ -475,7 +499,10 @@ export function MaintenanceDetailPage() {
                     </h3>
                     {costSaved && (
                       <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 text-sm text-green-700 flex items-center gap-2 shadow-sm animate-in fade-in">
-                        <CheckCircle size={16} /> <span className="font-medium">{t("maintenance.costDataSaved")}</span>
+                        <CheckCircle size={16} />{" "}
+                        <span className="font-medium">
+                          {t("maintenance.costDataSaved")}
+                        </span>
                       </div>
                     )}
                     <div className="grid grid-cols-2 gap-5 mb-4">
@@ -484,7 +511,9 @@ export function MaintenanceDetailPage() {
                           {t("maintenance.materialsCost")}
                         </label>
                         <div className="relative">
-                          <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-semibold">ETB</span>
+                          <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-semibold">
+                            ETB
+                          </span>
                           <input
                             type="number"
                             value={materialCost}
@@ -499,7 +528,9 @@ export function MaintenanceDetailPage() {
                           {t("maintenance.laborCostETB")}
                         </label>
                         <div className="relative">
-                          <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-semibold">ETB</span>
+                          <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-semibold">
+                            ETB
+                          </span>
                           <input
                             type="number"
                             value={laborCost}
@@ -524,7 +555,8 @@ export function MaintenanceDetailPage() {
                     {totalCost > 0 && (
                       <div className="mt-5 bg-gradient-to-r from-amber-50 to-amber-100/50 border border-amber-200 rounded-xl px-5 py-4 flex items-center justify-between shadow-sm">
                         <span className="text-sm font-bold text-amber-800 flex items-center gap-2">
-                          <DollarSign size={16} /> {t("maintenance.totalRepairCost")}
+                          <DollarSign size={16} />{" "}
+                          {t("maintenance.totalRepairCost")}
                         </span>
                         <span className="font-black text-amber-600 text-xl tracking-tight">
                           ETB {totalCost.toLocaleString()}
@@ -577,12 +609,17 @@ export function MaintenanceDetailPage() {
                             </span>
                           </div>
                           <p className="text-sm text-muted-foreground mt-1.5">
-                            by <span className="font-bold text-[#0E2271]">{event.actor}</span>
+                            by{" "}
+                            <span className="font-bold text-[#0E2271]">
+                              {event.actor}
+                            </span>
                           </p>
                           {event.note && (
                             <div className="mt-3 bg-secondary/50 border border-border rounded-lg p-3 relative">
                               <div className="absolute -top-1.5 left-4 w-3 h-3 bg-secondary/50 border-t border-l border-border transform rotate-45"></div>
-                              <p className="text-sm text-foreground">{event.note}</p>
+                              <p className="text-sm text-foreground">
+                                {event.note}
+                              </p>
                             </div>
                           )}
                         </div>
@@ -609,17 +646,24 @@ export function MaintenanceDetailPage() {
 
               {actionDone && (
                 <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 text-sm text-green-700 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
-                  <CheckCircle size={16} /> <span className="font-medium">Applied:</span> "{actionDone}"
+                  <CheckCircle size={16} />{" "}
+                  <span className="font-medium">Applied:</span> "{actionDone}"
                 </div>
               )}
 
               <div className="space-y-4">
                 {maint.status === "Submitted" && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-3">{t("requests.submitted")}: Ready for initial review.</p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      {t("requests.submitted")}: Ready for initial review.
+                    </p>
                     <button
                       onClick={() =>
-                        handleAction("Under Review", "admin", t("requests.under_review"))
+                        handleAction(
+                          "Under Review",
+                          "admin",
+                          t("requests.under_review"),
+                        )
                       }
                       className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
                       style={{ background: "#7C3AED" }}
@@ -638,16 +682,17 @@ export function MaintenanceDetailPage() {
                       onChange={(e) => setSelectedTech(e.target.value)}
                       className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none mb-3 focus:ring-2 focus:ring-[#1A3580]/20 focus:border-[#1A3580] transition-all"
                     >
-                      <option value="">{t("maintenance.placeholder.selectCategory").replace("category", "supervisor")}</option>
+                      <option value="">
+                        {t("maintenance.placeholder.selectCategory").replace(
+                          "category",
+                          "supervisor",
+                        )}
+                      </option>
                       {mockUsers
-                        .filter(
-                          (u) =>
-                            u.role === "supervisor" &&
-                            u.divisionId === maint.divisionId,
-                        )
+                        .filter((u) => u.role === "supervisor")
                         .map((tech) => (
                           <option key={tech.id} value={tech.id}>
-                            {tech.name}
+                            {tech.name} ({tech.department})
                           </option>
                         ))}
                     </select>
@@ -676,18 +721,29 @@ export function MaintenanceDetailPage() {
                 )}
                 {maint.status === "Reviewed" && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm flex flex-col gap-3">
-                    <p className="text-xs text-muted-foreground mb-1">Final decision required for this maintenance ticket.</p>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      Final decision required for this maintenance ticket.
+                    </p>
                     <button
                       onClick={() =>
-                        handleAction("Approved", "admin", t("requests.approved"))
+                        handleAction(
+                          "Approved",
+                          "admin",
+                          t("requests.approved"),
+                        )
                       }
                       className="w-full py-2.5 rounded-lg text-white text-sm font-bold bg-green-600 hover:bg-green-700 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
                     >
-                      <CheckCircle size={16} /> {t("maintenance.approveCompletion")}
+                      <CheckCircle size={16} />{" "}
+                      {t("maintenance.approveCompletion")}
                     </button>
                     <button
                       onClick={() =>
-                        handleAction("Rejected", "admin", t("requests.rejected"))
+                        handleAction(
+                          "Rejected",
+                          "admin",
+                          t("requests.rejected"),
+                        )
                       }
                       className="w-full py-2.5 rounded-lg text-[#CC1F1A] text-sm font-bold border-2 border-[#CC1F1A] hover:bg-red-50 transition-all flex items-center justify-center gap-2"
                     >
@@ -698,14 +754,17 @@ export function MaintenanceDetailPage() {
                 {["Approved", "Rejected"].includes(maint.status) && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
                     <button
-                      onClick={() => handleAction("Closed", "admin", t("status.closed"))}
+                      onClick={() =>
+                        handleAction("Closed", "admin", t("status.closed"))
+                      }
                       className="w-full py-2.5 rounded-lg text-white text-sm font-bold bg-slate-700 hover:bg-slate-800 transition-all shadow-sm flex items-center justify-center gap-2"
                     >
-                      <CheckCircle size={16} /> {t("maintenance.verifyAndClose")}
+                      <CheckCircle size={16} />{" "}
+                      {t("maintenance.verifyAndClose")}
                     </button>
                   </div>
                 )}
-                
+
                 {/* Note Field */}
                 <div className="p-4 bg-white rounded-lg border border-border shadow-sm mt-2">
                   <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
@@ -750,16 +809,21 @@ export function MaintenanceDetailPage() {
 
               {actionDone && (
                 <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 text-sm text-green-700 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
-                  <CheckCircle size={16} /> <span className="font-medium">Applied:</span> "{actionDone}"
+                  <CheckCircle size={16} />{" "}
+                  <span className="font-medium">Applied:</span> "{actionDone}"
                 </div>
               )}
               <div className="space-y-4">
                 {maint.status === "Assigned to Supervisor" && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-3">Task has been assigned to you. Generate a work order to begin.</p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Task has been assigned to you. Generate a work order to
+                      begin.
+                    </p>
                     <button
                       onClick={() => {
-                        const workOrderId = maint.workOrderId || `WO-${maint.id}`;
+                        const workOrderId =
+                          maint.workOrderId || `WO-${maint.id}`;
                         handleAction(
                           "WorkOrder Created",
                           "supervisor",
@@ -784,7 +848,12 @@ export function MaintenanceDetailPage() {
                       onChange={(e) => setSelectedTech(e.target.value)}
                       className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all"
                     >
-                      <option value="">{t("maintenance.placeholder.selectCategory").replace("category", "professional")}</option>
+                      <option value="">
+                        {t("maintenance.placeholder.selectCategory").replace(
+                          "category",
+                          "professional",
+                        )}
+                      </option>
                       {mockUsers
                         .filter(
                           (u) =>
@@ -810,16 +879,24 @@ export function MaintenanceDetailPage() {
                       disabled={!selectedTech}
                       className="w-full py-2.5 rounded-lg text-sm font-bold bg-[#CC1F1A] text-white hover:bg-[#aa1814] disabled:bg-red-200 disabled:text-red-400 disabled:cursor-not-allowed transition-all shadow-sm flex items-center justify-center gap-2"
                     >
-                      <UserPlus size={16} /> {t("maintenance.assignProfessional")}
+                      <UserPlus size={16} />{" "}
+                      {t("maintenance.assignProfessional")}
                     </button>
                   </div>
                 )}
                 {maint.status === "Completed" && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-3">Work has been completed by the professional. Review and submit to admin.</p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Work has been completed by the professional. Review and
+                      submit to admin.
+                    </p>
                     <button
                       onClick={() =>
-                        handleAction("Reviewed", "supervisor", t("requests.reviewed"))
+                        handleAction(
+                          "Reviewed",
+                          "supervisor",
+                          t("requests.reviewed"),
+                        )
                       }
                       className="w-full py-2.5 rounded-lg text-white text-sm font-bold hover:shadow-md transition-all flex items-center justify-center gap-2"
                       style={{ background: "#0891B2" }}
@@ -828,7 +905,7 @@ export function MaintenanceDetailPage() {
                     </button>
                   </div>
                 )}
-                
+
                 {/* Note Field */}
                 <div className="p-4 bg-white rounded-lg border border-border shadow-sm mt-2">
                   <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
@@ -873,17 +950,25 @@ export function MaintenanceDetailPage() {
 
               {actionDone && (
                 <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 text-sm text-green-700 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
-                  <CheckCircle size={16} /> <span className="font-medium">Applied:</span> "{actionDone}"
+                  <CheckCircle size={16} />{" "}
+                  <span className="font-medium">Applied:</span> "{actionDone}"
                 </div>
               )}
 
               <div className="space-y-4">
                 {maint.status === "Assigned to Professional" && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-3">You have been assigned to this ticket. Begin the repair tracking.</p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      You have been assigned to this ticket. Begin the repair
+                      tracking.
+                    </p>
                     <button
                       onClick={() =>
-                        handleAction("In Progress", "professional", t("requests.in_progress"))
+                        handleAction(
+                          "In Progress",
+                          "professional",
+                          t("requests.in_progress"),
+                        )
                       }
                       className="w-full py-2.5 rounded-lg text-white text-sm font-bold hover:shadow-md transition-all flex items-center justify-center gap-2"
                       style={{ background: "#EA580C" }}
@@ -894,10 +979,16 @@ export function MaintenanceDetailPage() {
                 )}
                 {maint.status === "In Progress" && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-3">If the repair is finished, finalize the status below.</p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      If the repair is finished, finalize the status below.
+                    </p>
                     <button
                       onClick={() =>
-                        handleAction("Completed", "professional", t("requests.completed"))
+                        handleAction(
+                          "Completed",
+                          "professional",
+                          t("requests.completed"),
+                        )
                       }
                       className="w-full py-2.5 rounded-lg text-white text-sm font-bold hover:shadow-md transition-all flex items-center justify-center gap-2"
                       style={{ background: "#0D9488" }}
@@ -906,7 +997,7 @@ export function MaintenanceDetailPage() {
                     </button>
                   </div>
                 )}
-                
+
                 {/* Note Field */}
                 <div className="p-4 bg-white rounded-lg border border-border shadow-sm mt-2">
                   <label className="block text-xs font-semibold text-[#EA580C] mb-2 uppercase tracking-wide">

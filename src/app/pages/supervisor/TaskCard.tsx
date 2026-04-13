@@ -6,7 +6,7 @@ import {
   PriorityBadge,
   StatusBadge,
 } from "../../components/common/StatusBadge";
-import { Maintenance, User as UserType } from "../../data/mockData";
+import { User as UserType } from "../../data/mockData";
 
 export function TaskCard({
   m,
@@ -15,7 +15,7 @@ export function TaskCard({
   onSubmitReport,
   onView,
 }: {
-  m: Maintenance;
+  m: any;
   assignee?: UserType;
   onAssign: (id: string) => void;
   onSubmitReport: (id: string) => void;
@@ -29,16 +29,18 @@ export function TaskCard({
         <span className="font-mono text-xs font-bold text-[#7C3AED]">
           {m.id}
         </span>
-        <PriorityBadge priority={m.priority} />
+        <PriorityBadge priority={m.priority || "Medium"} />
       </div>
       <p className="text-sm font-semibold text-[#0E2271] mb-1 line-clamp-2">
         {m.title}
       </p>
       <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap mb-2">
         <span className="flex items-center gap-1">
-          <MapPin size={10} /> {m.location}
+          <MapPin size={10} /> {m.location || m.space || "No Location"}
         </span>
-        <span className="bg-gray-100 px-1.5 py-0.5 rounded">{m.type}</span>
+        <span className="bg-gray-100 px-1.5 py-0.5 rounded">
+          {m.type || m.classification || m.category}
+        </span>
       </div>
       {assignee && (
         <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">

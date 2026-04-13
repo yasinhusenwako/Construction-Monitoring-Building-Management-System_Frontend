@@ -158,7 +158,7 @@ function DetailPanel({
       );
     }
     if (req.module === "Projects") {
-      return (req.raw as Project).divisionId || "";
+      return (req.raw as Project).assignedTo || "";
     }
     return "";
   });
@@ -391,7 +391,9 @@ function DetailPanel({
                           }}
                           className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
                         >
-                          <option value="">{t("requests.selectDivision")}</option>
+                          <option value="">
+                            {t("requests.selectDivision")}
+                          </option>
                           {divisions.map((d) => (
                             <option key={d.id} value={d.id}>
                               {d.name}
@@ -412,7 +414,9 @@ function DetailPanel({
                           }
                           className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580] disabled:opacity-50"
                         >
-                          <option value="">{t("requests.assignLeadSupervisor")}</option>
+                          <option value="">
+                            {t("requests.assignLeadSupervisor")}
+                          </option>
                           {availableSupervisors.map((s) => (
                             <option key={s.id} value={s.id}>
                               {s.name}
@@ -446,7 +450,11 @@ function DetailPanel({
                           addNotification(
                             createNotification({
                               title: t("notifications.title.assigned"),
-                              message: t("notifications.message.assigned_id", { id: p.id }),
+                              message:
+                                t("notifications.message.assigned_id").replace(
+                                  "{id}",
+                                  p.id,
+                                ) || p.id,
                               userId: selectedSupervisor,
                               link: `/dashboard/projects/${p.id}`,
                               type: "warning",
@@ -735,7 +743,9 @@ function DetailPanel({
                           }}
                           className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#CC1F1A]"
                         >
-                          <option value="">{t("requests.selectDivision")}</option>
+                          <option value="">
+                            {t("requests.selectDivision")}
+                          </option>
                           {divisions.map((d) => (
                             <option key={d.id} value={d.id}>
                               {d.name}
@@ -756,7 +766,9 @@ function DetailPanel({
                           }
                           className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#CC1F1A] disabled:opacity-50"
                         >
-                          <option value="">{t("requests.selectSupervisor")}</option>
+                          <option value="">
+                            {t("requests.selectSupervisor")}
+                          </option>
                           {availableSupervisors.map((s) => (
                             <option key={s.id} value={s.id}>
                               {s.name}
@@ -780,7 +792,11 @@ function DetailPanel({
                           addNotification(
                             createNotification({
                               title: t("notifications.title.assigned"),
-                              message: t("notifications.message.assigned_id", { id: updated.id }),
+                              message:
+                                t("notifications.message.assigned_id").replace(
+                                  "{id}",
+                                  updated.id,
+                                ) || updated.id,
                               userId: selectedSupervisor,
                               link: `/dashboard/maintenance/${updated.id}`,
                               type: "warning",
@@ -792,7 +808,11 @@ function DetailPanel({
                             adminIds.map((adminId) =>
                               createNotification({
                                 title: t("requests.supervisorAssigned"),
-                                message: t("requests.assignedToDivision", { id: updated.id }),
+                                message:
+                                  t("requests.assignedToDivision").replace(
+                                    "{id}",
+                                    updated.id,
+                                  ) || updated.id,
                                 userId: adminId,
                                 link: `/dashboard/maintenance/${updated.id}`,
                                 type: "info",
@@ -1169,7 +1189,10 @@ export function AllRequestsPage() {
                   Date: r.date,
                 };
               });
-              exportToCSV(exportData, `CMBM_Report_Admin_${new Date().toISOString().split("T")[0]}`);
+              exportToCSV(
+                exportData,
+                `CMBM_Report_Admin_${new Date().toISOString().split("T")[0]}`,
+              );
             }}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-border text-sm font-semibold text-[#1A3580] hover:bg-secondary transition-all shadow-sm"
           >

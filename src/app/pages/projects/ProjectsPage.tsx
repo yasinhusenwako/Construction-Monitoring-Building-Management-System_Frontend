@@ -154,7 +154,11 @@ export function ProjectsPage() {
           >
             {statuses.map((s) => (
               <option key={s} value={s}>
-                {s === "All" ? t("status.all") : t(`status.${s.charAt(0).toLowerCase() + s.slice(1).replace(/\s+/g, "")}`)}
+                {s === "All"
+                  ? t("status.all")
+                  : t(
+                      `status.${s.charAt(0).toLowerCase() + s.slice(1).replace(/\s+/g, "")}`,
+                    )}
               </option>
             ))}
           </select>
@@ -165,7 +169,9 @@ export function ProjectsPage() {
           >
             {priorities.map((p) => (
               <option key={p} value={p}>
-                {p === "All" ? t("status.all") : t(`priority.${p.toLowerCase()}`)}
+                {p === "All"
+                  ? t("status.all")
+                  : t(`priority.${p.toLowerCase()}`)}
               </option>
             ))}
           </select>
@@ -183,7 +189,11 @@ export function ProjectsPage() {
                   : "bg-secondary text-muted-foreground hover:bg-muted"
               }`}
             >
-              {s === "All" ? t("status.all") : t(`status.${s.charAt(0).toLowerCase() + s.slice(1).replace(/\s+/g, "")}`)}
+              {s === "All"
+                ? t("status.all")
+                : t(
+                    `status.${s.charAt(0).toLowerCase() + s.slice(1).replace(/\s+/g, "")}`,
+                  )}
             </button>
           ))}
         </div>

@@ -133,14 +133,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     },
     {
       label:
-        currentUser?.role === "supervisor"
-          ? t("nav.assignedRequests")
-          : currentUser?.role === "professional"
-            ? t("nav.myTasks")
-            : t("nav.maintenance"),
+        currentUser?.role === "professional"
+          ? t("nav.myTasks")
+          : t("nav.maintenance"),
       path: "/dashboard/maintenance",
       icon: <Wrench size={18} />,
-      roles: ["admin", "user", "supervisor", "professional"],
+      roles: ["admin", "user", "professional"],
       badge: currentUser?.role === "admin" ? 2 : undefined,
     },
     {
