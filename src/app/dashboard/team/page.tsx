@@ -1,7 +1,7 @@
 "use client";
 
-import { ProtectedRoute } from "../../components/auth/ProtectedRoute";
-import { TeamOverviewPage } from "../../pages/supervisor/TeamOverviewPage";
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { TeamOverviewPage } from '@/views/supervisor/TeamOverviewPage';
 
 export default function TeamPage() {
   return (

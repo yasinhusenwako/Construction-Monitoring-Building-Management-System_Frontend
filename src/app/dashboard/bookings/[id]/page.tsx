@@ -1,4 +1,4 @@
-import BookingDetailPage from "@/app/pages/bookings/BookingDetailPage";
+import BookingDetailPage from '@/views/bookings/BookingDetailPage';
 
 export const metadata = {
   title: "Booking Details - CMBM",

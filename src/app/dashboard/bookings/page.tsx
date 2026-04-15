@@ -1,4 +1,4 @@
-import { BookingsPage } from "../../pages/bookings/BookingsPage";
+import { BookingsPage } from '@/views/bookings/BookingsPage';
 
 export default function Page() {
   return <BookingsPage />;

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { ForgotPasswordPage } from "../pages/auth/ForgotPasswordPage";
+import { ForgotPasswordPage } from '@/views/auth/ForgotPasswordPage';
 
 export default function Page() {
   return (

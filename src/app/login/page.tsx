@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { LoginPage } from "../pages/auth/LoginPage";
+import { LoginPage } from '@/views/auth/LoginPage';
 
 export default function Page() {
   return (

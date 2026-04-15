@@ -13,6 +13,14 @@ A role-based building management system for the Information Network Security Age
 
 ## Getting Started
 
+Create `.env.local`:
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+```
+
+Then run:
+
 ```bash
 npm install
 npm run dev
