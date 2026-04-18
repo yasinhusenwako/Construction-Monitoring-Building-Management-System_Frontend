@@ -32,14 +32,14 @@ import logoImg from "../../assets/f90b53223fdaa6590fb74226dca7ff83be56c9f0.png";
 import heroImg from "../../assets/login-hero.png";
 
 const ROLES = [
-  { id: "admin", label: "Admin", email: "admin@insa.gov.et" },
-  { id: "user", label: "User", email: "user@insa.gov.et" },
+  { id: "admin", label: "Admin", email: "admin@cmbms.com" },
+  { id: "user", label: "User", email: "user@cmbms.com" },
   {
     id: "supervisor",
     label: "Division Supervisor",
-    email: "supervisor@insa.gov.et",
+    email: "supervisor@cmbms.com",
   },
-  { id: "professional", label: "Professional", email: "tech@insa.gov.et" },
+  { id: "professional", label: "Professional", email: "professional@cmbms.com" },
 ];
 
 const REGISTER_STEPS = [

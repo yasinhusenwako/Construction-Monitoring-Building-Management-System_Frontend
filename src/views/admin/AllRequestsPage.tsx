@@ -1,29 +1,13 @@
 "use client";
 
 import { exportToCSV } from "@/lib/exportUtils";
-
-import { useState, useMemo, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import {
-  mockProjects,
-  mockBookings,
-  mockMaintenance,
-  mockUsers,
-  Project,
-  Booking,
-  Maintenance,
-  divisions,
-  getSupervisorsByDivision,
-  suggestDivision,
-} from "@/data/mockData";
 import { StatusBadge, PriorityBadge } from "@/components/common/StatusBadge";
+
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import {
-  getProjectsWithStored,
-  getBookingsWithStored,
-  getMaintenanceWithStored,
-} from "@/lib/storage";
-import {
+  adminAssignProfessional,
   adminAssignRequest,
   adminDecision,
   fetchLiveBookings,
@@ -31,6 +15,8 @@ import {
   fetchLiveProjects,
   fetchLiveUsers,
 } from "@/lib/live-api";
+import type { Project, Booking, Maintenance, User as UserType } from "@/types/models";
+import { divisions } from "@/types/models";
 import {
   ArrowLeft,
   Search,
@@ -99,8 +85,29 @@ const PRIORITY_ORDER: Record<string, number> = {
   Low: 3,
 };
 
-function getUserInfo(id: string) {
-  return mockUsers.find((u) => u.id === id);
+// getUserInfo is now handled inside the component with access to live users state
+
+/**
+ * Suggests a division based on keywords in the title, description, and category.
+ */
+function suggestDivision(title: string, description: string, category: string): string {
+  const text = `${title} ${description} ${category}`.toLowerCase();
+  for (const div of divisions) {
+    if (div.keywords.some(kw => text.includes(kw.toLowerCase()))) {
+      return div.id;
+    }
+  }
+  // Default to facility admin if no matches
+  return "DIV-002"; 
+}
+
+/**
+ * Filters the list of users to find supervisors belonging to a specific division.
+ */
+function getSupervisorsByDivision(users: UserType[], divisionId: string): Array<{ id: string; name: string }> {
+  return users
+    .filter((u) => u.role === "supervisor" && (u.divisionId === divisionId || !divisionId))
+    .map((u) => ({ id: u.id, name: u.name }));
 }
 
 function Avatar({
@@ -138,12 +145,16 @@ function DetailPanel({
   onNavigate,
   token,
   onRefresh,
+  getUserInfo,
+  users,
 }: {
   req: UnifiedRequest;
   onClose: () => void;
   onNavigate: (path: string) => void;
   token?: string;
   onRefresh: () => Promise<void> | void;
+  getUserInfo: (userId: string) => UserType | undefined;
+  users: UserType[];
 }) {
   const { t } = useLanguage();
   const meta = MODULE_META[req.module];
@@ -154,7 +165,12 @@ function DetailPanel({
   const [liveSupervisors, setLiveSupervisors] = useState<
     Array<{ id: string; name: string }>
   >([]);
-  const [, setBusy] = useState(false);
+  const [liveProfessionals, setLiveProfessionals] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+  const [busy, setBusy] = useState(false);
+  const [assignMode, setAssignMode] = useState<"team" | "professional">("team");
+  const [selectedProfessional, setSelectedProfessional] = useState("");
   const [selectedDivision, setSelectedDivision] = useState<string>(() => {
     if (req.module === "Maintenance") {
       const m = req.raw as Maintenance;
@@ -163,7 +179,7 @@ function DetailPanel({
       );
     }
     if (req.module === "Projects") {
-      return (req.raw as Project).assignedTo || "";
+      return (req.raw as Project).divisionId || "";
     }
     return "";
   });
@@ -172,13 +188,13 @@ function DetailPanel({
       return (req.raw as Maintenance).supervisorId || "";
     }
     if (req.module === "Projects") {
-      return (req.raw as Project).supervisorId || "";
+      return (req.raw as Project).assignedSupervisorId || (req.raw as Project).supervisorId || "";
     }
     return "";
   });
 
   useEffect(() => {
-    const loadSupervisors = async () => {
+    const loadUsers = async () => {
       if (!token) return;
       try {
         const users = await fetchLiveUsers(token);
@@ -187,17 +203,24 @@ function DetailPanel({
             .filter((u) => u.role === "supervisor")
             .map((u) => ({ id: u.id, name: u.name })),
         );
+        setLiveProfessionals(
+          users
+            .filter((u) => u.role === "professional")
+            .map((u) => ({ id: u.id, name: u.name })),
+        );
       } catch {
         setLiveSupervisors([]);
+        setLiveProfessionals([]);
       }
     };
-    loadSupervisors();
+    loadUsers();
   }, [token]);
 
   const availableSupervisors = useMemo(() => {
     if (liveSupervisors.length > 0) return liveSupervisors;
-    return selectedDivision ? getSupervisorsByDivision(selectedDivision) : [];
-  }, [liveSupervisors, selectedDivision]);
+    // Fallback using the passed users list and division filter
+    return selectedDivision ? getSupervisorsByDivision(users, selectedDivision) : [];
+  }, [liveSupervisors, selectedDivision, users]);
 
   const sendNote = () => {
     if (!adminNote.trim()) return;
@@ -422,71 +445,136 @@ function DetailPanel({
                   {/* --- Project Assignment Workflow (B2) --- */}
                   <Section title={t("requests.teamAssignment")}>
                     <div className="space-y-3 bg-white border border-border rounded-xl p-4 shadow-sm">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                          {t("requests.selectDivision")}
-                        </label>
-                        <select
-                          value={selectedDivision}
-                          onChange={(e) => {
-                            setSelectedDivision(e.target.value);
-                            setSelectedSupervisor("");
-                          }}
-                          className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
+                      {/* Sub Tabs */}
+                      <div className="flex p-1 bg-secondary/30 rounded-lg mb-2">
+                        <button
+                          onClick={() => setAssignMode("team")}
+                          className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${
+                            assignMode === "team"
+                              ? "bg-white shadow-sm text-[#1A3580]"
+                              : "text-muted-foreground hover:text-[#1A3580]"
+                          }`}
                         >
-                          <option value="">
-                            {t("requests.selectDivision")}
-                          </option>
-                          {divisions.map((d) => (
-                            <option key={d.id} value={d.id}>
-                              {d.name}
-                            </option>
-                          ))}
-                        </select>
+                          {t("requests.assignToTeam") || "Assign Team"}
+                        </button>
+                        <button
+                          onClick={() => setAssignMode("professional")}
+                          className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${
+                            assignMode === "professional"
+                              ? "bg-white shadow-sm text-[#1A3580]"
+                              : "text-muted-foreground hover:text-[#1A3580]"
+                          }`}
+                        >
+                          {t("requests.assignDirect") || "Assign Direct"}
+                        </button>
                       </div>
 
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                          {t("requests.assignLeadSupervisor")}
-                        </label>
-                        <select
-                          disabled={!selectedDivision}
-                          value={selectedSupervisor}
-                          onChange={(e) =>
-                            setSelectedSupervisor(e.target.value)
-                          }
-                          className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580] disabled:opacity-50"
-                        >
-                          <option value="">
-                            {t("requests.assignLeadSupervisor")}
-                          </option>
-                          {availableSupervisors.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      {assignMode === "team" ? (
+                        <>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
+                              {t("requests.selectDivision")}
+                            </label>
+                            <select
+                              value={selectedDivision}
+                              onChange={(e) => {
+                                setSelectedDivision(e.target.value);
+                                setSelectedSupervisor("");
+                              }}
+                              className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
+                            >
+                              <option value="">
+                                {t("requests.selectDivision")}
+                              </option>
+                              {divisions.map((d) => (
+                                <option key={d.id} value={d.id}>
+                                  {d.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
 
-                      <button
-                        disabled={!selectedDivision || !selectedSupervisor}
-                        onClick={() =>
-                          runAction(async () => {
-                            await adminAssignRequest({
-                              module: "PROJECT",
-                              businessId: p.id,
-                              divisionId: selectedDivision,
-                              supervisorId: selectedSupervisor,
-                              priority: "Medium",
-                              token,
-                            });
-                          })
-                        }
-                        className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#1A3580] hover:bg-[#0E2271] transition-all disabled:opacity-40"
-                      >
-                        {t("maintenance.assignSupervisor") ||
-                          t("requests.processAssignment")}
-                      </button>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
+                              {t("requests.assignLeadSupervisor")}
+                            </label>
+                            <select
+                              disabled={!selectedDivision}
+                              value={selectedSupervisor}
+                              onChange={(e) =>
+                                setSelectedSupervisor(e.target.value)
+                              }
+                              className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580] disabled:opacity-50"
+                            >
+                              <option value="">
+                                {t("requests.assignLeadSupervisor")}
+                              </option>
+                              {availableSupervisors.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                  {s.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <button
+                            disabled={!selectedDivision || !selectedSupervisor || busy}
+                            onClick={() =>
+                              runAction(async () => {
+                                await adminAssignRequest({
+                                  module: "PROJECT",
+                                  businessId: p.id,
+                                  divisionId: selectedDivision,
+                                  supervisorId: selectedSupervisor,
+                                  priority: "Medium",
+                                  token,
+                                });
+                              })
+                            }
+                            className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#1A3580] hover:bg-[#0E2271] transition-all disabled:opacity-40"
+                          >
+                            {t("maintenance.assignSupervisor") ||
+                              t("requests.processAssignment")}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
+                              {t("requests.selectProfessional") || "Select Professional"}
+                            </label>
+                            <select
+                              value={selectedProfessional}
+                              onChange={(e) => setSelectedProfessional(e.target.value)}
+                              className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
+                            >
+                              <option value="">{t("common.select") || "Select"}</option>
+                              {liveProfessionals.map((pr) => (
+                                <option key={pr.id} value={pr.id}>
+                                  {pr.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <button
+                            disabled={!selectedProfessional || busy}
+                            onClick={() =>
+                              runAction(async () => {
+                                await adminAssignProfessional({
+                                  module: "PROJECT",
+                                  businessId: p.id,
+                                  professionalId: selectedProfessional,
+                                  token,
+                                });
+                              })
+                            }
+                            className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#1A3580] hover:bg-[#0E2271] transition-all disabled:opacity-40"
+                          >
+                            {t("requests.assignDirect") || "Assign Direct"}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </Section>
                 </div>
@@ -627,6 +715,134 @@ function DetailPanel({
                       </div>
                     </div>
                   </Section>
+
+                  <Section title={t("requests.assignment") || "Assignment"}>
+                    <div className="space-y-3 bg-white border border-border rounded-xl p-4 shadow-sm">
+                      {/* Sub Tabs */}
+                      <div className="flex p-1 bg-secondary/30 rounded-lg mb-2">
+                        <button
+                          onClick={() => setAssignMode("team")}
+                          className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${
+                            assignMode === "team"
+                              ? "bg-white shadow-sm text-[#7C3AED]"
+                              : "text-muted-foreground hover:text-[#7C3AED]"
+                          }`}
+                        >
+                          {t("requests.assignToTeam") || "Assign Team"}
+                        </button>
+                        <button
+                          onClick={() => setAssignMode("professional")}
+                          className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${
+                            assignMode === "professional"
+                              ? "bg-white shadow-sm text-[#7C3AED]"
+                              : "text-muted-foreground hover:text-[#7C3AED]"
+                          }`}
+                        >
+                          {t("requests.assignDirect") || "Assign Direct"}
+                        </button>
+                      </div>
+
+                      {assignMode === "team" ? (
+                        <>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
+                              {t("requests.selectDivision")}
+                            </label>
+                            <select
+                              value={selectedDivision}
+                              onChange={(e) => {
+                                setSelectedDivision(e.target.value);
+                                setSelectedSupervisor("");
+                              }}
+                              className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#7C3AED]"
+                            >
+                              <option value="">{t("requests.selectDivision")}</option>
+                              {divisions.map((d) => (
+                                <option key={d.id} value={d.id}>
+                                  {d.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
+                              {t("requests.assignLeadSupervisor")}
+                            </label>
+                            <select
+                              disabled={!selectedDivision}
+                              value={selectedSupervisor}
+                              onChange={(e) => setSelectedSupervisor(e.target.value)}
+                              className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#7C3AED] disabled:opacity-50"
+                            >
+                              <option value="">{t("requests.assignLeadSupervisor")}</option>
+                              {availableSupervisors.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                  {s.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <button
+                            disabled={!selectedDivision || !selectedSupervisor || busy}
+                            onClick={() =>
+                              runAction(async () => {
+                                await adminAssignRequest({
+                                  module: "BOOKING",
+                                  businessId: b.id,
+                                  divisionId: selectedDivision,
+                                  supervisorId: selectedSupervisor,
+                                  priority: "Medium",
+                                  token,
+                                });
+                              })
+                            }
+                            className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#7C3AED] hover:bg-[#5B21B6] transition-all disabled:opacity-40"
+                          >
+                            {t("requests.processAssignment")}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
+                              {t("requests.selectProfessional") || "Select Professional"}
+                            </label>
+                            <select
+                              value={selectedProfessional}
+                              onChange={(e) => setSelectedProfessional(e.target.value)}
+                              className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#7C3AED]"
+                            >
+                              <option value="">{t("common.select") || "Select"}</option>
+                              {liveProfessionals.map((pr) => (
+                                <option key={pr.id} value={pr.id}>
+                                  {pr.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <button
+                            disabled={!selectedProfessional || busy}
+                            onClick={() =>
+                              runAction(async () => {
+                                await adminAssignProfessional({
+                                  module: "BOOKING",
+                                  businessId: b.id,
+                                  professionalId: selectedProfessional,
+                                  token,
+                                });
+                              })
+                            }
+                            className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#7C3AED] hover:bg-[#5B21B6] transition-all disabled:opacity-40"
+                          >
+                            {t("requests.assignDirect") || "Assign Direct"}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </Section>
                 </div>
               );
             })()}
@@ -732,74 +948,127 @@ function DetailPanel({
                     <Timeline events={m.timeline} color="#CC1F1A" />
                   </Section>
 
-                  {/* --- Admin Assignment Logic Extension --- */}
-                  <Section title={t("requests.supervisorAssignment")}>
-                    <div className="space-y-3 bg-white border border-border rounded-xl p-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                          {t("requests.selectDivisionForSupervisor")}
-                        </label>
-                        <select
-                          value={selectedDivision}
-                          onChange={(e) => {
-                            setSelectedDivision(e.target.value);
-                            setSelectedSupervisor("");
-                          }}
-                          className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#CC1F1A]"
+                  <Section title={t("requests.assignment") || "Assignment"}>
+                    <div className="space-y-3 bg-white border border-border rounded-xl p-4 shadow-sm">
+                      <div className="flex p-1 bg-secondary/30 rounded-lg mb-2">
+                        <button
+                          onClick={() => setAssignMode("team")}
+                          className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${
+                            assignMode === "team"
+                              ? "bg-white shadow-sm text-[#CC1F1A]"
+                              : "text-muted-foreground hover:text-[#CC1F1A]"
+                          }`}
                         >
-                          <option value="">
-                            {t("requests.selectDivision")}
-                          </option>
-                          {divisions.map((d) => (
-                            <option key={d.id} value={d.id}>
-                              {d.name}
-                            </option>
-                          ))}
-                        </select>
+                          {t("requests.assignToTeam") || "Assign Team"}
+                        </button>
+                        <button
+                          onClick={() => setAssignMode("professional")}
+                          className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${
+                            assignMode === "professional"
+                              ? "bg-white shadow-sm text-[#CC1F1A]"
+                              : "text-muted-foreground hover:text-[#CC1F1A]"
+                          }`}
+                        >
+                          {t("requests.assignDirect") || "Assign Direct"}
+                        </button>
                       </div>
 
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                          {t("supervisor.title")}
-                        </label>
-                        <select
-                          disabled={!selectedDivision}
-                          value={selectedSupervisor}
-                          onChange={(e) =>
-                            setSelectedSupervisor(e.target.value)
-                          }
-                          className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#CC1F1A] disabled:opacity-50"
-                        >
-                          <option value="">
-                            {t("requests.selectSupervisor")}
-                          </option>
-                          {availableSupervisors.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <button
-                        disabled={!selectedDivision || !selectedSupervisor}
-                        onClick={() =>
-                          runAction(async () => {
-                            await adminAssignRequest({
-                              module: "MAINTENANCE",
-                              businessId: m.id,
-                              divisionId: selectedDivision,
-                              supervisorId: selectedSupervisor,
-                              priority: m.priority,
-                              token,
-                            });
-                          })
-                        }
-                        className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#CC1F1A] hover:bg-[#7A0E0E] transition-all disabled:opacity-40"
-                      >
-                        {t("maintenance.assignSupervisor") ||
-                          t("requests.processAssignment")}
-                      </button>
+                      {assignMode === "team" ? (
+                        <>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
+                              {t("requests.selectDivision")}
+                            </label>
+                            <select
+                              value={selectedDivision}
+                              onChange={(e) => {
+                                setSelectedDivision(e.target.value);
+                                setSelectedSupervisor("");
+                              }}
+                              className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#CC1F1A]"
+                            >
+                              <option value="">{t("requests.selectDivision")}</option>
+                              {divisions.map((d) => (
+                                <option key={d.id} value={d.id}>
+                                  {d.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
+                              {t("requests.selectSupervisor")}
+                            </label>
+                            <select
+                              disabled={!selectedDivision}
+                              value={selectedSupervisor}
+                              onChange={(e) => setSelectedSupervisor(e.target.value)}
+                              className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#CC1F1A] disabled:opacity-50"
+                            >
+                              <option value="">{t("requests.selectSupervisor")}</option>
+                              {availableSupervisors.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                  {s.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <button
+                            disabled={!selectedDivision || !selectedSupervisor || busy}
+                            onClick={() =>
+                              runAction(async () => {
+                                await adminAssignRequest({
+                                  module: "MAINTENANCE",
+                                  businessId: m.id,
+                                  divisionId: selectedDivision,
+                                  supervisorId: selectedSupervisor,
+                                  priority: m.priority || "Medium",
+                                  token,
+                                });
+                              })
+                            }
+                            className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#CC1F1A] hover:bg-[#991B1B] transition-all disabled:opacity-40"
+                          >
+                            {t("maintenance.assignSupervisor") || t("requests.processAssignment")}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
+                              {t("requests.selectProfessional") || "Select Professional"}
+                            </label>
+                            <select
+                              value={selectedProfessional}
+                              onChange={(e) => setSelectedProfessional(e.target.value)}
+                              className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#CC1F1A]"
+                            >
+                              <option value="">{t("common.select") || "Select"}</option>
+                              {liveProfessionals.map((pr) => (
+                                <option key={pr.id} value={pr.id}>
+                                  {pr.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <button
+                            disabled={!selectedProfessional || busy}
+                            onClick={() =>
+                              runAction(async () => {
+                                await adminAssignProfessional({
+                                  module: "MAINTENANCE",
+                                  businessId: m.id,
+                                  professionalId: selectedProfessional,
+                                  token,
+                                });
+                              })
+                            }
+                            className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#CC1F1A] hover:bg-[#991B1B] transition-all disabled:opacity-40"
+                          >
+                            {t("requests.assignDirect") || "Assign Direct"}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </Section>
                 </div>
@@ -971,43 +1240,43 @@ export function AllRequestsPage() {
   const [sortAsc, setSortAsc] = useState(false);
   const [selectedReq, setSelectedReq] = useState<UnifiedRequest | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [token, setToken] = useState<string | undefined>(undefined);
 
-  // ─── Live data hydrated from localStorage ─────────────────────────────────
-  const [projects, setProjects] = useState(() =>
-    getProjectsWithStored(mockProjects),
-  );
-  const [bookings, setBookings] = useState(() =>
-    getBookingsWithStored(mockBookings),
-  );
-  const [maintenance, setMaintenance] = useState(() =>
-    getMaintenanceWithStored(mockMaintenance),
-  );
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setToken(sessionStorage.getItem("insa_token") || undefined);
+    }
+  }, []);
+
+  // ─── Live data fetched from backend ────────────────────────────────────────
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [maintenance, setMaintenance] = useState<Maintenance[]>([]);
+  const [users, setUsers] = useState<UserType[]>([]);
+
+  const getUserInfo = useCallback((userId: string) => {
+    return users.find((u) => String(u.id) === String(userId));
+  }, [users]);
 
   const refresh = async () => {
     try {
-      const [liveProjects, liveBookings, liveMaintenance] = await Promise.all([
+      const [liveProjects, liveBookings, liveMaintenance, liveUsers] = await Promise.all([
         fetchLiveProjects(),
         fetchLiveBookings(),
         fetchLiveMaintenance(),
+        fetchLiveUsers(),
       ]);
       setProjects(liveProjects);
       setBookings(liveBookings);
       setMaintenance(liveMaintenance);
-    } catch {
-      setProjects(getProjectsWithStored(mockProjects));
-      setBookings(getBookingsWithStored(mockBookings));
-      setMaintenance(getMaintenanceWithStored(mockMaintenance));
+      setUsers(liveUsers);
+    } catch (err) {
+      console.error("Failed to refresh dashboard data", err);
     }
   };
 
   useEffect(() => {
     refresh();
-    window.addEventListener("storage", refresh);
-    window.addEventListener("insa-storage", refresh);
-    return () => {
-      window.removeEventListener("storage", refresh);
-      window.removeEventListener("insa-storage", refresh);
-    };
   }, []);
 
   // ─── Unify all requests ────────────────────────────────────────────────────
@@ -1053,9 +1322,9 @@ export function AllRequestsPage() {
   }, [allRequests]);
 
   const requesterUsers = useMemo(() => {
-    const ids = new Set(allRequests.map((r) => r.requestedBy));
-    return mockUsers.filter((u) => ids.has(u.id));
-  }, [allRequests]);
+    const ids = new Set(allRequests.map((r) => String(r.requestedBy)));
+    return users.filter((u) => ids.has(String(u.id)));
+  }, [allRequests, users]);
 
   const filtered = useMemo(() => {
     let list = allRequests;
@@ -1095,6 +1364,7 @@ export function AllRequestsPage() {
     search,
     sortKey,
     sortAsc,
+    getUserInfo,
   ]);
 
   const stats = useMemo(
@@ -1132,7 +1402,9 @@ export function AllRequestsPage() {
         <DetailPanel
           req={selectedReq}
           onClose={() => setSelectedReq(null)}
-          
+          token={token}
+          users={users}
+          getUserInfo={getUserInfo}
           onRefresh={refresh}
           onNavigate={(path) => {
             setSelectedReq(null);

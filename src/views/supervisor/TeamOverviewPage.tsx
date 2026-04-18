@@ -4,32 +4,48 @@ import React from "react";
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import {
-  mockUsers,
-  getProfessionalsByDivision,
-  mockMaintenance,
-} from '@/data/mockData';
-import {
-  Users,
-  Mail,
-  Phone,
-  MapPin,
-  CheckCircle,
-  XCircle,
-  Activity,
-  User,
-} from "lucide-react";
+  fetchLiveMaintenance,
+  fetchLiveUsers,
+  fetchLiveBookings,
+  fetchLiveProjects
+} from "@/lib/live-api";
+import { Users, Mail, Phone, Activity } from "lucide-react";
 
 export function TeamOverviewPage() {
   const { currentUser } = useAuth();
   const { t } = useLanguage();
 
-  const myDivisionId = currentUser?.divisionId;
-  const teamMembers = myDivisionId
-    ? getProfessionalsByDivision(myDivisionId)
-    : [];
+  const [teamMembers, setTeamMembers] = React.useState<any[]>([]);
+  const [allTasks, setAllTasks] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const refresh = async () => {
+      setLoading(true);
+      const token = sessionStorage.getItem("insa_token") ?? undefined;
+      try {
+        const [users, maintenance, projects, bookings] = await Promise.all([
+          fetchLiveUsers(token),
+          fetchLiveMaintenance(token),
+          fetchLiveProjects(token),
+          fetchLiveBookings(token),
+        ]);
+
+        // Filter for professionals in my division
+        const professionals = users.filter((u) => u.role === "professional");
+        setTeamMembers(professionals);
+        setAllTasks([...maintenance, ...projects, ...bookings]);
+      } catch (error) {
+        console.error("Failed to refresh team data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    refresh();
+  }, []);
 
   const getActiveTaskCount = (userId: string) => {
-    return mockMaintenance.filter(
+    return allTasks.filter(
       (m) =>
         m.assignedTo === userId &&
         (m.status === "In Progress" || m.status === "Assigned to Professional"),
@@ -37,7 +53,7 @@ export function TeamOverviewPage() {
   };
 
   const getCompletedTaskCount = (userId: string) => {
-    return mockMaintenance.filter(
+    return allTasks.filter(
       (m) => m.assignedTo === userId && m.status === "Completed",
     ).length;
   };

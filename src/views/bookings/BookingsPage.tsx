@@ -4,9 +4,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { spaces as initialSpaces } from '@/data/mockData';
-import type { Booking, Space, SpaceType } from '@/types/models';
-import { StatusBadge } from '@/components/common/StatusBadge';
+import {
+  fetchLiveBookings,
+  fetchLiveUsers,
+  adminAssignRequest,
+  adminDecision,
+  supervisorReviewRequest,
+  supervisorAssignProfessional,
+  professionalUpdateTaskStatus,
+} from "@/lib/live-api";
+import { Booking, User as UserType, SpaceType, Space } from "@/types/models";
 import {
   canTransition,
   canViewItem,
@@ -15,13 +22,12 @@ import {
   WorkflowRole,
   WorkflowStatus,
 } from '@/lib/workflow';
-import { fetchLiveBookings } from "@/lib/live-api";
-import {
-  addNotification,
-  addNotifications,
-  createNotification,
-  getUserIdsByRole,
-} from '@/lib/notifications';
+
+const initialSpaces = [
+  { id: "SP-001", name: "Executive Conference Hall", capacity: 50, type: "Conference Hall", floor: "Floor 1", building: "Main Block", available: true },
+  { id: "SP-002", name: "Tech Lab A", capacity: 20, type: "Lab", floor: "Floor 2", building: "IT Wing", available: false },
+  { id: "SP-003", name: "Seminar Room 1", capacity: 100, type: "Conference Hall", floor: "Ground Floor", building: "Education Center", available: true },
+];
 import {
   Plus,
   Calendar,
@@ -41,6 +47,7 @@ import {
   Building2,
   LayoutGrid,
 } from "lucide-react";
+import { StatusBadge } from "@/components/common/StatusBadge";
 
 // Types are now imported from @/types/models
 
@@ -387,15 +394,30 @@ export function BookingsPage() {
   const [assignTarget, setAssignTarget] = useState<string | null>(null);
   const [selectedAssignee, setSelectedAssignee] = useState("");
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = sessionStorage.getItem("insa_token") ?? undefined;
-    fetchLiveBookings(token)
-      .then(setBookings)
-      .catch(() => {});
+    const refresh = async () => {
+      setLoading(true);
+      const token = sessionStorage.getItem("insa_token") ?? undefined;
+      try {
+        const [liveBookings, liveUsers] = await Promise.all([
+          fetchLiveBookings(token),
+          fetchLiveUsers(token),
+        ]);
+        setBookings(liveBookings);
+        setUsers(liveUsers);
+      } catch (error) {
+        console.error("Failed to refresh bookings data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    void refresh();
   }, []);
 
-  // ─── Spaces state (lifted from mockData so admin can CRUD) ────────────────
+  // ─── Spaces state ────────────────────────────────────────────────────────────
   const [spaceList, setSpaceList] = useState<Space[]>(initialSpaces as unknown as Space[]);
   const [spaceModal, setSpaceModal] = useState<"add" | "edit" | null>(null);
   const [editTarget, setEditTarget] = useState<Space | null>(null);
@@ -437,23 +459,8 @@ export function BookingsPage() {
     setTimeout(() => setCopied(""), 2000);
   };
 
-   const persistBookingUpdate = (
-    bookingId: string,
-    updates: Partial<Booking>,
-  ): Booking | null => {
-    const current = bookings.find((b) => b.id === bookingId);
-    if (!current) return null;
-    const updated = {
-      ...current,
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
-    // TODO: persist via API call
-    setBookings((prev) => prev.map((b) => (b.id === bookingId ? updated : b)));
-    return updated;
-  };
 
-  const applyTransition = (
+  const applyTransition = async (
     bookingId: string,
     currentStatus: WorkflowStatus,
     nextStatus: WorkflowStatus,
@@ -464,91 +471,66 @@ export function BookingsPage() {
     if (!canTransition(actorRole, currentStatus, nextStatus)) {
       setActionMsg(t("bookings.notAllowed"));
       setTimeout(() => setActionMsg(""), 3000);
-
       return false;
     }
-    const updated = persistBookingUpdate(bookingId, {
-      status: nextStatus,
-      ...extraUpdates,
-    });
-    if (updated) {
-      if (extraUpdates?.supervisorId) {
-        addNotification(
-          createNotification({
-            title: "Booking Assigned",
-            message: `You have been assigned ${updated.id} for supervision.`,
-            userId: extraUpdates.supervisorId,
-            link: "/dashboard/bookings",
-            type: "warning",
-          }),
-        );
-      }
-      if (extraUpdates?.assignedTo) {
-        addNotification(
-          createNotification({
-            title: "Booking Task Assigned",
-            message: `You have been assigned ${updated.id} to complete.`,
-            userId: extraUpdates.assignedTo,
-            link: "/dashboard/bookings",
-            type: "warning",
-          }),
-        );
-      }
-      if (
-        nextStatus === "Completed" &&
-        actorRole === "professional" &&
-        updated.supervisorId
-      ) {
-        addNotification(
-          createNotification({
-            title: "Booking Completed",
-            message: `${updated.id} has been completed and needs review.`,
-            userId: updated.supervisorId,
-            link: "/dashboard/bookings",
-            type: "info",
-          }),
-        );
-      }
-      if (nextStatus === "Reviewed" && actorRole === "supervisor") {
-        const adminIds = getUserIdsByRole("admin");
-        addNotifications(
-          adminIds.map((id) =>
-            createNotification({
-              title: "Booking Ready for Approval",
-              message: `${updated.id} reviewed by supervisor, awaiting admin approval.`,
-              userId: id,
-              link: "/dashboard/bookings",
-              type: "info",
-            }),
-          ),
-        );
-      }
-      if (
-        (nextStatus === "Approved" ||
-          nextStatus === "Rejected" ||
-          nextStatus === "Closed") &&
+
+    const token = sessionStorage.getItem("insa_token") ?? undefined;
+    const requestModule = "BOOKING";
+
+    try {
+      if (nextStatus === "Assigned to Supervisor" && actorRole === "admin") {
+        await adminAssignRequest({
+          module: requestModule,
+          businessId: bookingId,
+          supervisorId: extraUpdates?.supervisorId || "",
+          divisionId: "DIV-001", // Fallback
+          token,
+        });
+      } else if (nextStatus === "Assigned to Professional" && actorRole === "supervisor") {
+        await supervisorAssignProfessional({
+          module: requestModule,
+
+          businessId: bookingId,
+          professionalId: extraUpdates?.assignedTo || "",
+          token,
+        });
+      } else if (nextStatus === "Reviewed" && actorRole === "supervisor") {
+        await supervisorReviewRequest({ module: requestModule, businessId: bookingId, token });
+      } else if (
+        (nextStatus === "Approved" || nextStatus === "Rejected" || nextStatus === "Closed") &&
         actorRole === "admin"
       ) {
-        addNotification(
-          createNotification({
-            title: `Booking ${nextStatus}`,
-            message: `Your booking request ${updated.id} has been ${nextStatus.toLowerCase()}.`,
-            userId: updated.requestedBy,
-            link: "/dashboard/bookings",
-            type:
-              nextStatus === "Approved"
-                ? "success"
-                : nextStatus === "Rejected"
-                  ? "error"
-                  : "info",
-          }),
-        );
+        const action = nextStatus.toLowerCase() as "approve" | "reject" | "close";
+        await adminDecision({ module: requestModule, businessId: bookingId, action, token });
+      } else if (
+        (nextStatus === "In Progress" || nextStatus === "Completed") &&
+        actorRole === "professional"
+      ) {
+        await professionalUpdateTaskStatus({
+          module: requestModule,
+          businessId: bookingId,
+          status: nextStatus,
+          token,
+        });
       }
-    }
-    setActionMsg(t(message));
 
-    setTimeout(() => setActionMsg(""), 3000);
-    return true;
+      // Update local state
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === bookingId
+            ? { ...b, status: nextStatus, ...extraUpdates, updatedAt: new Date().toISOString() }
+            : b
+        )
+      );
+      setActionMsg(t(message));
+      setTimeout(() => setActionMsg(""), 3000);
+      return true;
+    } catch (error) {
+      console.error("Transition failed:", error);
+      setActionMsg(t("requests.submitFailed"));
+      setTimeout(() => setActionMsg(""), 3000);
+      return false;
+    }
   };
 
   // ─── Space CRUD handlers ──────────────────────────────────────────────────

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { User, UserRole } from "@/types/models";
+import { getStoredAuthToken } from "@/lib/auth-storage";
 import { fetchLiveUsers } from "@/lib/live-api";
 import { StatusBadge, RoleBadge } from "@/components/common/StatusBadge";
 import {
@@ -32,10 +33,7 @@ export function UsersPage() {
       setLoading(true);
       setLoadError("");
       try {
-        const token =
-          sessionStorage.getItem("insa_token") ||
-          localStorage.getItem("insa_token") ||
-          undefined;
+        const token = getStoredAuthToken();
         const liveUsers = await fetchLiveUsers(token);
         setUsers(liveUsers as User[]);
       } catch (err) {

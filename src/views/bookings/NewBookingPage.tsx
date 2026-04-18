@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { spaces, mockBookings } from '@/data/mockData';
+import { apiRequest } from "@/lib/api";
+import { fetchLiveBookings } from "@/lib/live-api";
+import { useLanguage } from '@/context/LanguageContext';
+import { DatePicker } from '@/components/common/DatePicker';
+import type { Booking, Space } from '@/types/models';
 import {
   CheckCircle,
   ArrowLeft,
@@ -14,16 +18,45 @@ import {
   Building2,
   Calendar,
 } from "lucide-react";
-import { useLanguage } from '@/context/LanguageContext';
-import { DatePicker } from '@/components/common/DatePicker';
-import { addBooking, getBookingsWithStored } from '@/lib/storage';
-import type { Booking } from '@/data/mockData';
-import { apiRequest } from "@/lib/api";
-import {
-  addNotifications,
-  createNotification,
-  getUserIdsByRole,
-} from '@/lib/notifications';
+
+const spaces: Space[] = [
+  {
+    id: "SP-001",
+    name: "Executive Conference Hall",
+    capacity: 50,
+    type: "Conference Hall",
+    floor: "Floor 2",
+    building: "Block A",
+    available: true,
+  },
+  {
+    id: "SP-002",
+    name: "Tech Lab A",
+    capacity: 20,
+    type: "Lab",
+    floor: "Floor 3",
+    building: "Block B",
+    available: true,
+  },
+  {
+    id: "SP-003",
+    name: "Seminar Room 1",
+    capacity: 100,
+    type: "Conference Hall",
+    floor: "Ground Floor",
+    building: "Block C",
+    available: true,
+  },
+  {
+    id: "SP-004",
+    name: "Boardroom",
+    capacity: 12,
+    type: "Office",
+    floor: "Floor 1",
+    building: "Block A",
+    available: true,
+  },
+];
 
 // ─── B1: Office Space Allocation ─────────────────────────────────
 // Constants migrated inside component for translation support
@@ -98,6 +131,22 @@ export function NewBookingPage() {
   const [submitted, setSubmitted] = useState(false);
   const [submittedId, setSubmittedId] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [liveBookings, setLiveBookings] = useState<Booking[]>([]);
+  const [isLoadingBookings, setIsLoadingBookings] = useState(true);
+
+  useEffect(() => {
+    const loadBookings = async () => {
+      try {
+        const data = await fetchLiveBookings();
+        setLiveBookings(data);
+      } catch (err) {
+        console.error("Failed to load live bookings for conflict check:", err);
+      } finally {
+        setIsLoadingBookings(false);
+      }
+    };
+    loadBookings();
+  }, []);
 
   // ─── B1 form state
   const [b1Form, setB1Form] = useState({
@@ -155,10 +204,9 @@ export function NewBookingPage() {
   const selectedSpace = spaces.find((s) => s.id === b2Form.space);
 
   // Dynamic conflict check for B2 (Shared Hall Booking)
-  const allBookings = getBookingsWithStored(mockBookings);
   const hasConflict =
     bookingType === "B2" &&
-    allBookings.some((b) => {
+    liveBookings.some((b) => {
       if (b.space !== (selectedSpace?.name || b2Form.space)) return false;
       if (b.date !== b2Form.date) return false;
 
@@ -338,21 +386,8 @@ export function NewBookingPage() {
       return;
     }
 
-    addBooking(bookingItem);
-    const adminIds = getUserIdsByRole("admin");
-    addNotifications(
-      adminIds.map((adminId) =>
-        createNotification({
-          title: t("notifications.title"),
-          message: `${t("bookings.allocationBeingReviewed")} (${bookingItem.id})`,
-          userId: adminId,
-          link: "/dashboard/bookings",
-          type: "info",
-        }),
-      ),
-    );
-    setSubmittedId(bookingItem.id);
-    setSubmitted(true);
+      setSubmittedId(bookingItem.id);
+      setSubmitted(true);
   };
 
   const inputClass = (field: string) =>

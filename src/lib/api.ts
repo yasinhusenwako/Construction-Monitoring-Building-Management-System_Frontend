@@ -1,6 +1,11 @@
+import { getStoredAuthToken } from "@/lib/auth-storage";
+
 type ApiRequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
   token?: string;
+  onError?: (error: Error) => void;
+  retryCount?: number;
+  retryDelayMs?: number;
 };
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(
@@ -10,8 +15,8 @@ const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(
 
 function getApiBaseUrl(): string {
   if (API_BASE_URL) return API_BASE_URL;
-  // Default to 127.0.0.1:8080 in development to avoid 20s localhost IPv6 resolution timeouts in Node
-  return "http://127.0.0.1:8080";
+  // Default to same-origin so the Next API proxy is the single frontend boundary.
+  return "";
 }
 
 function resolveUrl(url: string): string {
@@ -26,7 +31,15 @@ export async function apiRequest<T>(
   url: string,
   options: ApiRequestOptions = {},
 ): Promise<T> {
-  const { body, token, headers, ...rest } = options;
+  const {
+    body,
+    token,
+    headers,
+    onError,
+    retryCount = 0,
+    retryDelayMs = 500,
+    ...rest
+  } = options;
   const resolvedHeaders = new Headers(headers || {});
 
   let authToken = token;
@@ -48,11 +61,7 @@ export async function apiRequest<T>(
         // Ignore headers import errors
       }
     } else {
-      // Client-side: Read from document.cookie, fallback to sessionStorage
-      const match = document.cookie.match(/(?:^|; )insa_token=([^;]*)/);
-      authToken = match
-        ? decodeURIComponent(match[1])
-        : sessionStorage.getItem("insa_token") || undefined;
+      authToken = getStoredAuthToken();
     }
   }
 
@@ -70,40 +79,59 @@ export async function apiRequest<T>(
     resolvedHeaders.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(resolveUrl(url), {
-    ...rest,
-    headers: resolvedHeaders,
-    body:
-      body === undefined || isFormData
-        ? (body as BodyInit | null | undefined)
-        : JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => "");
-    let message = errorText || `Request failed (${response.status})`;
-
+  let lastError: Error | undefined;
+  for (let attempt = 0; attempt <= retryCount; attempt++) {
     try {
-      const parsed = JSON.parse(errorText);
-      if (parsed && typeof parsed === "object" && "message" in parsed) {
-        const parsedMessage = (parsed as { message?: string }).message;
-        if (parsedMessage) message = parsedMessage;
+      const response = await fetch(resolveUrl(url), {
+        ...rest,
+        headers: resolvedHeaders,
+        body:
+          body === undefined || isFormData
+            ? (body as BodyInit | null | undefined)
+            : JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "");
+        let message = errorText || `Request failed (${response.status})`;
+
+        try {
+          const parsed = JSON.parse(errorText);
+          if (parsed && typeof parsed === "object" && "message" in parsed) {
+            const parsedMessage = (parsed as { message?: string }).message;
+            if (parsedMessage) message = parsedMessage;
+          }
+        } catch {
+          // keep text message
+        }
+
+        throw new Error(message);
       }
-    } catch {
-      // keep text message
+
+      if (response.status === 204) {
+        return undefined as T;
+      }
+
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        return (await response.json()) as T;
+      }
+
+      return (await response.text()) as T;
+    } catch (error: any) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (onError) onError(lastError);
+      // Only retry on network errors or 5xx
+      if (
+        attempt < retryCount &&
+        (lastError.message.includes("NetworkError") ||
+          /5\d\d/.test(lastError.message))
+      ) {
+        await new Promise((res) => setTimeout(res, retryDelayMs));
+        continue;
+      }
+      break;
     }
-
-    throw new Error(message);
   }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  const contentType = response.headers.get("content-type") || "";
-  if (contentType.includes("application/json")) {
-    return (await response.json()) as T;
-  }
-
-  return (await response.text()) as T;
+  throw lastError ?? new Error("Unknown API error");
 }

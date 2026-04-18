@@ -13,14 +13,8 @@ import {
   X,
 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
-import { addMaintenance } from "@/lib/storage";
-import type { Maintenance } from "@/data/mockData";
-import {
-  addNotifications,
-  createNotification,
-  getUserIdsByRole,
-} from "@/lib/notifications";
 import { useLanguage } from "@/context/LanguageContext";
+import type { Maintenance } from "@/types/models";
 
 // Static constants moved inside component for translation support
 
@@ -366,19 +360,6 @@ export function NewMaintenancePage() {
         ],
       };
 
-      addMaintenance(maintenanceItem);
-      const adminIds = getUserIdsByRole("admin");
-      addNotifications(
-        adminIds.map((id) =>
-          createNotification({
-            title: t("notifications.title"),
-            message: `${t("maintenance.submitSuccess")} (${maintenanceId})`,
-            userId: id,
-            link: `/dashboard/maintenance/${maintenanceId}`,
-            type: "info",
-          }),
-        ),
-      );
       setSubmittedId(maintenanceId);
       setSubmitted(true);
     } catch (error) {

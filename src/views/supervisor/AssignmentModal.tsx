@@ -2,7 +2,7 @@
 
 import { CheckCircle, UserCheck } from "lucide-react";
 import { useState } from "react";
-import { User } from '@/data/mockData';
+import { User } from '@/types/models';
 import { useLanguage } from '@/context/LanguageContext';
 
 export function AssignmentModal({

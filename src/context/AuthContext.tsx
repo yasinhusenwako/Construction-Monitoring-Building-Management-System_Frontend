@@ -3,6 +3,13 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { User, UserRole } from "@/types/models";
 import { apiRequest } from "@/lib/api";
+import {
+  clearStoredAuthSession,
+  getStoredAuthToken,
+  migrateLegacyAuthSession,
+  persistAuthSession,
+  updateStoredAuthUser,
+} from "@/lib/auth-storage";
 
 type BackendRole = "ADMIN" | "USER" | "SUPERVISOR" | "PROFESSIONAL";
 
@@ -122,18 +129,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
-    const stored = sessionStorage.getItem("insa_user");
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as SessionUser;
-        setCurrentUser(parsed);
-      } catch {
-        sessionStorage.removeItem("insa_user");
-        sessionStorage.removeItem("insa_token");
-        localStorage.removeItem("insa_token");
-        document.cookie =
-          "insa_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      }
+    const { user: storedUser } = migrateLegacyAuthSession();
+    const token = getStoredAuthToken();
+
+    if (!storedUser || !token) {
+      clearStoredAuthSession();
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(storedUser) as SessionUser;
+      setCurrentUser(parsed);
+    } catch {
+      clearStoredAuthSession();
     }
   }, []);
 
@@ -148,10 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       const sessionUser = toSessionUser(payload);
       setCurrentUser(sessionUser);
-      sessionStorage.setItem("insa_user", JSON.stringify(sessionUser));
-      sessionStorage.setItem("insa_token", payload.token);
-      localStorage.setItem("insa_token", payload.token);
-      document.cookie = `insa_token=${payload.token}; path=/; max-age=604800; SameSite=Lax`; // 7 days expiration
+      persistAuthSession(sessionUser, payload.token);
       return { success: true };
     } catch (error) {
       return {
@@ -166,11 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     setCurrentUser(null);
-    sessionStorage.removeItem("insa_user");
-    sessionStorage.removeItem("insa_token");
-    localStorage.removeItem("insa_token");
-    document.cookie =
-      "insa_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    clearStoredAuthSession();
   };
 
   const register = async (
@@ -196,10 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
       const sessionUser = toSessionUser(payload);
       setCurrentUser(sessionUser);
-      sessionStorage.setItem("insa_user", JSON.stringify(sessionUser));
-      sessionStorage.setItem("insa_token", payload.token);
-      localStorage.setItem("insa_token", payload.token);
-      document.cookie = `insa_token=${payload.token}; path=/; max-age=604800; SameSite=Lax`; // 7 days expiration
+      persistAuthSession(sessionUser, payload.token);
       return { success: true };
     } catch (error) {
       return {
@@ -234,7 +232,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateUser = (user: User) => {
     setCurrentUser(user);
-    sessionStorage.setItem("insa_user", JSON.stringify(user));
+    updateStoredAuthUser(user);
   };
 
   return (

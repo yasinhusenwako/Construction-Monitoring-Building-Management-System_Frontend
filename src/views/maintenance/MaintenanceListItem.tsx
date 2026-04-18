@@ -7,7 +7,7 @@ import {
   PriorityBadge,
   StatusBadge,
 } from '@/components/common/StatusBadge';
-import { Maintenance, User as UserType } from '@/data/mockData';
+import { Maintenance, User as UserType } from '@/types/models';
 import { getUserFacingStatus, WorkflowRole } from '@/lib/workflow';
 import { useLanguage } from '@/context/LanguageContext';
 

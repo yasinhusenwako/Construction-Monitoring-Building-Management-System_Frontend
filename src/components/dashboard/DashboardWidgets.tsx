@@ -28,7 +28,7 @@ export function KpiCard({
   return (
     <button
       onClick={onClick}
-      className="bg-white rounded-2xl p-5 border border-border shadow-sm hover:shadow-lg transition-all text-left w-full group relative overflow-hidden"
+      className="glass-premium rounded-2xl p-5 border border-border shadow-sm hover-lift transition-all text-left w-full group relative overflow-hidden"
     >
       <div
         className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"
@@ -169,7 +169,7 @@ export function ModulePanel({
 }) {
   const { t } = useLanguage();
   return (
-    <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+    <div className="bg-white rounded-2xl border border-border shadow-premium overflow-hidden">
       <div
         className="px-5 py-3.5 flex items-center justify-between border-b border-border"
         style={{

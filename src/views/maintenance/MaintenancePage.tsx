@@ -5,28 +5,27 @@ import { useRouter } from "next/navigation";
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import type { Maintenance } from '@/types/models';
-import { divisions } from '@/data/mockData';
-import {
-  canTransition,
-  canViewItem,
-  WorkflowRole,
-  WorkflowStatus,
-} from '@/lib/workflow';
-import {
-  addNotification,
-  addNotifications,
-  createNotification,
-  getUserIdsByRole,
-} from '@/lib/notifications';
 import {
   fetchLiveBookings,
   fetchLiveMaintenance,
   fetchLiveProjects,
+  fetchLiveUsers,
+  adminAssignRequest,
+  adminDecision,
+  supervisorReviewRequest,
+  supervisorAssignProfessional,
+  professionalUpdateTaskStatus,
 } from "@/lib/live-api";
 import {
   StatusBadge,
   PriorityBadge,
 } from '@/components/common/StatusBadge';
+import {
+  canViewItem,
+  canTransition,
+  type WorkflowRole,
+  type WorkflowStatus,
+} from '@/lib/workflow';
 import { Plus, Search, Wrench, Clock, CheckCircle } from "lucide-react";
 import { MaintenanceListItem } from "./MaintenanceListItem";
 
@@ -44,18 +43,23 @@ export function MaintenancePage() {
   const [assignTarget, setAssignTarget] = useState<string | null>(null);
   const [selectedTech, setSelectedTech] = useState("");
   const [actionMsg, setActionMsg] = useState("");
-  const [maintenanceItems, setMaintenanceItems] =
-    useState<Maintenance[]>([]);
+  const [maintenanceItems, setMaintenanceItems] = useState<Maintenance[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const refresh = async () => {
+      setLoading(true);
       const token = sessionStorage.getItem("insa_token") ?? undefined;
       try {
-        const [liveMaintenance, liveProjects, liveBookings] = await Promise.all([
-          fetchLiveMaintenance(token),
-          fetchLiveProjects(token),
-          fetchLiveBookings(token),
-        ]);
+        const [liveMaintenance, liveProjects, liveBookings, liveUsers] =
+          await Promise.all([
+            fetchLiveMaintenance(token),
+            fetchLiveProjects(token),
+            fetchLiveBookings(token),
+            fetchLiveUsers(token),
+          ]);
+        setUsers(liveUsers);
         let items: Maintenance[] = liveMaintenance;
         if (role === "professional") {
           items = [
@@ -65,14 +69,22 @@ export function MaintenancePage() {
           ];
         }
         setMaintenanceItems(items);
-      } catch {
-        // backend unreachable
+      } catch (error) {
+        console.error("Failed to refresh maintenance data:", error);
+      } finally {
+        setLoading(false);
       }
     };
     void refresh();
   }, [role]);
 
-  const getFilteredProfessionals = (_m?: Maintenance) => {
+  const getFilteredProfessionals = (m?: Maintenance) => {
+    if (role === "admin") {
+      return users.filter((u) => u.role === "supervisor");
+    }
+    if (role === "supervisor") {
+      return users.filter((u) => u.role === "professional");
+    }
     return [];
   };
 
@@ -146,7 +158,7 @@ export function MaintenancePage() {
     setTimeout(() => setCopied(""), 2000);
   };
 
-  const applyTransition = (
+  const applyTransition = async (
     m: Maintenance,
     to: WorkflowStatus,
     actorRole: WorkflowRole,
@@ -155,150 +167,135 @@ export function MaintenancePage() {
     if (!canTransition(actorRole, m.status, to)) {
       setActionMsg(t("maintenance.notAllowed"));
       setTimeout(() => setActionMsg(""), 3000);
-
       return false;
     }
-    m.status = to;
-    m.updatedAt = new Date().toISOString();
-    // TODO: call API endpoint to persist status change
 
-    if (to === "Completed" && actorRole === "professional" && m.supervisorId) {
-      addNotification(
-        createNotification({
-          title: "Task Completed",
-          message: `${m.id} has been completed and needs review.`,
-          userId: m.supervisorId,
-          link: m.id.startsWith("PRJ-")
-            ? `/dashboard/projects/${m.id}`
-            : m.id.startsWith("BKG-")
-              ? `/dashboard/bookings/${m.id}`
-              : `/dashboard/maintenance/${m.id}`,
-          type: "info",
-        }),
+    const token = sessionStorage.getItem("insa_token") ?? undefined;
+    const requestModule = m.id.startsWith("PRJ-")
+      ? "PROJECT"
+      : m.id.startsWith("BKG-")
+        ? "BOOKING"
+        : "MAINTENANCE";
+
+    try {
+      if (to === "Under Review" && actorRole === "admin") {
+        // Just UI state for now as there's no specific 'start review' endpoint other than assignment
+      } else if (to === "Reviewed" && actorRole === "supervisor") {
+        await supervisorReviewRequest({ module: requestModule, businessId: m.id, token });
+      } else if (
+        (to === "Approved" || to === "Rejected" || to === "Closed") &&
+        actorRole === "admin"
+      ) {
+        const action = to.toLowerCase() as "approve" | "reject" | "close";
+        await adminDecision({ module: requestModule, businessId: m.id, action, token });
+      } else if (
+        (to === "In Progress" || to === "Completed") &&
+        actorRole === "professional"
+      ) {
+        await professionalUpdateTaskStatus({
+          module: requestModule,
+          businessId: m.id,
+          status: to,
+          token,
+        });
+      }
+
+      // Update local state and show message
+      setMaintenanceItems((prev) =>
+        prev.map((item) =>
+          item.id === m.id ? { ...item, status: to, updatedAt: new Date().toISOString() } : item
+        )
       );
+      setActionMsg(msg);
+      setTimeout(() => setActionMsg(""), 3000);
+      return true;
+    } catch (error) {
+      console.error("Transition failed:", error);
+      setActionMsg(t("requests.submitFailed"));
+      setTimeout(() => setActionMsg(""), 3000);
+      return false;
     }
-    if (to === "Reviewed" && actorRole === "supervisor") {
-      const adminIds = getUserIdsByRole("admin");
-      addNotifications(
-        adminIds.map((id) =>
-          createNotification({
-            title: "Task Ready for Approval",
-            message: `${m.id} reviewed by supervisor, awaiting admin approval.`,
-            userId: id,
-            link: m.id.startsWith("PRJ-")
-              ? `/dashboard/projects/${m.id}`
-              : m.id.startsWith("BKG-")
-                ? `/dashboard/bookings/${m.id}`
-                : `/dashboard/maintenance/${m.id}`,
-            type: "info",
-          }),
-        ),
-      );
-    }
-    if (
-      (to === "Approved" || to === "Rejected" || to === "Closed") &&
-      actorRole === "admin"
-    ) {
-      addNotification(
-        createNotification({
-          title: `Task ${to}`,
-          message: `Your request ${m.id} has been ${to.toLowerCase()}.`,
-          userId: m.requestedBy,
-          link: m.id.startsWith("PRJ-")
-            ? `/dashboard/projects/${m.id}`
-            : m.id.startsWith("BKG-")
-              ? `/dashboard/bookings/${m.id}`
-              : `/dashboard/maintenance/${m.id}`,
-          type:
-            to === "Approved"
-              ? "success"
-              : to === "Rejected"
-                ? "error"
-                : "info",
-        }),
-      );
-    }
-    setMaintenanceItems((prev) => [...prev]);
-    setActionMsg(msg);
-    setTimeout(() => setActionMsg(""), 3000);
-    return true;
   };
 
-  const handleAssignConfirm = (m: Maintenance) => {
+  const handleAssignConfirm = async (m: Maintenance) => {
     const techName = selectedTech;
-    if (role === "admin") {
-      if (
-        !applyTransition(
-          m,
-          "Assigned to Supervisor",
-          "admin",
-          `${t("maintenance.assigned_to")} ${techName}`,
-        )
-      ) {
-        return;
-      }
-      m.supervisorId = selectedTech;
-      addNotification(
-        createNotification({
-          title: "Task Assigned",
-          message: `You have been assigned ${m.id} for supervision.`,
-          userId: selectedTech,
-          link: m.id.startsWith("PRJ-")
-            ? `/dashboard/projects/${m.id}`
-            : m.id.startsWith("BKG-")
-              ? `/dashboard/bookings/${m.id}`
-              : `/dashboard/maintenance/${m.id}`,
-          type: "warning",
-        }),
-      );
-    }
+    const token = sessionStorage.getItem("insa_token") ?? undefined;
+    const requestModule = m.id.startsWith("PRJ-")
+      ? "PROJECT"
+      : m.id.startsWith("BKG-")
+        ? "BOOKING"
+        : "MAINTENANCE";
 
-    if (role === "supervisor") {
-      if (
-        !applyTransition(
-          m,
-          "Assigned to Professional",
-          "supervisor",
-          `${t("maintenance.assigned_to")} ${techName}`,
-        )
-      ) {
-        return;
+    try {
+      if (role === "admin") {
+        await adminAssignRequest({
+          module: requestModule,
+          businessId: m.id,
+          supervisorId: selectedTech,
+          divisionId: m.divisionId || "DIV-001",
+          token,
+        });
+        setMaintenanceItems((prev) =>
+          prev.map((item) =>
+            item.id === m.id
+              ? {
+                  ...item,
+                  status: "Assigned to Supervisor",
+                  supervisorId: selectedTech,
+                  updatedAt: new Date().toISOString(),
+                }
+              : item,
+          ),
+        );
+      } else if (role === "supervisor") {
+        await supervisorAssignProfessional({
+          module: requestModule,
+          businessId: m.id,
+          professionalId: selectedTech,
+          token,
+        });
+        setMaintenanceItems((prev) =>
+          prev.map((item) =>
+            item.id === m.id
+              ? {
+                  ...item,
+                  status: "Assigned to Professional",
+                  assignedTo: selectedTech,
+                  updatedAt: new Date().toISOString(),
+                }
+              : item,
+          ),
+        );
       }
-      m.assignedTo = selectedTech;
-      addNotification(
-        createNotification({
-          title: "Task Assigned",
-          message: `You have been assigned ${m.id} to complete.`,
-          userId: selectedTech,
-          link: m.id.startsWith("PRJ-")
-            ? `/dashboard/projects/${m.id}`
-            : m.id.startsWith("BKG-")
-              ? `/dashboard/bookings/${m.id}`
-              : `/dashboard/maintenance/${m.id}`,
-          type: "warning",
-        }),
-      );
+      setActionMsg(`${t("maintenance.assigned_to")} ${techName}`);
+      setTimeout(() => setActionMsg(""), 3000);
+    } catch (error) {
+      console.error("Assignment failed:", error);
+      setActionMsg(t("requests.submitFailed"));
+      setTimeout(() => setActionMsg(""), 3000);
     }
-    m.updatedAt = new Date().toISOString();
-    // TODO: call API endpoint to persist assignment
 
     setSelectedTech("");
+    setAssignTarget(null);
   };
 
-  const handleCreateWorkOrder = (m: Maintenance) => {
-    const created = applyTransition(
+  const handleCreateWorkOrder = async (m: Maintenance) => {
+    const created = await applyTransition(
       m,
       "WorkOrder Created",
       "supervisor",
       `${t("maintenance.workOrderCreatedFor")} ${m.id}`,
     );
 
-    if (created && !m.workOrderId) {
-      m.workOrderId = `WO-${m.id}`;
+    if (created) {
+      setMaintenanceItems((prev) =>
+        prev.map((item) =>
+          item.id === m.id && !item.workOrderId
+            ? { ...item, workOrderId: `WO-${item.id}` }
+            : item,
+        ),
+      );
     }
-    m.updatedAt = new Date().toISOString();
-    // TODO: persist via API
-    setMaintenanceItems((prev) => [...prev]);
   };
 
   return (
@@ -505,7 +502,7 @@ export function MaintenancePage() {
                   setAssignTarget(null);
                   setSelectedTech("");
                 }}
-                filteredProfessionals={[]}
+                filteredProfessionals={getFilteredProfessionals(m)}
               />
             );
           })

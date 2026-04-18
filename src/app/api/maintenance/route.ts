@@ -1,19 +1,16 @@
-import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-type MaintenanceRequestBody = {
-  maintenanceId?: string;
-};
+import { dynamic, proxyBackendRequest } from "../_proxy";
 
-export async function POST(request: Request) {
-  try {
-    const body = (await request.json()) as MaintenanceRequestBody;
-    const maintenanceId = body?.maintenanceId || `MNT-${Date.now()}`;
+export { dynamic };
 
-    return NextResponse.json({ maintenanceId }, { status: 201 });
-  } catch {
-    return NextResponse.json(
-      { message: "Invalid request body" },
-      { status: 400 },
-    );
-  }
+async function handle(request: NextRequest) {
+  return proxyBackendRequest(request);
 }
+
+export const GET = handle;
+export const POST = handle;
+export const PATCH = handle;
+export const PUT = handle;
+export const DELETE = handle;
+export const OPTIONS = handle;

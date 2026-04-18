@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
-import type { Project } from "../../data/mockData";
+import { Project } from "../../types/models";
 import { StatusBadge } from "../../components/common/StatusBadge";
 import {
   ArrowLeft,
@@ -14,6 +14,9 @@ import {
   MapPin,
   DollarSign,
   Calendar,
+  Phone,
+  Info,
+  Layers,
   User,
   FileText,
   MessageSquare,
@@ -21,33 +24,19 @@ import {
   ThumbsDown,
   UserPlus,
   Briefcase,
-  Phone,
-  Info,
 } from "lucide-react";
 import {
   fetchLiveProjects,
   fetchLiveUsers,
-  adminAssignRequest,
-  adminDecision,
-  supervisorAssignProfessional,
-  supervisorReviewRequest,
-  professionalUpdateTaskStatus,
 } from "@/lib/live-api";
+import { executeWorkflowAction } from "@/lib/workflow-actions";
 import {
-  canTransition,
   getUserFacingStatus,
   WORKFLOW_STATUSES,
   WorkflowRole,
   WorkflowStatus,
   canViewItem,
 } from "../../lib/workflow";
-import { getProjectsWithStored } from "../../lib/storage";
-import {
-  addNotification,
-  addNotifications,
-  createNotification,
-  getUserIdsByRole,
-} from "../../lib/notifications";
 import { WorkflowVisualizer } from "../../components/common/WorkflowVisualizer";
 
 export function ProjectDetailPage() {
@@ -64,16 +53,20 @@ export function ProjectDetailPage() {
   const [selectedTech, setSelectedTech] = useState("");
   const [actionDone, setActionDone] = useState("");
   const [systemUsers, setSystemUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     const refresh = async () => {
+      setLoading(true);
+      const token = sessionStorage.getItem("insa_token") ?? undefined;
       try {
         const [liveProjects, liveUsers] = await Promise.all([
-          fetchLiveProjects(undefined, id),
-          fetchLiveUsers(),
+          fetchLiveProjects(token, id),
+          fetchLiveUsers(token),
         ]);
         setSystemUsers(liveUsers);
-        const found = liveProjects.find((p) => p.id === id) || liveProjects[0];
+        const found = liveProjects.find((p) => p.id === id);
 
         if (
           found &&
@@ -84,8 +77,10 @@ export function ProjectDetailPage() {
           setProjectItem(null);
         }
       } catch (error) {
-        console.error(error);
+        console.error("Failed to fetch project detail:", error);
         setProjectItem(null);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -131,76 +126,18 @@ export function ProjectDetailPage() {
     message: string,
     extraUpdates?: Partial<Project>,
   ) => {
-    if (!canTransition(actorRole, project.status, action, "project")) {
-      setActionDone(t("maintenance.atLeastOneLocation")); // Using atLeastOneLocation as placeholder for "Action not allowed" if no specific key exists, but better to use a dedicated one.
-      // Wait, I should've added a specific key for "Action not allowed". Let's check common keys.
-      setActionDone(t("message.error"));
-      setTimeout(() => setActionDone(""), 3000);
-      return;
-    }
+    const result = await executeWorkflowAction({
+      module: "PROJECT",
+      businessId: project.id,
+      requestId: project.dbId,
+      currentStatus: project.status,
+      nextStatus: action,
+      actorRole,
+      extraUpdates,
+    });
 
-    try {
-      const currentModule = "PROJECT";
-
-      if (actorRole === "admin") {
-        if (action === "Assigned to Supervisor" && extraUpdates?.supervisorId) {
-          await adminAssignRequest({
-            module: currentModule,
-            businessId: project.id,
-            divisionId: "1", // using default valid ID instead of "div_system"
-            supervisorId: extraUpdates.supervisorId,
-          });
-        } else if (
-          action === "Assigned to Professional" &&
-          extraUpdates?.assignedTo
-        ) {
-          await supervisorAssignProfessional({
-            module: currentModule,
-            businessId: project.id,
-            professionalId: extraUpdates.assignedTo,
-          });
-        } else if (
-          action === "Approved" ||
-          action === "Rejected" ||
-          action === "Closed"
-        ) {
-          const apiAction =
-            action === "Approved"
-              ? "approve"
-              : action === "Rejected"
-                ? "reject"
-                : "close";
-          await adminDecision({
-            module: currentModule,
-            businessId: project.id,
-            action: apiAction,
-          });
-        }
-      } else if (actorRole === "supervisor") {
-        if (action === "Assigned to Professional" && extraUpdates?.assignedTo) {
-          await supervisorAssignProfessional({
-            module: currentModule,
-            businessId: project.id,
-            professionalId: extraUpdates.assignedTo,
-          });
-        } else if (action === "Reviewed") {
-          await supervisorReviewRequest({
-            module: currentModule,
-            businessId: project.id,
-          });
-        }
-      } else if (actorRole === "professional") {
-        if (action === "In Progress" || action === "Completed") {
-          await professionalUpdateTaskStatus({
-            module: currentModule,
-            businessId: project.id,
-            status: action,
-          });
-        }
-      }
-    } catch (err) {
-      console.error("Action failed", err);
-      setActionDone(t("message.error") || "Error performing action");
+    if (!result.ok) {
+      setActionDone(result.message || (t("message.error") || "Error performing action"));
       setTimeout(() => setActionDone(""), 3000);
       return;
     }
@@ -213,86 +150,16 @@ export function ProjectDetailPage() {
     };
     setProjectItem(updated);
 
-    if (action !== "Under Review") {
-      try {
-        const liveProjects = await fetchLiveProjects();
-        const found = liveProjects.find((p) => p.id === id);
-        if (found) setProjectItem(found);
-      } catch (err) {
-        console.error("Failed to re-sync after action", err);
-      }
+    // Re-sync after a short delay or immediately
+    try {
+      const token = sessionStorage.getItem("insa_token") ?? undefined;
+      const liveProjects = await fetchLiveProjects(token, id);
+      const found = liveProjects.find((p) => p.id === id);
+      if (found) setProjectItem(found);
+    } catch (err) {
+      console.error("Failed to re-sync after action", err);
     }
 
-    if (extraUpdates?.supervisorId) {
-      addNotification(
-        createNotification({
-          title: t("notifications.title.assigned"),
-          message: `${t("notifications.message.assigned")} (${updated.id})`,
-          userId: extraUpdates.supervisorId,
-          link: `/dashboard/projects/${updated.id}`,
-          type: "warning",
-        }),
-      );
-    }
-    if (extraUpdates?.assignedTo) {
-      addNotification(
-        createNotification({
-          title: t("notifications.title.taskAssigned"),
-          message: `${t("notifications.message.taskAssigned")} (${updated.id})`,
-          userId: extraUpdates.assignedTo,
-          link: `/dashboard/projects/${updated.id}`,
-          type: "warning",
-        }),
-      );
-    }
-    if (
-      action === "Completed" &&
-      actorRole === "professional" &&
-      updated.supervisorId
-    ) {
-      addNotification(
-        createNotification({
-          title: t("notifications.title.completed"),
-          message: `${t("notifications.message.completed")} (${updated.id})`,
-          userId: updated.supervisorId,
-          link: `/dashboard/projects/${updated.id}`,
-          type: "info",
-        }),
-      );
-    }
-    if (action === "Reviewed" && actorRole === "supervisor") {
-      const adminIds = getUserIdsByRole("admin");
-      addNotifications(
-        adminIds.map((id) =>
-          createNotification({
-            title: t("notifications.title.readyApproval"),
-            message: `${updated.id} ${t("notifications.message.readyApproval")}`,
-            userId: id,
-            link: `/dashboard/projects/${updated.id}`,
-            type: "info",
-          }),
-        ),
-      );
-    }
-    if (
-      (action === "Approved" || action === "Rejected" || action === "Closed") &&
-      actorRole === "admin"
-    ) {
-      addNotification(
-        createNotification({
-          title: `${t("form.project")} ${t(`requests.${action.toLowerCase()}` as any) || action}`,
-          message: `${t("projects.actionApplied")}: ${updated.id} ${t(`requests.${action.toLowerCase()}` as any) || action.toLowerCase()}.`,
-          userId: updated.requestedBy,
-          link: `/dashboard/projects/${updated.id}`,
-          type:
-            action === "Approved"
-              ? "success"
-              : action === "Rejected"
-                ? "error"
-                : "info",
-        }),
-      );
-    }
     setActionDone(message);
     setTimeout(() => setActionDone(""), 3000);
   };
@@ -635,63 +502,70 @@ export function ProjectDetailPage() {
               )}
 
               <div className="space-y-4">
-                {project.status === "Submitted" && (
-                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-3">
-                      {t("requests.submitted")}: Ready for initial review.
-                    </p>
-                    <button
-                      onClick={() =>
-                        handleAction(
-                          "Under Review",
-                          "admin",
-                          t("requests.under_review"),
-                        )
-                      }
-                      className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
-                      style={{ background: "#7C3AED" }}
-                    >
-                      <User size={16} /> {t("projects.startReview")}
-                    </button>
-                  </div>
-                )}
+                {(project.status === "Submitted" || project.status === "Under Review") && (
+                  <div className="space-y-3 bg-white border border-border rounded-xl p-4 shadow-sm">
+                    {project.status === "Submitted" && (
+                      <div className="mb-4 pb-4 border-b border-dashed border-border">
+                        <p className="text-xs text-muted-foreground mb-3">
+                          {t("requests.submitted")}: Ready for initial review.
+                        </p>
+                        <button
+                          onClick={() =>
+                            handleAction(
+                              "Under Review",
+                              "admin",
+                              t("requests.under_review"),
+                            )
+                          }
+                          className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
+                          style={{ background: "#7C3AED" }}
+                        >
+                          <User size={16} /> {t("projects.startReview")}
+                        </button>
+                      </div>
+                    )}
 
-                {project.status === "Under Review" && (
-                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
-                      Assign Professional
-                    </label>
-                    <select
-                      value={selectedTech}
-                      onChange={(e) => setSelectedTech(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none mb-3 focus:ring-2 focus:ring-[#1A3580]/20 focus:border-[#1A3580] transition-all"
-                    >
-                      <option value="">Select Professional</option>
-                      {systemUsers
-                        .filter((u) => u.role === "professional")
-                        .map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.department || "Professional"} - {u.name}
-                          </option>
-                        ))}
-                    </select>
-                    <button
-                      onClick={() => {
-                        if (!selectedTech) return;
-                        handleAction(
-                          "Assigned to Professional",
-                          "admin",
-                          "Assigned to Professional",
-                          {
-                            assignedTo: selectedTech,
-                          },
-                        );
-                      }}
-                      disabled={!selectedTech}
-                      className="w-full py-2.5 rounded-lg text-sm font-bold bg-[#1A3580] text-white hover:bg-[#0E2271] disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-all shadow-sm flex items-center justify-center gap-2"
-                    >
-                      <UserPlus size={16} /> Assign Professional
-                    </button>
+                    {project.status === "Under Review" && (
+                      <>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
+                            {t("requests.selectProfessional") || "Select Professional"}
+                          </label>
+                          <select
+                            value={selectedTech}
+                            onChange={(e) => setSelectedTech(e.target.value)}
+                            className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
+                          >
+                            <option value="">{t("common.select") || "Select"}</option>
+                            {systemUsers
+                              .filter((u) => u.role === "professional")
+                              .map((pr) => (
+                                <option key={pr.id} value={pr.id}>
+                                  {pr.name}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+
+                        <button
+                          disabled={!selectedTech || busy}
+                          onClick={() => {
+                            setBusy(true);
+                            handleAction(
+                              "Assigned to Professional",
+                              "admin",
+                              "Assigned to Professional",
+                              {
+                                assignedTo: selectedTech,
+                              },
+                            ).finally(() => setBusy(false));
+                          }}
+                          className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#1A3580] hover:bg-[#0E2271] transition-all disabled:opacity-40"
+                        >
+                          {t("requests.assignDirect") || "Assign Direct"}
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
 
@@ -759,118 +633,6 @@ export function ProjectDetailPage() {
               </div>
             </div>
           )}
-
-          {/* Supervisor Actions */}
-          {role === "supervisor" &&
-            project.supervisorId === currentUser?.id && (
-              <div className="bg-gradient-to-br from-[#ffffff] to-[#fff5f5] rounded-xl border border-border p-5 shadow-md relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 h-full bg-[#CC1F1A]"></div>
-                <h3 className="text-sm font-bold text-[#CC1F1A] mb-5 flex items-center gap-2">
-                  <Briefcase size={16} />
-                  {t("projects.supervisorActions")}
-                </h3>
-
-                {actionDone && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 text-sm text-green-700 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
-                    <CheckCircle size={16} /> {actionDone}
-                  </div>
-                )}
-
-                <div className="space-y-4">
-                  {project.status === "Assigned to Supervisor" && (
-                    <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                      <p className="text-xs text-muted-foreground mb-3">
-                        Task has been assigned to you. Generate a work order to
-                        begin.
-                      </p>
-                      <button
-                        onClick={() => {
-                          const workOrderId =
-                            project.workOrderId || `WO-${project.id}`;
-                          handleAction(
-                            "WorkOrder Created",
-                            "supervisor",
-                            t("requests.workorder_created"),
-                            { workOrderId },
-                          );
-                        }}
-                        className="w-full py-2.5 rounded-lg text-white text-sm font-bold hover:shadow-md transition-all flex items-center justify-center gap-2"
-                        style={{ background: "#1A3580" }}
-                      >
-                        <FileText size={16} />{" "}
-                        {t("maintenance.createWorkOrder")}
-                      </button>
-                    </div>
-                  )}
-
-                  {project.status === "WorkOrder Created" && (
-                    <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                      <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
-                        {t("maintenance.assignProfessional")}
-                      </label>
-                      <select
-                        value={selectedTech}
-                        onChange={(e) => setSelectedTech(e.target.value)}
-                        className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all"
-                      >
-                        <option value="">
-                          {t("maintenance.placeholder.selectCategory").replace(
-                            "category",
-                            "professional",
-                          )}
-                        </option>
-                        {systemUsers
-                          .filter((u) => u.role === "professional")
-                          .map((u) => (
-                            <option key={u.id} value={u.id}>
-                              {u.name}
-                            </option>
-                          ))}
-                      </select>
-                      <button
-                        onClick={() => {
-                          if (!selectedTech) return;
-                          handleAction(
-                            "Assigned to Professional",
-                            "supervisor",
-                            t("requests.assigned_to_professional"),
-                            { assignedTo: selectedTech },
-                          );
-                        }}
-                        disabled={!selectedTech}
-                        className="w-full py-2.5 rounded-lg text-sm font-bold bg-[#CC1F1A] text-white hover:bg-[#aa1814] disabled:bg-red-200 disabled:text-red-400 disabled:cursor-not-allowed transition-all shadow-sm flex items-center justify-center gap-2"
-                      >
-                        <UserPlus size={16} />{" "}
-                        {t("maintenance.assignProfessional")}
-                      </button>
-                    </div>
-                  )}
-
-                  {project.status === "Completed" && (
-                    <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                      <p className="text-xs text-muted-foreground mb-3">
-                        Work has been completed by the professional. Review and
-                        submit to admin.
-                      </p>
-                      <button
-                        onClick={() =>
-                          handleAction(
-                            "Reviewed",
-                            "supervisor",
-                            t("requests.reviewed"),
-                          )
-                        }
-                        className="w-full py-2.5 rounded-lg text-white text-sm font-bold hover:shadow-md transition-all flex items-center justify-center gap-2"
-                        style={{ background: "#0891B2" }}
-                      >
-                        <CheckCircle size={16} />{" "}
-                        {t("maintenance.submitToAdmin")}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
 
           {/* Professional Actions */}
           {role === "professional" &&

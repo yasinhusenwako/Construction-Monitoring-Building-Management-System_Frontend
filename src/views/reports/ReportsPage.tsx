@@ -2,13 +2,6 @@
 
 import { useEffect, useState } from "react";
 import {
-  analyticsData,
-  mockProjects,
-  mockBookings,
-  mockMaintenance,
-} from '@/data/mockData';
-import type { Booking, Maintenance, Project } from "@/data/mockData";
-import {
   fetchLiveBookings,
   fetchLiveMaintenance,
   fetchLiveProjects,
@@ -47,6 +40,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import { useLanguage } from '@/context/LanguageContext';
+import type { Booking, Maintenance, Project } from "@/types/models";
 
 // ─── Static Data ────────────────────────────────────────────────────────────
 
@@ -189,11 +183,24 @@ function MetricCard({
 
 export function ReportsPage() {
   const { t } = useLanguage();
-  const [projects, setProjects] = useState<Project[]>(mockProjects);
-  const [bookings, setBookings] = useState<Booking[]>(mockBookings);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [maintenanceItems, setMaintenanceItems] =
-    useState<Maintenance[]>(mockMaintenance);
-  const [liveMttr, setLiveMttr] = useState<number | null>(null);
+    useState<Maintenance[]>([]);
+  const [reportData, setReportData] = useState<{
+    statusDistribution: { name: string; value: number; color: string }[];
+    requestVolume: { month: string; projects: number; bookings: number; maintenance: number }[];
+    mttr: { month: string; hours: number }[];
+    spaceUtilization: { space: string; utilization: number }[];
+    costTracking: { month: string; planned: number; actual: number }[];
+  }>({
+    statusDistribution: [],
+    requestVolume: [],
+    mttr: [],
+    spaceUtilization: [],
+    costTracking: [],
+  });
+  const [avgMTTR, setAvgMTTR] = useState(0);
 
   useEffect(() => {
     const load = async () => {
@@ -206,28 +213,38 @@ export function ReportsPage() {
             fetchLiveMaintenance(token),
             fetchLiveReports(token),
           ]);
-        if (liveProjects.length > 0) setProjects(liveProjects);
-        if (liveBookings.length > 0) setBookings(liveBookings);
-        if (liveMaintenance.length > 0) setMaintenanceItems(liveMaintenance);
-        if (typeof reportBundle.mttr?.mttrHours === "number") {
-          setLiveMttr(Math.round(reportBundle.mttr.mttrHours));
-        }
-      } catch {
-        // fallback to mock analytics view
+        
+        setProjects(liveProjects);
+        setBookings(liveBookings);
+        setMaintenanceItems(liveMaintenance);
+
+        // Normalize backend report data with safe fallbacks
+        const statusMap = reportBundle?.overview?.statusBreakdown || {};
+        const dist = Object.entries(statusMap).map(([name, value], i) => ({
+          name: name || t("common.unknown"),
+          value: Number(value) || 0,
+          color: ["#1A3580", "#CC1F1A", "#F5B800", "#16A34A", "#7C3AED", "#9CA3AF"][i % 6]
+        }));
+        
+        const liveHours = reportBundle?.mttr?.mttrHours || 0;
+        setAvgMTTR(Math.round(liveHours));
+
+        setReportData({
+          statusDistribution: dist.length > 0 ? dist : [],
+          requestVolume: [], // To be populated by backend later
+          mttr: [{ month: t("common.current"), hours: liveHours }],
+          spaceUtilization: [],
+          costTracking: [],
+        });
+
+      } catch (error) {
+        console.error("Failed to load live reports:", error);
       }
     };
     void load();
   }, []);
 
-  const completedProjects = projects.filter(
-    (p) => p.status === "Completed",
-  ).length;
-  const totalBudget = projects.reduce((sum, p) => sum + p.budget, 0);
-  const fallbackMttr = Math.round(
-    analyticsData.mttr.reduce((sum, d) => sum + d.hours, 0) /
-      analyticsData.mttr.length,
-  );
-  const avgMTTR = liveMttr ?? fallbackMttr;
+  const totalBudget = projects.reduce((sum, p) => sum + (p.budget || 0), 0);
   const confirmedBookings = bookings.filter(
     (b) => b.status === "Approved",
   ).length;
@@ -320,7 +337,7 @@ export function ReportsPage() {
             </p>
           </div>
           <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={analyticsData.requestVolume}>
+            <LineChart data={reportData.requestVolume}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6B7BA4" }} />
               <YAxis tick={{ fontSize: 11, fill: "#6B7BA4" }} />
@@ -377,7 +394,7 @@ export function ReportsPage() {
             <ResponsiveContainer width="60%" height={220}>
               <PieChart>
                 <Pie
-                  data={analyticsData.statusDistribution}
+                  data={reportData.statusDistribution}
                   cx="50%"
                   cy="50%"
                   innerRadius={55}
@@ -385,7 +402,7 @@ export function ReportsPage() {
                   paddingAngle={3}
                   dataKey="value"
                 >
-                  {analyticsData.statusDistribution.map((entry, i) => (
+                  {reportData.statusDistribution.map((entry, i) => (
                     <Cell key={i} fill={entry.color} />
                   ))}
                 </Pie>
@@ -395,7 +412,7 @@ export function ReportsPage() {
               </PieChart>
             </ResponsiveContainer>
             <div className="flex-1 space-y-2">
-              {analyticsData.statusDistribution.map((item) => (
+              {reportData.statusDistribution.map((item) => (
                 <div
                   key={item.name}
                   className="flex items-center justify-between gap-2"
@@ -408,7 +425,7 @@ export function ReportsPage() {
                     <span className="text-xs text-foreground">{item.name}</span>
                   </div>
                   <span className="text-xs font-semibold text-muted-foreground">
-                    {item.value}%
+                    {item.value}
                   </span>
                 </div>
               ))}
@@ -427,7 +444,7 @@ export function ReportsPage() {
             </p>
           </div>
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={analyticsData.mttr} barSize={28}>
+            <BarChart data={reportData.mttr} barSize={28}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6B7BA4" }} />
               <YAxis tick={{ fontSize: 11, fill: "#6B7BA4" }} unit="h" />
@@ -457,7 +474,7 @@ export function ReportsPage() {
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart
-              data={analyticsData.spaceUtilization}
+              data={reportData.spaceUtilization}
               layout="vertical"
               barSize={16}
             >
@@ -487,7 +504,7 @@ export function ReportsPage() {
                 radius={[0, 4, 4, 0]}
                 name="Utilization"
               >
-                {analyticsData.spaceUtilization.map((entry, i) => (
+                {reportData.spaceUtilization.map((entry, i) => (
                   <Cell
                     key={i}
                     fill={
@@ -515,7 +532,7 @@ export function ReportsPage() {
             </p>
           </div>
           <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={analyticsData.costTracking} barSize={20}>
+            <BarChart data={reportData.costTracking} barSize={20}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6B7BA4" }} />
               <YAxis
@@ -858,39 +875,42 @@ export function ReportsPage() {
               {[
                 [
                   t("reports.totalRequests_row"),
-                  mockProjects.length,
-                  mockBookings.length,
-                  mockMaintenance.length,
-                  mockProjects.length +
-                    mockBookings.length +
-                    mockMaintenance.length,
+                  projects.length,
+                  bookings.length,
+                  maintenanceItems.length,
+                  projects.length +
+                    bookings.length +
+                    maintenanceItems.length,
                 ],
                 [
                   t("reports.completedConfirmed"),
-                  completedProjects,
-                  confirmedBookings,
-                  closedMaint,
-                  completedProjects + confirmedBookings + closedMaint,
+                  projects.filter((p) => p.status === "Completed").length,
+                  bookings.filter((b) => b.status === "Approved").length,
+                  maintenanceItems.filter((m) => m.status === "Closed")
+                    .length,
+                  projects.filter((p) => p.status === "Completed").length +
+                  bookings.filter((b) => b.status === "Approved").length +
+                  maintenanceItems.filter((m) => m.status === "Closed").length,
                 ],
                 [
                   t("reports.pendingOpen"),
-                  mockProjects.filter((p) => p.status === "Submitted").length,
-                  mockBookings.filter((b) => b.status === "Submitted").length,
-                  mockMaintenance.filter((m) => m.status === "Submitted")
+                  projects.filter((p) => p.status === "Submitted").length,
+                  bookings.filter((b) => b.status === "Submitted").length,
+                  maintenanceItems.filter((m) => m.status === "Submitted")
                     .length,
-                  mockProjects.filter((p) => p.status === "Submitted").length +
-                    mockBookings.filter((b) => b.status === "Submitted")
+                  projects.filter((p) => p.status === "Submitted").length +
+                    bookings.filter((b) => b.status === "Submitted")
                       .length +
-                    mockMaintenance.filter((m) => m.status === "Submitted")
+                    maintenanceItems.filter((m) => m.status === "Submitted")
                       .length,
                 ],
                 [
                   t("reports.rejectedCancelled"),
-                  mockProjects.filter((p) => p.status === "Rejected").length,
-                  mockBookings.filter((b) => b.status === "Rejected").length,
+                  projects.filter((p) => p.status === "Rejected").length,
+                  bookings.filter((b) => b.status === "Rejected").length,
                   0,
-                  mockProjects.filter((p) => p.status === "Rejected").length +
-                    mockBookings.filter((b) => b.status === "Rejected").length,
+                  projects.filter((p) => p.status === "Rejected").length +
+                    bookings.filter((b) => b.status === "Rejected").length,
                 ],
               ].map(([label, ...values]) => (
                 <tr key={label as string} className="hover:bg-secondary/30">

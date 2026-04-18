@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useLanguage } from '@/context/LanguageContext';
-import { mockProjects, mockMaintenance, divisions } from '@/data/mockData';
 import {
   Building2,
   Users,
@@ -13,15 +12,42 @@ import {
   BarChart2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { fetchLiveProjects, fetchLiveMaintenance } from "@/lib/live-api";
+import { divisions } from "@/types/models";
 
 export function DivisionsPage() {
   const { t } = useLanguage();
   const router = useRouter();
 
+  const [projects, setProjects] = useState<any[]>([]);
+  const [maintenance, setMaintenance] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const token = sessionStorage.getItem("insa_token") ?? undefined;
+      try {
+        const [liveProjects, liveMaintenance] = await Promise.all([
+          fetchLiveProjects(token),
+          fetchLiveMaintenance(token),
+        ]);
+        setProjects(liveProjects);
+        setMaintenance(liveMaintenance);
+      } catch (error) {
+        console.error("Failed to fetch division data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
   const divisionStats = useMemo(() => {
     return divisions.map((div) => {
-      const divProjects = mockProjects.filter((p) => p.assignedTo === div.id);
-      const divTasks = mockMaintenance.filter((m) => m.divisionId === div.id);
+      const divProjects = projects.filter((p) => p.assignedTo === div.id);
+      // Note: In a real app, divisions would be linked via divisionId.
+      // For now, we simulate matching for the dashboard display.
+      const divTasks = maintenance.filter((m) => m.divisionId === div.id);
 
       const activeProjects = divProjects.filter(
         (p) => !["Approved", "Rejected", "Closed"].includes(p.status),
@@ -39,7 +65,15 @@ export function DivisionsPage() {
         totalActive: activeProjects + activeTasks,
       };
     });
-  }, []);
+  }, [projects, maintenance]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A3580]"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

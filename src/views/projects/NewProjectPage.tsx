@@ -12,14 +12,8 @@ import {
 } from "lucide-react";
 import { DatePicker } from "@/components/common/DatePicker";
 import { apiRequest } from "@/lib/api";
-import { addProject } from "@/lib/storage";
-import type { Project } from "@/data/mockData";
-import {
-  addNotifications,
-  createNotification,
-  getUserIdsByRole,
-} from "@/lib/notifications";
 import { useLanguage } from "@/context/LanguageContext";
+import type { Project } from "@/types/models";
 
 interface DynamicScope {
   // A1
@@ -537,11 +531,8 @@ export function NewProjectPage() {
     const budgetValue = Number(form.budget);
     const storedUser = sessionStorage.getItem("insa_user");
     const parsedUser = storedUser ? JSON.parse(storedUser) : null;
-    const divisionId = parsedUser?.divisionId
-      ? Number(parsedUser.divisionId)
-      : 1;
-    const rawUserId = parsedUser?.id ?? parsedUser?.userId ?? "";
-    const requestedBy = rawUserId ? String(rawUserId) : "USR-000";
+    const divisionId =
+      Number(String(parsedUser?.divisionId ?? "").replace(/[^\d]/g, "")) || 1;
 
     try {
       const locParts: string[] = [];
@@ -661,69 +652,6 @@ export function NewProjectPage() {
         body: requestBody,
       });
       const projectId = created.projectId || id;
-      const now = new Date().toISOString();
-      const title = isExistingMode
-        ? `${form.classification} request for ${form.existingProjectId}`
-        : form.title;
-      const description = isExistingMode
-        ? `Request linked to existing project ${form.existingProjectId}`
-        : form.functionalDescription;
-      const projectItem: Project = {
-        id: projectId,
-        title,
-        description,
-        category: form.classification,
-        classification: form.classification,
-        status: "Submitted",
-        requestedBy,
-        location: isExistingMode ? "Linked Existing Project" : locString,
-        budget: Number.isFinite(budgetValue) ? budgetValue : 0,
-        startDate: isExistingMode
-          ? new Date().toISOString().slice(0, 10)
-          : form.startDate,
-        endDate: isExistingMode
-          ? new Date(Date.now() + 86400000).toISOString().slice(0, 10)
-          : form.endDate,
-        department: isExistingMode
-          ? "Linked Existing Project"
-          : form.department,
-        contactPerson: isExistingMode
-          ? "Linked Existing Project"
-          : form.contactPerson,
-        contactPhone: isExistingMode ? "N/A" : form.contactPhone,
-        siteCondition: isExistingMode
-          ? "Linked Existing Project"
-          : form.siteCondition === t("common.other")
-            ? form.otherSiteCondition
-            : form.siteCondition,
-        scope: requestBody.scope,
-        createdAt: now,
-        updatedAt: now,
-        documents: form.files.map((f) => f.name),
-        timeline: [
-          {
-            id: `EVT-${Date.now()}`,
-            action: "Submitted",
-            actor: requestedBy,
-            timestamp: now,
-            note: "Request submitted",
-          },
-        ],
-      };
-
-      addProject(projectItem);
-      const adminIds = getUserIdsByRole("admin");
-      addNotifications(
-        adminIds.map((id) =>
-          createNotification({
-            title: "New Project Request",
-            message: `New project request ${projectId} requires review.`,
-            userId: id,
-            link: `/dashboard/projects/${projectId}`,
-            type: "info",
-          }),
-        ),
-      );
       setSubmittedId(projectId);
       setSubmitted(true);
     } catch (error) {

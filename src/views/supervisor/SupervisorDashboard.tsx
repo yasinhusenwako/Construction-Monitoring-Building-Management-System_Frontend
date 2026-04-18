@@ -6,46 +6,29 @@ import { useRouter } from "next/navigation";
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import {
-  mockMaintenance,
-  mockProjects,
-  mockBookings,
-  mockUsers,
-  getProfessionalsByDivision,
-  getDivisionById,
-} from '@/data/mockData';
-import {
-  getMaintenanceWithStored,
-  getProjectsWithStored,
-  getBookingsWithStored,
-} from '@/lib/storage';
-import {
-  StatusBadge,
-  PriorityBadge,
-} from '@/components/common/StatusBadge';
+  fetchLiveBookings,
+  fetchLiveMaintenance,
+  fetchLiveProjects,
+  fetchLiveUsers,
+  supervisorAssignProfessional,
+  supervisorReviewRequest,
+} from "@/lib/live-api";
+import { AssignmentModal } from "./AssignmentModal";
+import { CompletionReportModal } from "./CompletionReportModal";
+import { StatusBadge, PriorityBadge } from "@/components/common/StatusBadge";
 import {
   ClipboardList,
-  CheckCircle,
-  Shield,
-  UserCheck,
-  XCircle,
   AlertTriangle,
   Activity,
+  CheckCircle,
   Send,
   MapPin,
   Clock,
   User,
+  UserCheck,
   Eye,
-  Download,
+  Download
 } from "lucide-react";
-import { AssignmentModal } from "./AssignmentModal";
-import { CompletionReportModal } from "./CompletionReportModal";
-import {
-  fetchLiveBookings,
-  fetchLiveMaintenance,
-  fetchLiveProjects,
-  supervisorAssignProfessional,
-  supervisorReviewRequest,
-} from "@/lib/live-api";
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export function SupervisorDashboard() {
@@ -58,40 +41,34 @@ export function SupervisorDashboard() {
   const [actionMsg, setActionMsg] = useState("");
   const [reportTarget, setReportTarget] = useState<string | null>(null);
   const [allTasks, setAllTasks] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const refresh = async () => {
+      setLoading(true);
+      const token = sessionStorage.getItem("insa_token") ?? undefined;
       try {
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("insa_token") || undefined
-            : undefined;
-        const [maintenance, projects, bookings] = await Promise.all([
+        const [maintenance, projects, bookings, liveUsers] = await Promise.all([
           fetchLiveMaintenance(token),
           fetchLiveProjects(token),
           fetchLiveBookings(token),
+          fetchLiveUsers(token),
         ]);
         setAllTasks([...maintenance, ...projects, ...bookings]);
-      } catch {
-        setAllTasks([
-          ...getMaintenanceWithStored(mockMaintenance),
-          ...getProjectsWithStored(mockProjects),
-          ...getBookingsWithStored(mockBookings),
-        ]);
+        setUsers(liveUsers);
+      } catch (error) {
+        console.error("Failed to refresh supervisor tasks:", error);
+      } finally {
+        setLoading(false);
       }
     };
     refresh();
-    window.addEventListener("storage", refresh);
-    window.addEventListener("insa-storage", refresh);
-    return () => {
-      window.removeEventListener("storage", refresh);
-      window.removeEventListener("insa-storage", refresh);
-    };
   }, []);
 
   // Get current user's division
   const userDivision = currentUser?.divisionId;
-  const divisionInfo = userDivision ? getDivisionById(userDivision) : null;
+  const divisionName = currentUser?.department || "General";
 
   // My assigned tasks — primary key is supervisorId, divisionId is informational only
   const myTasks = allTasks.filter(
@@ -115,52 +92,73 @@ export function SupervisorDashboard() {
   const handleAssign = async (professionalId: string, instructions: string) => {
     const task = myTasks.find((m) => m.id === assignTarget);
     if (!task) return;
-    const token =
-      typeof window !== "undefined"
-        ? localStorage.getItem("insa_token") || undefined
-        : undefined;
+    const token = sessionStorage.getItem("insa_token") ?? undefined;
+    const requestModule = task.id.startsWith("PRJ-")
+      ? "PROJECT"
+      : task.id.startsWith("BKG-")
+        ? "BOOKING"
+        : "MAINTENANCE";
+
     try {
-      if (task.id.startsWith("MNT-")) {
-        await supervisorAssignProfessional({
-          module: "MAINTENANCE", businessId: task.id,
-          professionalId,
-          instructions,
-          token,
-        });
-      }
-      window.dispatchEvent(new Event("insa-storage"));
+      await supervisorAssignProfessional({
+        module: requestModule,
+        businessId: task.id,
+        professionalId,
+        instructions,
+        token,
+      });
+
+      setAllTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id
+            ? {
+                ...t,
+                status: "Assigned to Professional",
+                assignedTo: professionalId,
+                updatedAt: new Date().toISOString(),
+              }
+            : t,
+        ),
+      );
       setActionMsg(t("supervisor.action.assigned"));
-    } catch {
+      setTimeout(() => setActionMsg(""), 4000);
+    } catch (error) {
+      console.error("Assignment failed:", error);
       setActionMsg(t("common.error"));
     }
     setAssignTarget(null);
-    setTimeout(() => setActionMsg(""), 4000);
   };
 
   const handleSubmitReport = async (id: string) => {
     const task = myTasks.find((m) => m.id === id);
     if (!task) return;
-    const token =
-      typeof window !== "undefined"
-        ? localStorage.getItem("insa_token") || undefined
-        : undefined;
+    const token = sessionStorage.getItem("insa_token") ?? undefined;
+    const requestModule = id.startsWith("PRJ-")
+      ? "PROJECT"
+      : id.startsWith("BKG-")
+        ? "BOOKING"
+        : "MAINTENANCE";
+
     try {
       await supervisorReviewRequest({
-        module: id.startsWith("PRJ-")
-          ? "PROJECT"
-          : id.startsWith("BKG-")
-            ? "BOOKING"
-            : "MAINTENANCE",
+        module: requestModule,
         businessId: id,
         token,
       });
-      window.dispatchEvent(new Event("insa-storage"));
+      setAllTasks((prev) =>
+        prev.map((t) =>
+          t.id === id
+            ? { ...t, status: "Reviewed", updatedAt: new Date().toISOString() }
+            : t,
+        ),
+      );
       setActionMsg(t("supervisor.action.reportSubmitted", { id }));
-    } catch {
+      setTimeout(() => setActionMsg(""), 4000);
+    } catch (error) {
+      console.error("Review failed:", error);
       setActionMsg(t("common.error"));
     }
     setReportTarget(null);
-    setTimeout(() => setActionMsg(""), 4000);
   };
 
   const assignTargetTask = myTasks.find((m) => m.id === assignTarget);
@@ -172,12 +170,8 @@ export function SupervisorDashboard() {
         <AssignmentModal
           ticketId={assignTarget}
           ticketTitle={assignTargetTask.title}
-          professionals={
-            assignTargetTask.divisionId
-              ? getProfessionalsByDivision(assignTargetTask.divisionId)
-              : []
-          }
-          activeTasks={mockMaintenance}
+          professionals={users.filter((u) => u.role === "professional")}
+          activeTasks={allTasks}
           onAssign={handleAssign}
           onClose={() => setAssignTarget(null)}
         />
@@ -217,8 +211,7 @@ export function SupervisorDashboard() {
                 {t("supervisor.dashboard")}
               </h1>
               <p className="text-white/70 text-sm mt-0.5">
-                {currentUser?.name} ·{" "}
-                {divisionInfo?.name || currentUser?.department}
+                {currentUser?.name} · {divisionName}
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -233,12 +226,12 @@ export function SupervisorDashboard() {
                     ReportedBy: t.requestedBy,
                     Date: t.createdAt,
                     AssignedPro:
-                      mockUsers.find((u) => u.id === t.assignedTo)?.name ||
+                      users.find((u) => u.id === t.assignedTo)?.name ||
                       t("common.unassigned"),
                   }));
                   exportToCSV(
                     exportData,
-                    `Division_Report_${divisionInfo?.name || "Maintenance"}_${new Date().toISOString().split("T")[0]}`,
+                    `Division_Report_${divisionName}_${new Date().toISOString().split("T")[0]}`,
                   );
                 }}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-sm font-bold text-white transition-all backdrop-blur-md shadow-lg"
@@ -351,7 +344,7 @@ export function SupervisorDashboard() {
           </div>
         ) : (
           myTasks.map((m) => {
-            const assignee = mockUsers.find((u) => u.id === m.assignedTo);
+            const assignee = users.find((u) => u.id === m.assignedTo);
             return (
               <div
                 key={m.id}

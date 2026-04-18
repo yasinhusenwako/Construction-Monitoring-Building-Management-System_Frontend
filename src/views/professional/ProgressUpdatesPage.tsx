@@ -3,21 +3,6 @@
 import React, { useState, useMemo } from "react";
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
-import {
-  mockMaintenance,
-  mockProjects,
-  mockBookings,
-  mockNotifications,
-} from '@/data/mockData';
-import {
-  getMaintenanceWithStored,
-  getProjectsWithStored,
-  getBookingsWithStored,
-} from '@/lib/storage';
-import {
-  getNotificationEventName,
-  getNotificationsWithStored,
-} from '@/lib/notifications';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { WorkflowStatus, getAllowedTransitions } from '@/lib/workflow';
 import {
@@ -90,17 +75,12 @@ export function ProgressUpdatesPage() {
 
   const [allAssignedTasks, setAllAssignedTasks] = useState<any[]>([]);
 
-  const [notifications, setNotifications] = useState(() =>
-    getNotificationsWithStored(mockNotifications),
-  );
+  const [notifications, setNotifications] = useState<any[]>([]);
 
   React.useEffect(() => {
     const refresh = async () => {
       try {
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("insa_token") || undefined
-            : undefined;
+        const token = sessionStorage.getItem("insa_token") ?? undefined;
         const [maintenance, projects, bookings] = await Promise.all([
           fetchLiveMaintenance(token),
           fetchLiveProjects(token),
@@ -108,25 +88,11 @@ export function ProgressUpdatesPage() {
         ]);
         const all = [...maintenance, ...projects, ...bookings];
         setAllAssignedTasks(all.filter((m) => m.assignedTo === uid));
-      } catch {
-        const all = [
-          ...getMaintenanceWithStored(mockMaintenance),
-          ...getProjectsWithStored(mockProjects),
-          ...getBookingsWithStored(mockBookings),
-        ];
-        setAllAssignedTasks(all.filter((m) => m.assignedTo === uid));
+      } catch (error) {
+        console.error("Failed to refresh professional tasks:", error);
       }
-      setNotifications(getNotificationsWithStored(mockNotifications));
     };
     refresh();
-    window.addEventListener("storage", refresh);
-    window.addEventListener("insa-storage", refresh);
-    window.addEventListener(getNotificationEventName(), refresh);
-    return () => {
-      window.removeEventListener("storage", refresh);
-      window.removeEventListener("insa-storage", refresh);
-      window.removeEventListener(getNotificationEventName(), refresh);
-    };
   }, [uid]);
 
   const activeTasks = allAssignedTasks.filter((m) =>
@@ -141,10 +107,7 @@ export function ProgressUpdatesPage() {
   const handleUpdateStatus = async (taskId: string, newStatus: WorkflowStatus) => {
     setUpdating(taskId);
     try {
-      const token =
-        typeof window !== "undefined"
-          ? localStorage.getItem("insa_token") || undefined
-          : undefined;
+      const token = sessionStorage.getItem("insa_token") ?? undefined;
       if (taskId.startsWith("MNT-")) {
         await professionalUpdateTaskStatus({
           module: "MAINTENANCE", businessId: taskId,
@@ -152,7 +115,6 @@ export function ProgressUpdatesPage() {
           token,
         });
       }
-      window.dispatchEvent(new Event("insa-storage"));
       setAllAssignedTasks((prev) =>
         prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)),
       );

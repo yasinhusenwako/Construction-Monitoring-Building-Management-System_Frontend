@@ -1,82 +1,94 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import {
-  mockProjects,
-  mockBookings,
-  mockMaintenance,
-} from '@/data/mockData';
-import { StatusBadge } from '@/components/common/StatusBadge';
-import { getUserFacingStatus, WorkflowRole } from '@/lib/workflow';
-import {
-  Search,
-  Filter,
-  ArrowRight,
-  FolderOpen,
-  Calendar,
-  Wrench,
-  ExternalLink,
-} from "lucide-react";
-import { useRouter } from "next/navigation";
+  fetchLiveBookings,
+  fetchLiveMaintenance,
+  fetchLiveProjects,
+} from "@/lib/live-api";
+import { Search, Filter, FolderOpen, Calendar, Wrench, ExternalLink } from "lucide-react";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { getUserFacingStatus } from "@/lib/workflow";
 
 export function MyRequestsPage() {
+  const router = useRouter();
   const { currentUser } = useAuth();
   const { t } = useLanguage();
-  const router = useRouter();
   const uid = currentUser?.id;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<
     "all" | "Project" | "Booking" | "Maintenance"
   >("all");
+  const [allRequests, setAllRequests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const allRequests = useMemo(() => {
-    const myProjects = mockProjects
-      .filter((p) => p.requestedBy === uid)
-      .map((p) => ({
-        id: p.id,
-        title: p.title,
-        type: "Project" as const,
-        status: p.status,
-        date: p.createdAt,
-        path: `/dashboard/projects/${p.id}`,
-      }));
+  React.useEffect(() => {
+    const refresh = async () => {
+      setLoading(true);
+      const token = sessionStorage.getItem("insa_token") ?? undefined;
+      try {
+        const [projects, bookings, maintenance] = await Promise.all([
+          fetchLiveProjects(token),
+          fetchLiveBookings(token),
+          fetchLiveMaintenance(token),
+        ]);
 
-    const myBookings = mockBookings
-      .filter((b) => b.requestedBy === uid)
-      .map((b) => ({
-        id: b.id,
-        title: b.title || b.space,
-        type: "Booking" as const,
-        status: b.status,
-        date: b.createdAt,
-        path: `/dashboard/bookings`,
-      }));
+        const myProjects = projects
+          .filter((p) => p.requestedBy === uid)
+          .map((p) => ({
+            id: p.id,
+            title: p.title,
+            type: "Project" as const,
+            status: p.status,
+            date: p.createdAt,
+            path: `/dashboard/projects/${p.id}`,
+          }));
 
-    const myMaintenance = mockMaintenance
-      .filter((m) => m.requestedBy === uid)
-      .map((m) => ({
-        id: m.id,
-        title: m.title,
-        type: "Maintenance" as const,
-        status: m.status,
-        date: m.createdAt,
-        path: `/dashboard/maintenance/${m.id}`,
-        priority: m.priority,
-      }));
+        const myBookings = bookings
+          .filter((b) => b.requestedBy === uid)
+          .map((b) => ({
+            id: b.id,
+            title: b.title || b.space,
+            type: "Booking" as const,
+            status: b.status,
+            date: b.createdAt,
+            path: `/dashboard/bookings/${b.id}`,
+          }));
 
-    return [...myProjects, ...myBookings, ...myMaintenance].sort((a, b) =>
-      b.date.localeCompare(a.date),
-    );
+        const myMaintenance = maintenance
+          .filter((m) => m.requestedBy === uid)
+          .map((m) => ({
+            id: m.id,
+            title: m.title,
+            type: "Maintenance" as const,
+            status: m.status,
+            date: m.createdAt,
+            path: `/dashboard/maintenance/${m.id}`,
+            priority: m.priority,
+          }));
+
+        const merged = [...myProjects, ...myBookings, ...myMaintenance].sort(
+          (a, b) => b.date.localeCompare(a.date),
+        );
+        setAllRequests(merged);
+      } catch (error) {
+        console.error("Failed to fetch my requests:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    refresh();
   }, [uid]);
 
   const filteredRequests = useMemo(() => {
     return allRequests.filter((req) => {
       const matchesSearch =
-        req.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        req.id.toLowerCase().includes(searchQuery.toLowerCase());
+        req.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        req.title.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesType = filterType === "all" || req.type === filterType;
       return matchesSearch && matchesType;
     });
@@ -99,9 +111,9 @@ export function MyRequestsPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#0E2271]">My Requests</h1>
+          <h1 className="text-2xl font-bold text-[#0E2271]">{t('nav.myRequests')}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Track and manage all your submitted requests in one unified view.
+            {t('requests.myRequestsDesc')}
           </p>
         </div>
         <div className="flex items-center gap-2">

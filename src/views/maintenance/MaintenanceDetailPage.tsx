@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
-import type { Maintenance } from "../../data/mockData";
+import { Maintenance, divisions } from "../../types/models";
 import {
   StatusBadge,
   PriorityBadge,
@@ -22,32 +22,21 @@ import {
   Package,
   MessageSquare,
   UserPlus,
+  Users as UsersIcon,
 } from "lucide-react";
 import {
   fetchLiveMaintenance,
   fetchLiveUsers,
-  adminAssignRequest,
-  adminDecision,
-  supervisorAssignProfessional,
-  supervisorReviewRequest,
-  professionalUpdateTaskStatus,
 } from "@/lib/live-api";
+import { executeWorkflowAction } from "@/lib/workflow-actions";
 
 import {
-  canTransition,
   getUserFacingStatus,
   WORKFLOW_STATUSES,
   WorkflowRole,
   WorkflowStatus,
   canViewItem,
 } from "../../lib/workflow";
-import { getMaintenanceWithStored } from "../../lib/storage";
-import {
-  addNotification,
-  addNotifications,
-  createNotification,
-  getUserIdsByRole,
-} from "../../lib/notifications";
 import { WorkflowVisualizer } from "../../components/common/WorkflowVisualizer";
 
 const MAINTENANCE_DIVISIONS = [
@@ -109,36 +98,46 @@ export function MaintenanceDetailPage() {
   const [adminNote, setAdminNote] = useState("");
   const [selectedTech, setSelectedTech] = useState("");
   const [selectedDivisionId, setSelectedDivisionId] = useState("");
-  const [selectedTaskType, setSelectedTaskType] = useState("");
   // Cost tracking state
   const [materialCost, setMaterialCost] = useState("");
   const [laborCost, setLaborCost] = useState("");
   const [partsUsed, setPartsUsed] = useState("");
   const [costSaved, setCostSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [systemUsers, setSystemUsers] = useState<any[]>([]);
+  const [selectedTaskType, setSelectedTaskType] = useState("");
+  const [assignMode, setAssignMode] = useState<"team" | "professional">("team");
+  const [selectedSupervisor, setSelectedSupervisor] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     const refresh = async () => {
+      setLoading(true);
+      const token = sessionStorage.getItem("insa_token") ?? undefined;
       try {
         const [liveMaintenance, liveUsers] = await Promise.all([
-          fetchLiveMaintenance(undefined, id),
-          fetchLiveUsers(),
+          fetchLiveMaintenance(token, id),
+          fetchLiveUsers(token),
         ]);
         setSystemUsers(liveUsers);
-        const found =
-          liveMaintenance.find((m) => m.id === id) || liveMaintenance[0];
+        const found = liveMaintenance.find((m) => m.id === id);
 
         if (
           found &&
           canViewItem(role as WorkflowRole, found, currentUser?.id)
         ) {
           setMaintenanceItem(found);
+          // Auto-set assign mode based on role for maintenance
+          if (role === "admin") setAssignMode("team");
+          else if (role === "supervisor") setAssignMode("professional");
         } else {
           setMaintenanceItem(null);
         }
       } catch (error) {
-        console.error(error);
+        console.error("Failed to fetch maintenance detail:", error);
         setMaintenanceItem(null);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -187,157 +186,63 @@ export function MaintenanceDetailPage() {
     extraUpdates?: Partial<Maintenance>,
     note?: string,
   ) => {
-    if (!canTransition(actorRole, maint.status, action)) {
-      setActionDone(t("message.error"));
-      setTimeout(() => setActionDone(""), 3000);
-      return;
-    }
+    const trimmedNote = note?.trim();
+    const isNoteOnly = action === maint.status && !!trimmedNote;
 
-    try {
-      const currentModule = "MAINTENANCE";
+    if (!isNoteOnly) {
+      const result = await executeWorkflowAction({
+        module: "MAINTENANCE",
+        businessId: maint.id,
+        requestId: maint.dbId,
+        currentStatus: maint.status,
+        nextStatus: action,
+        actorRole,
+        extraUpdates,
+      });
 
-      if (actorRole === "admin") {
-        if (action === "Assigned to Supervisor" && extraUpdates?.supervisorId) {
-          await adminAssignRequest({
-            module: currentModule,
-            businessId: maint.id,
-            divisionId: extraUpdates.divisionId || "1",
-            supervisorId: extraUpdates.supervisorId,
-          });
-        } else if (
-          action === "Approved" ||
-          action === "Rejected" ||
-          action === "Closed"
-        ) {
-          const apiAction =
-            action === "Approved"
-              ? "approve"
-              : action === "Rejected"
-                ? "reject"
-                : "close";
-          await adminDecision({
-            module: currentModule,
-            businessId: maint.id,
-            action: apiAction,
-          });
-        }
-      } else if (actorRole === "supervisor") {
-        if (action === "Assigned to Professional" && extraUpdates?.assignedTo) {
-          await supervisorAssignProfessional({
-            module: currentModule,
-            businessId: maint.id,
-            professionalId: extraUpdates.assignedTo,
-            instructions: extraUpdates.notes || "",
-          });
-        } else if (action === "Reviewed") {
-          await supervisorReviewRequest({
-            module: currentModule,
-            businessId: maint.id,
-          });
-        }
-      } else if (actorRole === "professional") {
-        if (action === "In Progress" || action === "Completed") {
-          await professionalUpdateTaskStatus({
-            module: currentModule,
-            businessId: maint.id,
-            status: action as "In Progress" | "Completed",
-          });
-        }
+      if (!result.ok) {
+        console.error("Action failed", result);
+        setActionDone(result.message || (t("message.error") || "Error performing action"));
+        setTimeout(() => setActionDone(""), 3000);
+        return;
       }
-    } catch (err) {
-      console.error("Action failed", err);
-      setActionDone(t("message.error") || "Error performing action");
-      setTimeout(() => setActionDone(""), 3000);
-      return;
     }
 
     const now = new Date().toISOString();
+    const timelineAction = isNoteOnly ? "Note Added" : action;
     const newEvent = {
       id: `EV-${Math.random().toString(36).substr(2, 9)}`,
-      action: action,
+      action: timelineAction,
       actor: currentUser?.name || actorRole,
       timestamp: now,
-      note: note || "",
+      note: trimmedNote || "",
     };
 
     const updated = {
       ...maint,
       ...extraUpdates,
-      status: action,
+      status: isNoteOnly ? maint.status : action,
       updatedAt: now,
       timeline: [...maint.timeline, newEvent],
     };
     setMaintenanceItem(updated);
-    if (extraUpdates?.supervisorId) {
-      addNotification(
-        createNotification({
-          title: t("notifications.title.assigned"),
-          message: `${t("notifications.message.assigned")} (${updated.id})`,
-          userId: extraUpdates.supervisorId,
-          link: `/dashboard/maintenance/${updated.id}`,
-          type: "warning",
-        }),
-      );
+
+    if (isNoteOnly) {
+      setActionDone(message);
+      setTimeout(() => setActionDone(""), 3000);
+      return;
     }
-    if (extraUpdates?.assignedTo) {
-      addNotification(
-        createNotification({
-          title: t("notifications.title.taskAssigned"),
-          message: `${t("notifications.message.taskAssigned")} (${updated.id})`,
-          userId: extraUpdates.assignedTo,
-          link: `/dashboard/maintenance/${updated.id}`,
-          type: "warning",
-        }),
-      );
+
+    // Re-sync after action
+    try {
+      const token = sessionStorage.getItem("insa_token") ?? undefined;
+      const liveMaintenance = await fetchLiveMaintenance(token, id);
+      const found = liveMaintenance.find((m) => m.id === id);
+      if (found) setMaintenanceItem(found);
+    } catch (err) {
+      console.error("Failed to re-sync maintenance after action", err);
     }
-    if (
-      action === "Completed" &&
-      actorRole === "professional" &&
-      updated.supervisorId
-    ) {
-      addNotification(
-        createNotification({
-          title: t("notifications.title.completed"),
-          message: `${t("notifications.message.completed")} (${updated.id})`,
-          userId: updated.supervisorId,
-          link: `/dashboard/maintenance/${updated.id}`,
-          type: "info",
-        }),
-      );
-    }
-    if (action === "Reviewed" && actorRole === "supervisor") {
-      const adminIds = getUserIdsByRole("admin");
-      addNotifications(
-        adminIds.map((id) =>
-          createNotification({
-            title: t("notifications.title.readyApproval"),
-            message: `${updated.id} ${t("notifications.message.readyApproval")}`,
-            userId: id,
-            link: `/dashboard/maintenance/${updated.id}`,
-            type: "info",
-          }),
-        ),
-      );
-    }
-    if (
-      (action === "Approved" || action === "Rejected" || action === "Closed") &&
-      actorRole === "admin"
-    ) {
-      addNotification(
-        createNotification({
-          title: `${t("form.project")} ${t(`requests.${action.toLowerCase()}` as any) || action}`,
-          message: `${t("projects.actionApplied")}: ${updated.id} ${t(`requests.${action.toLowerCase()}` as any) || action.toLowerCase()}.`,
-          userId: updated.requestedBy,
-          link: `/dashboard/maintenance/${updated.id}`,
-          type:
-            action === "Approved"
-              ? "success"
-              : action === "Rejected"
-                ? "error"
-                : "info",
-        }),
-      );
-    }
+
     setActionDone(message);
     setTimeout(() => setActionDone(""), 3000);
   };
@@ -784,89 +689,147 @@ export function MaintenanceDetailPage() {
               )}
 
               <div className="space-y-4">
-                {maint.status === "Submitted" && (
-                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-3">
-                      {t("requests.submitted")}: Ready for initial review.
-                    </p>
-                    <button
-                      onClick={() =>
-                        handleAction(
-                          "Under Review",
-                          "admin",
-                          t("requests.under_review"),
-                        )
-                      }
-                      className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
-                      style={{ background: "#7C3AED" }}
-                    >
-                      <User size={16} /> {t("maintenance.startReview")}
-                    </button>
-                  </div>
-                )}
-                {maint.status === "Under Review" && (
-                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
-                      Select Division
-                    </label>
-                    <select
-                      value={selectedDivisionId}
-                      onChange={(e) => {
-                        setSelectedDivisionId(e.target.value);
-                        setSelectedTech("");
-                      }}
-                      className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none mb-3 focus:ring-2 focus:ring-[#1A3580]/20 focus:border-[#1A3580] transition-all"
-                    >
-                      <option value="">Select Division...</option>
-                      {MAINTENANCE_DIVISIONS.map((div) => (
-                        <option key={div.id} value={div.id}>
-                          {div.name}
-                        </option>
-                      ))}
-                    </select>
+                {(maint.status === "Submitted" || maint.status === "Under Review") && (
+                  <div className="space-y-3 bg-white border border-border rounded-xl p-4 shadow-sm">
+                    {maint.status === "Submitted" && (
+                      <div className="mb-4 pb-4 border-b border-dashed border-border text-center">
+                        <p className="text-xs text-muted-foreground mb-3">
+                          {t("requests.submitted")}: Ready for initial review.
+                        </p>
+                        <button
+                          onClick={() =>
+                            handleAction(
+                              "Under Review",
+                              "admin",
+                              t("requests.under_review"),
+                            )
+                          }
+                          className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
+                          style={{ background: "#7C3AED" }}
+                        >
+                          <User size={16} /> {t("maintenance.startReview")}
+                        </button>
+                      </div>
+                    )}
 
-                    <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide opacity-80 mt-2">
-                      Assign Supervisor
-                    </label>
-                    <select
-                      value={selectedTech}
-                      onChange={(e) => setSelectedTech(e.target.value)}
-                      disabled={!selectedDivisionId}
-                      className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none mb-3 focus:ring-2 focus:ring-[#1A3580]/20 focus:border-[#1A3580] transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    >
-                      <option value="">Select Supervisor...</option>
-                      {systemUsers
-                        .filter((u) => u.role === "supervisor")
-                        // If users have divisionId we could filter by selectedDivisionId here, else show all
-                        .filter(
-                          (u) =>
-                            !u.divisionId ||
-                            u.divisionId === selectedDivisionId,
-                        )
-                        .map((tech) => (
-                          <option key={tech.id} value={tech.id}>
-                            {tech.name} ({tech.department})
-                          </option>
-                        ))}
-                    </select>
-                    <button
-                      onClick={() => {
-                        if (!selectedTech || !selectedDivisionId) return;
-                        handleAction(
-                          "Assigned to Supervisor",
-                          "admin",
-                          t("requests.assigned_to_supervisor"),
-                          {
-                            supervisorId: selectedTech,
-                            divisionId: selectedDivisionId,
-                          },
-                        );
-                      }}
-                      disabled={!selectedTech || !selectedDivisionId}
-                      className="w-full py-2.5 rounded-lg text-sm font-bold bg-[#1A3580] text-white hover:bg-[#0E2271] disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-all shadow-sm flex items-center justify-center gap-2"
-                    >
-                      <UserPlus size={16} /> Assign Supervisor
-                    </button>
+                    {/* Assignment Mode UI - Restricted by role in Maintenance */}
+                    <div className="flex items-center justify-between mb-4 pb-2 border-b border-dashed border-border">
+                      <h4 className="text-[10px] font-bold uppercase tracking-wider text-[#1A3580] flex items-center gap-1.5">
+                        {role === "admin" ? (
+                          <><UsersIcon size={12} /> {t("requests.assignToTeam") || "Division Assignment"}</>
+                        ) : (
+                          <><User size={12} /> {t("requests.assignDirect") || "Professional Assignment"}</>
+                        )}
+                      </h4>
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-bold border border-blue-100 uppercase">
+                        {role}
+                      </span>
+                    </div>
+
+                    {assignMode === "team" ? (
+                      <>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
+                            {t("requests.selectDivision")}
+                          </label>
+                          <select
+                            value={selectedDivisionId}
+                            onChange={(e) => {
+                              setSelectedDivisionId(e.target.value);
+                              setSelectedSupervisor("");
+                            }}
+                            className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
+                          >
+                            <option value="">{t("requests.selectDivision")}</option>
+                            {divisions.map((d) => (
+                              <option key={d.id} value={d.id}>
+                                {d.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
+                            {t("requests.assignLeadSupervisor") || "Lead Supervisor"}
+                          </label>
+                          <select
+                            disabled={!selectedDivisionId}
+                            value={selectedSupervisor}
+                            onChange={(e) => setSelectedSupervisor(e.target.value)}
+                            className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580] disabled:opacity-50"
+                          >
+                            <option value="">{t("common.select") || "Select"}</option>
+                            {systemUsers
+                              .filter((u) => u.role === "supervisor")
+                              .map((s) => (
+                                <option key={s.id} value={s.id}>
+                                  {s.name}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+
+                        <button
+                          disabled={!selectedDivisionId || !selectedSupervisor || busy}
+                          onClick={() => {
+                            setBusy(true);
+                            handleAction(
+                              "Assigned to Supervisor",
+                              "admin",
+                              t("requests.assigned_to_supervisor"),
+                              {
+                                supervisorId: selectedSupervisor,
+                                divisionId: selectedDivisionId,
+                              },
+                            ).finally(() => setBusy(false));
+                          }}
+                          className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#1A3580] hover:bg-[#0E2271] transition-all disabled:opacity-40"
+                        >
+                          {t("maintenance.assignSupervisor") || "Process Assignment"}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
+                            {t("requests.selectProfessional") || "Select Professional"}
+                          </label>
+                          <select
+                            value={selectedTech}
+                            onChange={(e) => setSelectedTech(e.target.value)}
+                            className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
+                          >
+                            <option value="">{t("common.select") || "Select"}</option>
+                            {systemUsers
+                              .filter((u) => u.role === "professional")
+                              .map((pr) => (
+                                <option key={pr.id} value={pr.id}>
+                                  {pr.name}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+
+                        <button
+                          disabled={!selectedTech || busy}
+                          onClick={() => {
+                            setBusy(true);
+                            handleAction(
+                              "Assigned to Professional",
+                              "admin",
+                              "Assigned to Professional",
+                              {
+                                assignedTo: selectedTech,
+                              },
+                            ).finally(() => setBusy(false));
+                          }}
+                          className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#1A3580] hover:bg-[#0E2271] transition-all disabled:opacity-40"
+                        >
+                          {t("requests.assignDirect") || "Assign Direct"}
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
                 {maint.status === "Reviewed" && (

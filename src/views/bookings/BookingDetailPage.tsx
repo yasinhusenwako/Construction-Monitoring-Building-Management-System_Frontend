@@ -4,21 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
-import type { Booking } from "../../data/mockData";
+import { Booking } from "../../types/models";
 import { StatusBadge } from "../../components/common/StatusBadge";
 import {
-  canTransition,
   canViewItem,
   getUserFacingStatus,
   WorkflowRole,
 } from "../../lib/workflow";
-import { getBookingsWithStored } from "../../lib/storage";
-import {
-  addNotification,
-  addNotifications,
-  createNotification,
-  getUserIdsByRole,
-} from "../../lib/notifications";
 import {
   ArrowLeft,
   Calendar,
@@ -35,12 +27,8 @@ import {
 import {
   fetchLiveBookings,
   fetchLiveUsers,
-  adminAssignRequest,
-  adminDecision,
-  supervisorAssignProfessional,
-  supervisorReviewRequest,
-  professionalUpdateTaskStatus,
 } from "@/lib/live-api";
+import { executeWorkflowAction } from "@/lib/workflow-actions";
 
 export default function BookingDetailPage({ id }: { id: string }) {
   const router = useRouter();
@@ -56,16 +44,19 @@ export default function BookingDetailPage({ id }: { id: string }) {
 
   // Assignment state
   const [selectedAssignee, setSelectedAssignee] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     const fetchBooking = async () => {
+      setLoading(true);
+      const token = sessionStorage.getItem("insa_token") ?? undefined;
       try {
         const [liveBookings, liveUsers] = await Promise.all([
-          fetchLiveBookings(undefined, id),
-          fetchLiveUsers(),
+          fetchLiveBookings(token, id),
+          fetchLiveUsers(token),
         ]);
         setSystemUsers(liveUsers);
-        const found = liveBookings.find((b) => b.id === id) || liveBookings[0];
+        const found = liveBookings.find((b) => b.id === id);
 
         if (
           found &&
@@ -76,7 +67,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
           setBooking(null);
         }
       } catch (error) {
-        console.error(error);
+        console.error("Failed to fetch booking detail:", error);
         setBooking(null);
       } finally {
         setLoading(false);
@@ -136,91 +127,22 @@ export default function BookingDetailPage({ id }: { id: string }) {
 
   const handleAction = async (
     nextStatus: Booking["status"],
-    actorRole: string,
+    actorRole: WorkflowRole,
     message: string,
     extraUpdates?: Partial<Booking>,
   ) => {
-    if (
-      !canTransition(
-        actorRole as WorkflowRole,
-        booking.status,
-        nextStatus,
-        "booking",
-      )
-    ) {
-      setActionDone(t("bookings.notAllowed") || "Transition not allowed.");
-      setTimeout(() => setActionDone(""), 3000);
-      return;
-    }
+    const result = await executeWorkflowAction({
+      module: "BOOKING",
+      businessId: booking.id,
+      requestId: booking.dbId,
+      currentStatus: booking.status,
+      nextStatus,
+      actorRole,
+      extraUpdates,
+    });
 
-    try {
-      const currentModule = "BOOKING";
-
-      if (actorRole === "admin") {
-        if (
-          nextStatus === "Assigned to Supervisor" &&
-          extraUpdates?.supervisorId
-        ) {
-          await adminAssignRequest({
-            module: currentModule,
-            businessId: booking.id,
-            divisionId: "1", // using default valid ID instead of "div_system"
-            supervisorId: extraUpdates.supervisorId,
-          });
-        } else if (
-          nextStatus === "Assigned to Professional" &&
-          extraUpdates?.assignedTo
-        ) {
-          await supervisorAssignProfessional({
-            module: currentModule,
-            businessId: booking.id,
-            professionalId: extraUpdates.assignedTo,
-          });
-        } else if (
-          nextStatus === "Approved" ||
-          nextStatus === "Rejected" ||
-          nextStatus === "Closed"
-        ) {
-          const apiAction =
-            nextStatus === "Approved"
-              ? "approve"
-              : nextStatus === "Rejected"
-                ? "reject"
-                : "close";
-          await adminDecision({
-            module: currentModule,
-            businessId: booking.id,
-            action: apiAction,
-          });
-        }
-      } else if (actorRole === "supervisor") {
-        if (
-          nextStatus === "Assigned to Professional" &&
-          extraUpdates?.assignedTo
-        ) {
-          await supervisorAssignProfessional({
-            module: currentModule,
-            businessId: booking.id,
-            professionalId: extraUpdates.assignedTo,
-          });
-        } else if (nextStatus === "Reviewed") {
-          await supervisorReviewRequest({
-            module: currentModule,
-            businessId: booking.id,
-          });
-        }
-      } else if (actorRole === "professional") {
-        if (nextStatus === "In Progress" || nextStatus === "Completed") {
-          await professionalUpdateTaskStatus({
-            module: currentModule,
-            businessId: booking.id,
-            status: nextStatus,
-          });
-        }
-      }
-    } catch (err) {
-      console.error("Action failed", err);
-      setActionDone(t("message.error") || "Error performing action");
+    if (!result.ok) {
+      setActionDone(result.message || (t("message.error") || "Error performing action"));
       setTimeout(() => setActionDone(""), 3000);
       return;
     }
@@ -234,78 +156,14 @@ export default function BookingDetailPage({ id }: { id: string }) {
 
     setBooking(updated);
 
-    // Notification Logic exactly like BookingsPage
-    if (extraUpdates?.supervisorId) {
-      addNotification(
-        createNotification({
-          title: "Booking Assigned",
-          message: `You have been assigned ${updated.id} for supervision.`,
-          userId: extraUpdates.supervisorId,
-          link: `/dashboard/bookings/${updated.id}`,
-          type: "warning",
-        }),
-      );
-    }
-    if (extraUpdates?.assignedTo) {
-      addNotification(
-        createNotification({
-          title: "Booking Task Assigned",
-          message: `You have been assigned ${updated.id} to complete.`,
-          userId: extraUpdates.assignedTo,
-          link: `/dashboard/bookings/${updated.id}`,
-          type: "warning",
-        }),
-      );
-    }
-    if (
-      nextStatus === "Completed" &&
-      actorRole === "professional" &&
-      updated.supervisorId
-    ) {
-      addNotification(
-        createNotification({
-          title: "Booking Completed",
-          message: `${updated.id} has been completed and needs review.`,
-          userId: updated.supervisorId,
-          link: `/dashboard/bookings/${updated.id}`,
-          type: "info",
-        }),
-      );
-    }
-    if (nextStatus === "Reviewed" && actorRole === "supervisor") {
-      const adminIds = getUserIdsByRole("admin");
-      addNotifications(
-        adminIds.map((id) =>
-          createNotification({
-            title: "Booking Ready for Approval",
-            message: `${updated.id} has been reviewed and needs approval.`,
-            userId: id,
-            link: `/dashboard/bookings/${updated.id}`,
-            type: "info",
-          }),
-        ),
-      );
-    }
-    if (
-      (nextStatus === "Approved" ||
-        nextStatus === "Rejected" ||
-        nextStatus === "Closed") &&
-      actorRole === "admin"
-    ) {
-      addNotification(
-        createNotification({
-          title: `Booking ${nextStatus}`,
-          message: `Your booking request ${updated.id} has been ${nextStatus.toLowerCase()}.`,
-          userId: updated.requestedBy,
-          link: `/dashboard/bookings/${updated.id}`,
-          type:
-            nextStatus === "Approved"
-              ? "success"
-              : nextStatus === "Rejected"
-                ? "error"
-                : "info",
-        }),
-      );
+    // Re-sync after action
+    try {
+      const token = sessionStorage.getItem("insa_token") ?? undefined;
+      const liveBookings = await fetchLiveBookings(token, id);
+      const found = liveBookings.find((b) => b.id === id);
+      if (found) setBooking(found);
+    } catch (err) {
+      console.error("Failed to re-sync booking after action", err);
     }
 
     setActionDone(t(message) || message);
@@ -492,57 +350,70 @@ export default function BookingDetailPage({ id }: { id: string }) {
               )}
 
               <div className="space-y-4">
-                {booking.status === "Submitted" && (
-                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-3">
-                      Ready for initial review.
-                    </p>
-                    <button
-                      onClick={() =>
-                        handleAction("Under Review", "admin", "Started Review")
-                      }
-                      className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
-                      style={{ background: "#7C3AED" }}
-                    >
-                      <User size={16} /> Start Review
-                    </button>
-                  </div>
-                )}
-                {booking.status === "Under Review" && (
-                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
-                      Assign Professional
-                    </label>
-                    <select
-                      value={selectedAssignee}
-                      onChange={(e) => setSelectedAssignee(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none mb-3 focus:ring-2 focus:ring-[#1A3580]/20 focus:border-[#1A3580] transition-all"
-                    >
-                      <option value="">Select professional...</option>
-                      {systemUsers
-                        .filter((u) => u.role === "professional")
-                        .map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.name}
-                          </option>
-                        ))}
-                    </select>
-                    <button
-                      onClick={() => {
-                        if (!selectedAssignee) return;
-                        handleAction(
-                          "Assigned to Professional",
-                          "admin",
-                          "Assigned Professional",
-                          { assignedTo: selectedAssignee },
-                        );
-                      }}
-                      disabled={!selectedAssignee}
-                      className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all disabled:opacity-50 hover:shadow-md flex items-center justify-center gap-2"
-                      style={{ background: "#1A3580" }}
-                    >
-                      <User size={16} /> Assign
-                    </button>
+                {(booking.status === "Submitted" || booking.status === "Under Review") && (
+                  <div className="space-y-3 bg-white border border-border rounded-xl p-4 shadow-sm">
+                    {booking.status === "Submitted" && (
+                      <div className="mb-4 pb-4 border-b border-dashed border-border text-center">
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Ready for initial review.
+                        </p>
+                        <button
+                          onClick={() =>
+                            handleAction(
+                              "Under Review",
+                              "admin",
+                              "Started Review",
+                            )
+                          }
+                          className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
+                          style={{ background: "#7C3AED" }}
+                        >
+                          <User size={16} /> Start Review
+                        </button>
+                      </div>
+                    )}
+
+                    {booking.status === "Under Review" && (
+                      <>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
+                            {t("requests.selectProfessional") || "Select Professional"}
+                          </label>
+                          <select
+                            value={selectedAssignee}
+                            onChange={(e) => setSelectedAssignee(e.target.value)}
+                            className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
+                          >
+                            <option value="">{t("common.select") || "Select"}</option>
+                            {systemUsers
+                              .filter((u) => u.role === "professional")
+                              .map((pr) => (
+                                <option key={pr.id} value={pr.id}>
+                                  {pr.name}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+
+                        <button
+                          disabled={!selectedAssignee || busy}
+                          onClick={() => {
+                            setBusy(true);
+                            handleAction(
+                              "Assigned to Professional",
+                              "admin",
+                              "Assigned to Professional",
+                              {
+                                assignedTo: selectedAssignee,
+                              },
+                            ).finally(() => setBusy(false));
+                          }}
+                          className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#1A3580] hover:bg-[#0E2271] transition-all disabled:opacity-40"
+                        >
+                          {t("requests.assignDirect") || "Assign Direct"}
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
                 {booking.status === "Completed" && (
@@ -585,104 +456,6 @@ export default function BookingDetailPage({ id }: { id: string }) {
                       className="w-full py-2 rounded-lg border-2 border-gray-300 text-gray-600 text-sm font-bold hover:bg-gray-50 flex items-center justify-center gap-2 transition-all"
                     >
                       Close Booking
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Supervisor Actions */}
-          {role === "supervisor" && (
-            <div className="bg-gradient-to-br from-[#ffffff] to-[#fff1f1] rounded-xl border border-border p-5 shadow-md relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-1 h-full bg-[#CC1F1A]"></div>
-              <h3 className="text-sm font-bold text-[#CC1F1A] mb-5 flex items-center gap-2">
-                <CheckCircle size={16} className="text-[#CC1F1A]" />
-                Supervisor Actions
-              </h3>
-
-              {actionDone && (
-                <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 text-sm text-green-700 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
-                  <CheckCircle size={16} />{" "}
-                  <span className="font-medium">Applied:</span> "{actionDone}"
-                </div>
-              )}
-
-              <div className="space-y-4">
-                {booking.status === "Assigned to Supervisor" && (
-                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-3">
-                      Initiate process to prepare space.
-                    </p>
-                    <button
-                      onClick={() =>
-                        handleAction(
-                          "WorkOrder Created",
-                          "supervisor",
-                          "WorkOrder Created",
-                        )
-                      }
-                      className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
-                      style={{ background: "#1A3580" }}
-                    >
-                      Create WorkOrder
-                    </button>
-                  </div>
-                )}
-                {booking.status === "WorkOrder Created" && (
-                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <label className="block text-xs font-semibold text-[#CC1F1A] mb-2 uppercase tracking-wide">
-                      Assign Professional
-                    </label>
-                    <select
-                      value={selectedAssignee}
-                      onChange={(e) => setSelectedAssignee(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all"
-                    >
-                      <option value="">Select professional...</option>
-                      {systemUsers
-                        .filter((u) => u.role === "professional")
-                        .map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.name}
-                          </option>
-                        ))}
-                    </select>
-                    <button
-                      onClick={() => {
-                        if (!selectedAssignee) return;
-                        handleAction(
-                          "Assigned to Professional",
-                          "supervisor",
-                          "Assigned Professional",
-                          { assignedTo: selectedAssignee },
-                        );
-                      }}
-                      disabled={!selectedAssignee}
-                      className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all disabled:opacity-50 hover:shadow-md flex items-center justify-center gap-2"
-                      style={{ background: "#CC1F1A" }}
-                    >
-                      Assign Task
-                    </button>
-                  </div>
-                )}
-                {booking.status === "Completed" && (
-                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-3">
-                      Professional indicated task is complete. Verify condition.
-                    </p>
-                    <button
-                      onClick={() =>
-                        handleAction(
-                          "Reviewed",
-                          "supervisor",
-                          "Submitted Review",
-                        )
-                      }
-                      className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
-                      style={{ background: "#0891B2" }}
-                    >
-                      Submit Evaluation
                     </button>
                   </div>
                 )}

@@ -6,7 +6,7 @@ import {
   PriorityBadge,
   StatusBadge,
 } from '@/components/common/StatusBadge';
-import { User as UserType } from '@/data/mockData';
+import { User as UserType } from '@/types/models';
 
 export function TaskCard({
   m,

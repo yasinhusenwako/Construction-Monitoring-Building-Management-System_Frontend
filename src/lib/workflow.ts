@@ -37,29 +37,87 @@ export const FINAL_STATUSES: WorkflowStatus[] = [
 
 export type WorkflowModule = "project" | "booking" | "maintenance";
 
-export const WORKFLOW_TRANSITIONS: Record<WorkflowStatus, WorkflowStatus[]> = {
-  Submitted: ["Under Review"],
-  "Under Review": ["Assigned to Supervisor"], // Default for Maintenance
-  "Assigned to Supervisor": ["WorkOrder Created"],
-  "WorkOrder Created": ["Assigned to Professional"],
-  "Assigned to Professional": ["In Progress"],
-  "In Progress": ["Completed"],
-  Completed: ["Reviewed"],
-  Reviewed: ["Approved", "Rejected"],
-  Approved: ["Closed"],
-  Rejected: ["Closed"],
-  Closed: [],
+type WorkflowDefinition = {
+  transitions: Partial<Record<WorkflowStatus, WorkflowStatus[]>>;
+  owner: Partial<Record<WorkflowStatus, WorkflowRole>>;
 };
 
-// Custom transitions for Projects and Bookings (bypassing Supervisor)
-export const DIRECT_WORKFLOW_TRANSITIONS: Record<
-  WorkflowStatus,
-  WorkflowStatus[]
-> = {
-  ...WORKFLOW_TRANSITIONS,
-  "Under Review": ["Assigned to Professional"],
-  "Assigned to Professional": ["In Progress"],
-  Completed: ["Approved", "Rejected"],
+// Centralized workflow configuration for all modules
+export const WORKFLOW_CONFIG: Record<WorkflowModule, WorkflowDefinition> = {
+  maintenance: {
+    transitions: {
+      Submitted: ["Under Review"],
+      "Under Review": ["Assigned to Supervisor"],
+      "Assigned to Supervisor": ["WorkOrder Created"],
+      "WorkOrder Created": ["Assigned to Professional"],
+      "Assigned to Professional": ["In Progress"],
+      "In Progress": ["Completed"],
+      Completed: ["Reviewed"],
+      Reviewed: ["Approved", "Rejected"],
+      Approved: ["Closed"],
+      Rejected: ["Closed"],
+      Closed: [],
+    },
+    owner: {
+      Submitted: "admin",
+      "Under Review": "admin",
+      "Assigned to Supervisor": "supervisor",
+      "WorkOrder Created": "supervisor",
+      "Assigned to Professional": "professional",
+      "In Progress": "professional",
+      Completed: "supervisor",
+      Reviewed: "admin",
+      Approved: "admin",
+      Rejected: "admin",
+      Closed: "admin",
+    },
+  },
+  project: {
+    transitions: {
+      Submitted: ["Under Review"],
+      "Under Review": ["Assigned to Professional"],
+      "Assigned to Professional": ["In Progress"],
+      "In Progress": ["Completed"],
+      Completed: ["Approved", "Rejected"],
+      Approved: ["Closed"],
+      Rejected: ["Closed"],
+      Closed: [],
+      // Not used in project: "Assigned to Supervisor", "WorkOrder Created", "Reviewed"
+    },
+    owner: {
+      Submitted: "admin",
+      "Under Review": "admin",
+      "Assigned to Professional": "professional",
+      "In Progress": "professional",
+      Completed: "admin",
+      Approved: "admin",
+      Rejected: "admin",
+      Closed: "admin",
+    },
+  },
+  booking: {
+    transitions: {
+      Submitted: ["Under Review"],
+      "Under Review": ["Assigned to Professional"],
+      "Assigned to Professional": ["In Progress"],
+      "In Progress": ["Completed"],
+      Completed: ["Approved", "Rejected"],
+      Approved: ["Closed"],
+      Rejected: ["Closed"],
+      Closed: [],
+      // Not used in booking: "Assigned to Supervisor", "WorkOrder Created", "Reviewed"
+    },
+    owner: {
+      Submitted: "admin",
+      "Under Review": "admin",
+      "Assigned to Professional": "professional",
+      "In Progress": "professional",
+      Completed: "admin",
+      Approved: "admin",
+      Rejected: "admin",
+      Closed: "admin",
+    },
+  },
 };
 
 export const WORKFLOW_OWNER: Record<WorkflowStatus, WorkflowRole> = {
@@ -80,51 +138,36 @@ export function canTransition(
   role: WorkflowRole,
   from: WorkflowStatus,
   to: WorkflowStatus,
-  module?: WorkflowModule,
+  module: WorkflowModule = "maintenance",
 ): boolean {
-  if (
-    from === "Under Review" &&
-    (module === "project" || module === "booking")
-  ) {
-    if (role === "admin" && to === "Assigned to Professional") return true;
+  const config = WORKFLOW_CONFIG[module];
+  if (!config) {
+    console.warn(
+      `[Workflow] Invalid module: ${module} for transition from '${from}' to '${to}' by role '${role}'`,
+    );
+    return false;
   }
-
-  if (from === "Completed" && (module === "project" || module === "booking")) {
-    if (role === "admin" && (to === "Approved" || to === "Rejected"))
-      return true;
+  const owner = config.owner[from];
+  const allowedTransitions = config.transitions[from] ?? [];
+  const isOwner = owner === role;
+  const isAllowed = allowedTransitions.includes(to);
+  if (!isOwner || !isAllowed) {
+    console.warn(
+      `[Workflow] Invalid transition: ${module} | ${role} cannot transition from '${from}' to '${to}'. Owner: ${owner}, Allowed: ${allowedTransitions.join(", ")}`,
+    );
   }
-
-  const transitions =
-    module === "project" || module === "booking"
-      ? DIRECT_WORKFLOW_TRANSITIONS
-      : WORKFLOW_TRANSITIONS;
-
-  return WORKFLOW_OWNER[from] === role && transitions[from]?.includes(to);
+  return isOwner && isAllowed;
 }
 
 export function getAllowedTransitions(
   role: WorkflowRole,
   from: WorkflowStatus,
-  module?: WorkflowModule,
+  module: WorkflowModule = "maintenance",
 ): WorkflowStatus[] {
-  if (
-    from === "Under Review" &&
-    (module === "project" || module === "booking")
-  ) {
-    return role === "admin" ? DIRECT_WORKFLOW_TRANSITIONS[from] : [];
-  }
-
-  if (from === "Completed" && (module === "project" || module === "booking")) {
-    return role === "admin" ? DIRECT_WORKFLOW_TRANSITIONS[from] : [];
-  }
-
-  if (WORKFLOW_OWNER[from] !== role) return [];
-  const transitions =
-    module === "project" || module === "booking"
-      ? DIRECT_WORKFLOW_TRANSITIONS
-      : WORKFLOW_TRANSITIONS;
-
-  return transitions[from] || [];
+  const config = WORKFLOW_CONFIG[module];
+  if (!config) return [];
+  if (config.owner[from] !== role) return [];
+  return config.transitions[from] ?? [];
 }
 
 export function getUserFacingStatus(

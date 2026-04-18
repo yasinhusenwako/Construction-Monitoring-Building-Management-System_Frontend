@@ -25,7 +25,7 @@ export interface User {
   divisionId?: string;
   phone: string;
   avatar: string;
-  status: "active" | "inactive" | "locked";
+  status: string;
   createdAt: string;
 }
 
@@ -39,6 +39,7 @@ export interface TimelineEvent {
 
 export interface Project {
   id: string;
+  dbId?: number;
   title: string;
   description: string;
   category: string;
@@ -59,12 +60,16 @@ export interface Project {
   scope?: unknown;
   createdAt: string;
   updatedAt: string;
+  divisionId?: string;
+  assignedSupervisorId?: string;
+  assignedProfessionalId?: string;
   documents: string[];
   timeline: TimelineEvent[];
 }
 
 export interface Booking {
   id: string;
+  dbId?: number;
   title: string;
   space: string;
   type: "Office" | "Conference Hall" | "Training Room" | "Lab";
@@ -85,6 +90,7 @@ export interface Booking {
 
 export interface Maintenance {
   id: string;
+  dbId?: number;
   title: string;
   description: string;
   type:

@@ -97,6 +97,23 @@ const projectDbIdByBusinessId = new Map<string, number>();
 const bookingDbIdByBusinessId = new Map<string, number>();
 const maintenanceDbIdByBusinessId = new Map<string, number>();
 
+type RequestModule = "PROJECT" | "BOOKING" | "MAINTENANCE";
+
+function requestCache(module: RequestModule): Map<string, number> {
+  if (module === "PROJECT") return projectDbIdByBusinessId;
+  if (module === "BOOKING") return bookingDbIdByBusinessId;
+  return maintenanceDbIdByBusinessId;
+}
+
+function cacheRequestDbId(
+  module: RequestModule,
+  businessId: string,
+  dbId: number,
+): void {
+  if (!businessId || !dbId) return;
+  requestCache(module).set(businessId, dbId);
+}
+
 function toIsoDate(raw?: string): string {
   if (!raw) return new Date().toISOString();
   return raw;
@@ -172,9 +189,11 @@ export async function fetchLiveProjects(
     : "/api/projects";
   const list = await apiRequest<BackendProject[]>(url, { token });
   return list.map((item) => {
-    projectDbIdByBusinessId.set(item.projectId || `PRJ-${item.id}`, item.id);
+    const businessId = item.projectId || `PRJ-${item.id}`;
+    cacheRequestDbId("PROJECT", businessId, item.id);
     return {
-      id: item.projectId || `PRJ-${item.id}`,
+      id: businessId,
+      dbId: item.id,
       title: item.title,
       description: item.description || "",
       category: "Capital Project",
@@ -205,10 +224,12 @@ export async function fetchLiveBookings(
     : "/api/bookings";
   const list = await apiRequest<BackendBooking[]>(url, { token });
   return list.map((item) => {
-    bookingDbIdByBusinessId.set(item.bookingId || `BKG-${item.id}`, item.id);
+    const businessId = item.bookingId || `BKG-${item.id}`;
+    cacheRequestDbId("BOOKING", businessId, item.id);
     const dt = item.dateTime ? new Date(item.dateTime) : new Date();
     return {
-      id: item.bookingId || `BKG-${item.id}`,
+      id: businessId,
+      dbId: item.id,
       title: item.layout || "Booking",
       space: item.layout || "N/A",
       type: parseBookingType(item.type),
@@ -240,13 +261,12 @@ export async function fetchLiveMaintenance(
     token,
   });
   return list.map((item) => {
-    maintenanceDbIdByBusinessId.set(
-      item.maintenanceId || `MNT-${item.id}`,
-      item.id,
-    );
+    const businessId = item.maintenanceId || `MNT-${item.id}`;
+    cacheRequestDbId("MAINTENANCE", businessId, item.id);
     const loc = splitLocation(item.location);
     return {
-      id: item.maintenanceId || `MNT-${item.id}`,
+      id: businessId,
+      dbId: item.id,
       title: item.category || "Maintenance Request",
       description: item.description || "",
       type: (item.category as Maintenance["type"]) || "General",
@@ -368,28 +388,87 @@ export async function fetchLiveReports(token?: string): Promise<{
   return { overview, mttr, analytics };
 }
 
-function resolveRequestDbId(
-  module: "PROJECT" | "BOOKING" | "MAINTENANCE",
+async function fetchRequestDbId(
+  module: RequestModule,
   businessId: string,
-): number {
+  token?: string,
+): Promise<number> {
   if (module === "PROJECT") {
-    return projectDbIdByBusinessId.get(businessId) || 0;
+    const list = await apiRequest<BackendProject[]>(
+      `/api/projects?projectId=${encodeURIComponent(businessId)}`,
+      { token },
+    );
+    const match = list.find(
+      (item) => (item.projectId || `PRJ-${item.id}`) === businessId,
+    );
+    if (match) {
+      cacheRequestDbId("PROJECT", businessId, match.id);
+      return match.id;
+    }
+    return 0;
   }
+
   if (module === "BOOKING") {
-    return bookingDbIdByBusinessId.get(businessId) || 0;
+    const list = await apiRequest<BackendBooking[]>(
+      `/api/bookings?bookingId=${encodeURIComponent(businessId)}`,
+      { token },
+    );
+    const match = list.find(
+      (item) => (item.bookingId || `BKG-${item.id}`) === businessId,
+    );
+    if (match) {
+      cacheRequestDbId("BOOKING", businessId, match.id);
+      return match.id;
+    }
+    return 0;
   }
-  return maintenanceDbIdByBusinessId.get(businessId) || 0;
+
+  const list = await apiRequest<BackendMaintenance[]>(
+    `/api/maintenance?maintenanceId=${encodeURIComponent(businessId)}`,
+    { token },
+  );
+  const match = list.find(
+    (item) => (item.maintenanceId || `MNT-${item.id}`) === businessId,
+  );
+  if (match) {
+    cacheRequestDbId("MAINTENANCE", businessId, match.id);
+    return match.id;
+  }
+  return 0;
+}
+
+async function resolveRequestDbId(
+  module: RequestModule,
+  businessId: string,
+  token?: string,
+  requestId?: number,
+): Promise<number> {
+  if (requestId) {
+    cacheRequestDbId(module, businessId, requestId);
+    return requestId;
+  }
+
+  const cachedId = requestCache(module).get(businessId);
+  if (cachedId) return cachedId;
+
+  return fetchRequestDbId(module, businessId, token);
 }
 
 export async function adminAssignRequest(params: {
-  module: "PROJECT" | "BOOKING" | "MAINTENANCE";
+  module: RequestModule;
   businessId: string;
+  requestId?: number;
   divisionId: string;
   supervisorId: string;
   priority?: string;
   token?: string;
 }): Promise<void> {
-  const requestId = resolveRequestDbId(params.module, params.businessId);
+  const requestId = await resolveRequestDbId(
+    params.module,
+    params.businessId,
+    params.token,
+    params.requestId,
+  );
   if (!requestId)
     throw new Error(`Unable to resolve request id for ${params.businessId}`);
   const divisionId = parseUserId(params.divisionId);
@@ -411,12 +490,18 @@ export async function adminAssignRequest(params: {
 }
 
 export async function adminDecision(params: {
-  module: "PROJECT" | "BOOKING" | "MAINTENANCE";
+  module: RequestModule;
   businessId: string;
+  requestId?: number;
   action: "approve" | "reject" | "close";
   token?: string;
 }): Promise<void> {
-  const requestId = resolveRequestDbId(params.module, params.businessId);
+  const requestId = await resolveRequestDbId(
+    params.module,
+    params.businessId,
+    params.token,
+    params.requestId,
+  );
   if (!requestId)
     throw new Error(`Unable to resolve request id for ${params.businessId}`);
 
@@ -436,12 +521,56 @@ export async function adminDecision(params: {
   });
 }
 
-export async function supervisorReviewRequest(params: {
-  module: "PROJECT" | "BOOKING" | "MAINTENANCE";
+export async function adminStartReview(params: {
+  module: RequestModule;
   businessId: string;
+  requestId?: number;
   token?: string;
 }): Promise<void> {
-  const requestId = resolveRequestDbId(params.module, params.businessId);
+  const requestId = await resolveRequestDbId(
+    params.module,
+    params.businessId,
+    params.token,
+    params.requestId,
+  );
+  if (!requestId)
+    throw new Error(`Unable to resolve request id for ${params.businessId}`);
+
+  try {
+    await apiRequest("/api/admin/review", {
+      method: "PATCH",
+      token: params.token,
+      body: {
+        requestId,
+        requestType: params.module,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (params.module === "MAINTENANCE" || !/\b(404|405)\b/.test(message)) {
+      throw error;
+    }
+
+    const base = params.module === "PROJECT" ? "/api/projects" : "/api/bookings";
+    await apiRequest(`${base}/${requestId}/review`, {
+      method: "PATCH",
+      token: params.token,
+    });
+  }
+}
+
+export async function supervisorReviewRequest(params: {
+  module: RequestModule;
+  businessId: string;
+  requestId?: number;
+  token?: string;
+}): Promise<void> {
+  const requestId = await resolveRequestDbId(
+    params.module,
+    params.businessId,
+    params.token,
+    params.requestId,
+  );
   if (!requestId)
     throw new Error(`Unable to resolve request id for ${params.businessId}`);
 
@@ -461,14 +590,56 @@ export async function supervisorReviewRequest(params: {
   });
 }
 
-export async function supervisorAssignProfessional(params: {
-  module: "PROJECT" | "BOOKING" | "MAINTENANCE";
+export async function adminAssignProfessional(params: {
+  module: RequestModule;
   businessId: string;
+  requestId?: number;
   professionalId: string;
   instructions?: string;
   token?: string;
 }): Promise<void> {
-  const requestId = resolveRequestDbId(params.module, params.businessId);
+  const requestId = await resolveRequestDbId(
+    params.module,
+    params.businessId,
+    params.token,
+    params.requestId,
+  );
+  const assignedProfessionalId = parseUserId(params.professionalId);
+  if (!requestId) {
+    throw new Error(`Unable to resolve request id for ${params.businessId}`);
+  }
+  if (!assignedProfessionalId)
+    throw new Error("Invalid professional selection");
+
+  // Admins need to assign to professional using a special admin endpoint or standard access endpoint
+  const endpoint = "/api/admin/assign-professional";
+
+  await apiRequest(endpoint, {
+    method: "PATCH",
+    token: params.token,
+    body: {
+      requestId,
+      requestType: params.module,
+      assignedProfessionalId,
+      instructions: params.instructions || "",
+    },
+  });
+}
+
+export async function supervisorAssignProfessional(params: {
+  module: RequestModule;
+  businessId: string;
+  requestId?: number;
+  professionalId: string;
+  instructions?: string;
+  token?: string;
+}): Promise<void> {
+  const requestId = await resolveRequestDbId(
+    params.module,
+    params.businessId,
+    params.token,
+    params.requestId,
+  );
   const assignedProfessionalId = parseUserId(params.professionalId);
   if (!requestId) {
     throw new Error(`Unable to resolve request id for ${params.businessId}`);
@@ -497,12 +668,18 @@ export async function supervisorAssignProfessional(params: {
 }
 
 export async function professionalUpdateTaskStatus(params: {
-  module: "PROJECT" | "BOOKING" | "MAINTENANCE";
+  module: RequestModule;
   businessId: string;
+  requestId?: number;
   status: "In Progress" | "Completed";
   token?: string;
 }): Promise<void> {
-  const requestId = resolveRequestDbId(params.module, params.businessId);
+  const requestId = await resolveRequestDbId(
+    params.module,
+    params.businessId,
+    params.token,
+    params.requestId,
+  );
   if (!requestId) {
     throw new Error(`Unable to resolve request id for ${params.businessId}`);
   }

@@ -3,14 +3,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { mockNotifications } from '@/data/mockData';
 import { fetchLiveNotifications } from "@/lib/live-api";
-import {
-  getNotificationEventName,
-  getNotificationsWithStored,
-  markAllReadForUser,
-  markNotificationRead,
-} from '@/lib/notifications';
+import type { Notification } from "@/types/models";
 import {
   Bell,
   CheckCheck,
@@ -21,7 +15,17 @@ import {
   Clock,
 } from "lucide-react";
 
-const typeConfig = {
+type NotificationTypeConfig = Record<
+  Notification["type"],
+  {
+    icon: typeof CheckCircle;
+    color: string;
+    bg: string;
+    border: string;
+  }
+>;
+
+const typeConfig: NotificationTypeConfig = {
   success: {
     icon: CheckCircle,
     color: "text-green-600",
@@ -52,32 +56,22 @@ export function NotificationsPage() {
   const { currentUser } = useAuth();
   const { t } = useLanguage();
   const [filter, setFilter] = useState<"all" | "unread" | "read">("all");
-  const [notifications, setNotifications] = useState(
-    getNotificationsWithStored(mockNotifications),
-  );
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   useEffect(() => {
     const refresh = async () => {
       const token = sessionStorage.getItem("insa_token") ?? undefined;
       try {
         const live = await fetchLiveNotifications(token);
-        setNotifications(
-          getNotificationsWithStored(live.length > 0 ? live : mockNotifications),
-        );
-      } catch {
-        setNotifications(getNotificationsWithStored(mockNotifications));
+        setNotifications(live);
+      } catch (error) {
+        console.error("Failed to fetch live notifications:", error);
       }
     };
-    const handleRefresh = () => void refresh();
-    void refresh();
-    window.addEventListener("storage", handleRefresh);
-    window.addEventListener(getNotificationEventName(), handleRefresh);
-    return () => {
-      window.removeEventListener("storage", handleRefresh);
-      window.removeEventListener(getNotificationEventName(), handleRefresh);
-    };
+    refresh();
   }, []);
 
+  const unreadCount = notifications.filter((n) => n.userId === currentUser?.id && !n.read).length;
   const userNotifs = notifications.filter((n) => n.userId === currentUser?.id);
   const filtered = userNotifs.filter((n) => {
     if (filter === "unread") return !n.read;
@@ -85,14 +79,14 @@ export function NotificationsPage() {
     return true;
   });
 
-  const unreadCount = userNotifs.filter((n) => !n.read).length;
-
   const markRead = (id: string) => {
-    markNotificationRead(id);
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    );
   };
 
   const markAllRead = () => {
-    markAllReadForUser(currentUser?.id);
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
   return (

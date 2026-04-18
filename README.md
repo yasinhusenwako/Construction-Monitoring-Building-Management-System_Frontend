@@ -1,75 +1,6 @@
 # INSA BuildMS — Construction Monitoring & Building Management System
 
-A role-based building management system for the Information Network Security Agency (INSA) of Ethiopia. Built with Next.js 15 (App Router), TypeScript, Tailwind CSS, and shadcn/ui.
-
-## Demo Credentials
-
-| Role                | Email                  | Password    |
-| ------------------- | ---------------------- | ----------- |
-| Admin               | admin@insa.gov.et      | password123 |
-| User                | user@insa.gov.et       | password123 |
-| Division Supervisor | supervisor@insa.gov.et | password123 |
-| Professional        | tech@insa.gov.et       | password123 |
-
-## Getting Started
-
-Create `.env.local`:
-
-```bash
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
-```
-
-Then run:
-
-```bash
-npm install
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000)
-
-## Routes
-
-| Path                          | Description            |
-| ----------------------------- | ---------------------- |
-| `/login`                      | Login                  |
-| `/register`                   | Register               |
-| `/forgot-password`            | Password reset         |
-| `/dashboard`                  | Dashboard (role-based) |
-| `/dashboard/projects`         | Capital projects       |
-| `/dashboard/projects/new`     | Submit project         |
-| `/dashboard/projects/[id]`    | Project detail         |
-| `/dashboard/bookings`         | Space bookings         |
-| `/dashboard/bookings/new`     | New booking            |
-| `/dashboard/maintenance`      | Maintenance tickets    |
-| `/dashboard/maintenance/new`  | New ticket             |
-| `/dashboard/maintenance/[id]` | Ticket detail          |
-| `/dashboard/notifications`    | Notifications          |
-| `/dashboard/reports`          | Reports & analytics    |
-| `/admin/users`                | User management        |
-| `/admin/config`               | System config          |
-| `/admin/requests`             | All user requests      |
-
-## Modules
-
-**Capital Projects** — Submit, review, approve/reject project requests with budget tracking.
-
-**Space Booking** — Book conference rooms, labs, offices. Admin manages spaces.
-
-**Maintenance & Repairs** — Report HVAC, electrical, plumbing issues. Technicians update repair status.
-
-## Stack
-
-- Next.js 15 (App Router)
-- TypeScript
-- Tailwind CSS 3
-- shadcn/ui + Radix UI
-- Recharts
-- next-themes (dark mode)
-- Sonner (toasts)
-- Lucide React - Construction Monitoring & Building Management System
-
-A comprehensive, modern, and scalable frontend web application for construction monitoring and building management, built for the Information Network Security Agency (INSA) of Ethiopia.
+A comprehensive, modern, and scalable building management system for the Information Network Security Agency (INSA) of Ethiopia. Built with Next.js 15 (App Router), TypeScript, Tailwind CSS, and shadcn/ui.
 
 ## 🎨 Design System
 
@@ -79,7 +10,7 @@ A comprehensive, modern, and scalable frontend web application for construction 
 - **Shield Blue** `#1A3580` - Secondary (from shield highlights)
 - **Lens Red** `#CC1F1A` - Alerts & Critical (from logo lens)
 - **Circuit Gold** `#F5B800` - Accents & Success (from circuit pattern)
-- **Purple** `#7C3AED` - Space Bookings
+- **Purple** `#7C3AED` - Division Supervisor & Space Bookings
 
 **Dark Mode Support:**
 
@@ -91,24 +22,24 @@ A comprehensive, modern, and scalable frontend web application for construction 
 
 ## 🏗️ Three Operational Modules
 
-### 1. Capital Projects & Design/Costing (Stream A)
+### 1. Capital Projects & Design/Costing
 
 - Submit, review, and track capital project requests
 - Budget allocation and cost tracking
 - Status flow: Pending → In Review → Approved/Rejected → In Progress → Completed
 - Priority levels: Critical, High, Medium, Low
 
-### 2. Space Allocation & Booking (Stream B)
+### 2. Space Allocation & Booking
 
 - Book conference halls, training rooms, labs, and offices
 - Real-time space availability
 - Admin can Add/Edit/Delete spaces
 - Status flow: Pending → Tentative/Confirmed/Rejected → Cancelled
 
-### 3. Urgent Repairs & HVAC Maintenance (Stream C)
+### 3. Urgent Repairs & HVAC Maintenance
 
 - Report and track HVAC, Electrical, Plumbing, Structural repairs
-- Assign tasks to technicians
+- Division-based assignment to Supervisors and Professionals
 - Status flow: New → Assigned → Under Repair → Repaired → Closed
 - SLA compliance tracking
 
@@ -138,22 +69,38 @@ A comprehensive, modern, and scalable frontend web application for construction 
 - ❌ Cannot approve/reject or manage other users
 - ❌ Cannot interact with Supervisor or Professionals directly
 
-### 👷 Division Supervisor (NEW)
+### 👷 Division Supervisor
 
-- ✅ View assigned requests from Administration
-- ✅ Assign tasks to Professionals
+- ✅ View assigned requests from Administration (division-specific)
+- ✅ Assign tasks to Professionals within their division
 - ✅ Monitor execution progress
 - ✅ Review completed tasks
 - ✅ Submit completion report to Administration
 - ❌ Cannot close requests (only Admin can close)
+- ❌ Cannot access other divisions' tasks
 
-### 🔧 Professionals (Renamed from Technician)
+### 🔧 Professionals
 
 - ✅ View assigned tasks ONLY
 - ✅ Update progress status
 - ✅ Upload proof (images/files)
 - ✅ Mark task as completed
 - ❌ No access to admin or user data
+- ❌ Can only work on tasks from their assigned division
+
+## 🏛️ Division Structure
+
+### 1️⃣ Power Supply Division (DIV-001)
+
+Handles: Elevator Maintenance, Generators, UPS, Air Conditioning, Lifts, Water Distillers
+
+### 2️⃣ Facility Administration Division (DIV-002)
+
+Handles: Cleaning Services, Gardening & Landscaping, Compound Maintenance, Furniture & Asset Movement
+
+### 3️⃣ Infrastructure Development & Building Maintenance Division (DIV-003)
+
+Handles: Building Construction, Water & Sewerage, Electrical Systems, Carpentry & Woodwork, Furniture Manufacturing
 
 ## 🚀 Demo Credentials
 
@@ -166,55 +113,63 @@ A comprehensive, modern, and scalable frontend web application for construction 
 
 ## 🛠️ Technology Stack
 
-- **Frontend Framework:** React 18 with TypeScript
-- **Routing:** React Router v7 (Data Mode)
-- **Styling:** Tailwind CSS v4 with custom INSA theme
+- **Frontend Framework:** Next.js 15 (App Router) with TypeScript
+- **Backend:** Spring Boot (Java) at `http://127.0.0.1:8080/api`
+- **Styling:** Tailwind CSS with custom INSA theme
 - **UI Components:** shadcn/ui + Radix UI primitives
-- **State Management:** Context API (AuthContext, ThemeContext) + Session Storage
+- **State Management:** Context API (AuthContext, ThemeContext, LanguageContext)
 - **Theme Management:** next-themes for dark mode support
 - **Charts & Analytics:** Recharts
 - **Icons:** Lucide React
 - **Notifications:** Sonner
 - **Form Handling:** React Hook Form
-- **Date Picker:** Custom DatePicker component with INSA styling
+- **Date Picker:** react-day-picker with INSA styling
+- **Authentication:** JWT-based with Spring Boot backend
 
 ## 📁 Project Structure
 
 ```
 /src
-  /app
-    /components
-      /auth             # ProtectedRoute wrapper
-      /common           # StatusBadge, PriorityBadge, DatePicker, ThemeToggle
-      /layout           # AppLayout (sidebar, header, navigation)
-      /ui               # shadcn/ui components (button, card, dialog, etc.)
-    /context            # AuthContext (authentication), ThemeContext (dark mode)
-    /data               # mockData.ts (users, projects, bookings, maintenance)
-    /pages
-      /admin            # UsersPage, ConfigPage, AllRequestsPage
-      /auth             # LoginPage, RegisterPage, ForgotPasswordPage
-      /bookings         # BookingsPage, NewBookingPage
-      /dashboard        # DashboardPage, AdminDashboard
-      /maintenance      # MaintenancePage, MaintenanceDetailPage, NewMaintenancePage
-      /notifications    # NotificationsPage
-      /projects         # ProjectsPage, ProjectDetailPage, NewProjectPage
-      /reports          # ReportsPage (analytics & KPIs)
-    routes.tsx          # React Router configuration
-    App.tsx             # Main app entry point
-  /styles
-    fonts.css           # Font imports
-    tailwind.css        # Tailwind directives
-    theme.css           # INSA color tokens & CSS variables (light + dark)
-    index.css           # Main stylesheet import
+  /app                  # Next.js App Router pages
+    /admin              # Admin pages (users, config, requests, divisions)
+    /api                # API proxy routes to Spring Boot backend
+    /dashboard          # Dashboard pages (role-based)
+    /login              # Login page
+    /register           # Register page
+    /forgot-password    # Password reset page
+  /components
+    /auth               # ProtectedRoute wrapper
+    /common             # StatusBadge, DatePicker, ThemeToggle, LanguageToggle
+    /dashboard          # DashboardWidgets
+    /layout             # AppLayout (sidebar, header, navigation)
+    /ui                 # shadcn/ui components (button, card, dialog, etc.)
+  /context              # AuthContext, ThemeContext, LanguageContext
+  /lib                  # API client, auth storage, workflow logic
+  /locales              # i18n translations (en.json, am.json)
+  /styles               # CSS files (fonts, theme, index)
+  /types                # TypeScript type definitions
+  /views                # Page components organized by feature
+    /admin              # Admin view components
+    /auth               # Auth view components
+    /bookings           # Booking view components
+    /dashboard          # Dashboard view components
+    /maintenance        # Maintenance view components
+    /notifications      # Notification view components
+    /professional       # Professional view components
+    /projects           # Project view components
+    /reports            # Report view components
+    /supervisor         # Supervisor view components
+    /user               # User view components
 ```
 
 ## ✨ Key Features
 
 ### Security & Authentication
 
-- Session-based authentication with role enforcement
+- JWT-based authentication with Spring Boot backend
 - Protected routes with automatic login redirect
 - RBAC enforcement at the route and component level
+- Automatic token refresh and management
 
 ### User Experience
 
@@ -225,22 +180,24 @@ A comprehensive, modern, and scalable frontend web application for construction 
 - Collapsible sidebar navigation
 - Search functionality across modules
 - **Dark mode support** with light, dark, and system theme options
+- **Bilingual support** (English and Amharic)
 - Smooth theme transitions with INSA-optimized color palettes
 
 ### Admin Features
 
 - **All User Requests Page:** Centralized view of every request across all three modules
 - **User Management:** Create, edit, and deactivate users
+- **Division Management:** Manage divisions and assign supervisors/professionals
 - **System Configuration:** Manage SLA rules, priorities, and workflows
 - **Advanced Analytics:** Charts, trends, and KPI tracking
 - **Space Management:** Add/Edit/Delete spaces in Booking module
 
-### Data Management
+### Division-Based Workflow
 
-- Mock data system (easily replaceable with real API/Supabase)
-- Clipboard copy with fallback (`textarea execCommand`) for `NotAllowedError` fix
-- Custom DatePicker with INSA color styling
-- Timeline tracking for projects and maintenance tickets
+- Automatic division suggestion based on request keywords
+- Supervisors only see tasks from their assigned division
+- Professionals can only be assigned within their division
+- Strict hierarchical workflow: User → Admin → Supervisor → Professionals → Supervisor → Admin → User
 
 ## 🔄 Status Flows
 
@@ -259,7 +216,7 @@ Pending → Tentative/Confirmed/Rejected → Cancelled
 ### Maintenance
 
 ```
-New → Assigned → Under Repair → Repaired → Closed
+New → Assigned (to Division) → Assigned (to Professional) → Under Repair → Repaired → Closed
 ```
 
 ## 📊 Analytics & Reporting
@@ -270,34 +227,66 @@ The Admin Reports page includes:
 - Project status distribution (pie chart)
 - Maintenance type breakdown
 - SLA compliance metrics
-- Technician workload & performance
+- Professional workload & performance
 - Cost tracking (planned vs actual)
 - Space utilization rates
 - Mean Time To Repair (MTTR) tracking
-
-## 🎯 System Highlights
-
-1. **No "Stream" terminology:** All references to "Stream A/B/C" have been removed from user-facing pages
-2. **INSA Branding:** Login page features the INSA logo with "INSA BuildMS" title
-3. **Admin Restrictions:** Admins can manage and oversee but cannot submit new requests
-4. **Clipboard Fallback:** All `navigator.clipboard.writeText()` calls use `try/catch` + `textarea execCommand('copy')` fallback
-5. **Custom Components:** StatusBadge, PriorityBadge, RoleBadge, DatePicker all styled with INSA colors
-6. **Dark Mode:** Full dark mode implementation with system preference detection and smooth transitions
+- Division performance metrics
 
 ## 🚦 Getting Started
 
-The project is production-ready and runs with:
+### Prerequisites
 
-- Modern browsers (Chrome, Firefox, Safari, Edge)
-- No backend required (uses session storage)
-- Mock data pre-populated for demonstration
+- Node.js 18+ and npm
+- Spring Boot backend running at `http://127.0.0.1:8080/api`
 
-## 📝 Notes
+### Installation
 
-- All data is stored in session storage (clears on browser close)
-- Mock data is located in `/src/app/data/mockData.ts`
-- To integrate with a real backend, replace mock data imports with API calls
-- For Supabase integration, use the authentication context pattern already established
+1. Clone the repository
+2. Install dependencies:
+
+```bash
+npm install
+```
+
+3. Create `.env.local`:
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8080
+```
+
+4. Run the development server:
+
+```bash
+npm run dev
+```
+
+5. Open [http://localhost:3000](http://localhost:3000)
+
+### Build for Production
+
+```bash
+npm run build
+npm start
+```
+
+## 📝 Backend Integration
+
+The frontend is fully integrated with a Spring Boot backend:
+
+- **API Client:** `src/lib/api.ts` - JWT authentication, token management, retry logic
+- **Live API:** `src/lib/live-api.ts` - All CRUD operations for Projects, Bookings, Maintenance
+- **Type Conversions:** Automatic conversion between Spring Boot and Frontend types
+- **Status Normalization:** UPPERCASE_SNAKE_CASE → Title Case
+- **ID Mapping:** Business IDs (PRJ-001) ↔ Database IDs (numbers)
+
+See `BACKEND_INTEGRATION_STATUS.md` for complete integration details.
+
+## 📚 Documentation
+
+- `BACKEND_INTEGRATION_STATUS.md` - Complete backend integration documentation
+- `IMPLEMENTATION_CHECKLIST.md` - Implementation checklist and priority matrix
+- `SYSTEM_ANALYSIS_AND_RECOMMENDATIONS.md` - System analysis and recommendations
 
 ---
 
