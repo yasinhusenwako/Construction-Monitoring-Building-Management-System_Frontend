@@ -281,7 +281,6 @@ export function NewMaintenancePage() {
 
   const handleSubmit = async () => {
     setLoading(true);
-    const token = sessionStorage.getItem("insa_token");
     const storedUser = sessionStorage.getItem("insa_user");
     const parsed = storedUser ? JSON.parse(storedUser) : null;
     const rawUserId = parsed?.id ?? parsed?.userId ?? "";
@@ -297,7 +296,6 @@ export function NewMaintenancePage() {
         "/api/maintenance",
         {
           method: "POST",
-          token: token ?? undefined,
           body: {
             maintenanceId: generatedId,
             title: form.title,

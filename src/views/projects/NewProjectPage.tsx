@@ -527,7 +527,6 @@ export function NewProjectPage() {
     setLoading(true);
     const year = new Date().getFullYear();
     const id = `PRJ-${year}-${String(Math.floor(Math.random() * 900) + 100)}`;
-    const token = sessionStorage.getItem("insa_token");
     const budgetValue = Number(form.budget);
     const storedUser = sessionStorage.getItem("insa_user");
     const parsedUser = storedUser ? JSON.parse(storedUser) : null;
@@ -648,7 +647,6 @@ export function NewProjectPage() {
 
       const created = await apiRequest<{ projectId: string }>("/api/projects", {
         method: "POST",
-        token: token ?? undefined,
         body: requestBody,
       });
       const projectId = created.projectId || id;

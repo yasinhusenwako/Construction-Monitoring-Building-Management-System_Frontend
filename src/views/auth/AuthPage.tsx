@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from "@/context/AuthContext";
 import Image from "next/image";
-import { useLanguage } from '@/context/LanguageContext';
-import { ThemeToggle } from '@/components/common/ThemeToggle';
-import { LanguageToggle } from '@/components/common/LanguageToggle';
+import { useLanguage } from "@/context/LanguageContext";
+import { ThemeToggle } from "@/components/common/ThemeToggle";
+import { LanguageToggle } from "@/components/common/LanguageToggle";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Eye,
@@ -16,12 +16,10 @@ import {
   Lock,
   Mail,
   ArrowRight,
-  ShieldCheck,
   CheckCircle,
   Building2,
   Calendar,
   Wrench,
-  ChevronDown,
   User,
   Phone,
   Building,
@@ -30,17 +28,6 @@ import {
 // Assets
 import logoImg from "../../assets/f90b53223fdaa6590fb74226dca7ff83be56c9f0.png";
 import heroImg from "../../assets/login-hero.png";
-
-const ROLES = [
-  { id: "admin", label: "Admin", email: "admin@cmbms.com" },
-  { id: "user", label: "User", email: "user@cmbms.com" },
-  {
-    id: "supervisor",
-    label: "Division Supervisor",
-    email: "supervisor@cmbms.com",
-  },
-  { id: "professional", label: "Professional", email: "professional@cmbms.com" },
-];
 
 const REGISTER_STEPS = [
   "auth.stepPersonalInfo",
@@ -63,7 +50,6 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
   // Login State
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loginRole, setLoginRole] = useState("user");
   const [showPass, setShowPass] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
@@ -91,17 +77,6 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
       setMode(m as any);
     }
   }, [searchParams]);
-
-  // Auto-fill demo credentials in login mode
-  useEffect(() => {
-    if (mode === "login") {
-        const selectedRole = ROLES.find((r) => r.id === loginRole);
-        if (selectedRole) {
-          setEmail(selectedRole.email);
-          setPassword("password123");
-        }
-      }
-  }, [loginRole, mode]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -351,31 +326,6 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
                     )}
 
                     <form onSubmit={handleLoginSubmit} className="space-y-5">
-                      <div className="space-y-2">
-                        <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.1em] ml-1">
-                          {t("auth.accessLevel")}
-                        </label>
-                        <div className="relative">
-                          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#1E3A8A] transition-colors">
-                            <ShieldCheck size={18} />
-                          </div>
-                          <select
-                            value={loginRole}
-                            onChange={(e) => setLoginRole(e.target.value)}
-                            className="w-full pl-12 pr-10 py-4 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 outline-none focus:border-[#1E3A8A] focus:ring-4 focus:ring-blue-100/50 transition-all appearance-none cursor-pointer"
-                          >
-                            {ROLES.map((r) => (
-                              <option key={r.id} value={r.id}>
-                                {t(`role.${r.id}`)}
-                              </option>
-                            ))}
-                          </select>
-                          <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                            <ChevronDown size={16} />
-                          </div>
-                        </div>
-                      </div>
-
                       <div className="space-y-2">
                         <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.1em] ml-1">
                           {t("auth.email")}

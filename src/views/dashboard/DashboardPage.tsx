@@ -1,25 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
-import type {
-  Project,
-  Booking,
-  Maintenance,
-  Notification,
-} from "@/types/models";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { getUserFacingStatus, WorkflowRole } from "@/lib/workflow";
-import {
-  fetchLiveBookings,
-  fetchLiveMaintenance,
-  fetchLiveNotifications,
-  fetchLiveProjects,
-} from "@/lib/live-api";
+import { useDashboardData } from "@/hooks/use-queries";
 import { AdminDashboard } from "./AdminDashboard";
+import { AsyncState } from "@/components/common/AsyncState";
 import {
   FolderOpen,
   Calendar,
@@ -33,6 +21,7 @@ import {
   ClipboardList,
   Activity,
   Plus,
+  Hammer,
 } from "lucide-react";
 
 function StatCard({
@@ -83,32 +72,14 @@ export function DashboardPage() {
   const role = currentUser?.role;
   const uid = currentUser?.id;
 
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [maintenanceItems, setMaintenanceItems] = useState<Maintenance[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-
-  useEffect(() => {
-    const refresh = async () => {
-      try {
-        const [liveProjects, liveBookings, liveMaintenance, liveNotifications] =
-          await Promise.all([
-            fetchLiveProjects(),
-            fetchLiveBookings(),
-            fetchLiveMaintenance(),
-            fetchLiveNotifications(),
-          ]);
-        setProjects(liveProjects);
-        setBookings(liveBookings);
-        setMaintenanceItems(liveMaintenance);
-        setNotifications(liveNotifications);
-      } catch {
-        // Backend unreachable — leave empty arrays (no mock fallback)
-      }
-    };
-
-    void refresh();
-  }, []);
+  // Token is automatically sent via httpOnly cookie
+  const { data, isLoading, isError, error, refetch } = useDashboardData();
+  const {
+    projects,
+    bookings,
+    maintenance: maintenanceItems,
+    notifications,
+  } = data;
 
   // Compute stats
   const myProjects = projects.filter((p) => p.requestedBy === uid);
@@ -230,6 +201,33 @@ export function DashboardPage() {
     if (h < 17) return t("greeting.afternoon");
     return t("greeting.evening");
   };
+
+  // Handle loading and error states
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <AsyncState
+          title={t("loading.dashboard")}
+          state="loading"
+          message={t("loading.pleaseWait")}
+        />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="space-y-6">
+        <AsyncState
+          title={t("error.loadFailed")}
+          state="error"
+          message={error instanceof Error ? error.message : t("error.unknown")}
+          actionLabel={t("action.retry")}
+          onAction={refetch}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -445,21 +443,21 @@ export function DashboardPage() {
                     desc: t("module.projects"),
                     path: "/dashboard/projects/new",
                     color: "#1A3580",
-                    icon: "🏗️",
+                    icon: <Hammer size={24} />,
                   },
                   {
                     label: t("dashboard.bookASpace"),
                     desc: t("module.bookings"),
                     path: "/dashboard/bookings/new",
                     color: "#7C3AED",
-                    icon: "📅",
+                    icon: <Calendar size={24} />,
                   },
                   {
                     label: t("dashboard.reportMaintenance"),
                     desc: t("module.maintenance"),
                     path: "/dashboard/maintenance/new",
                     color: "#CC1F1A",
-                    icon: "🔧",
+                    icon: <Wrench size={24} />,
                   },
                 ].map((a) => (
                   <button
@@ -512,11 +510,13 @@ export function DashboardPage() {
                             : "bg-orange-50 text-orange-700"
                       }`}
                     >
-                      {item.type === "Project"
-                        ? "🏗️"
-                        : item.type === "Booking"
-                          ? "📅"
-                          : "🔧"}
+                      {item.type === "Project" ? (
+                        <Hammer size={16} />
+                      ) : item.type === "Booking" ? (
+                        <Calendar size={16} />
+                      ) : (
+                        <Wrench size={16} />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">

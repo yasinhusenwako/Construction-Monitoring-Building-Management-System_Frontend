@@ -1,13 +1,13 @@
 "use client";
 
 import React from "react";
-import { useAuth } from '@/context/AuthContext';
-import { useLanguage } from '@/context/LanguageContext';
+import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import {
   fetchLiveMaintenance,
   fetchLiveUsers,
   fetchLiveBookings,
-  fetchLiveProjects
+  fetchLiveProjects,
 } from "@/lib/live-api";
 import { Users, Mail, Phone, Activity } from "lucide-react";
 
@@ -22,13 +22,13 @@ export function TeamOverviewPage() {
   React.useEffect(() => {
     const refresh = async () => {
       setLoading(true);
-      const token = sessionStorage.getItem("insa_token") ?? undefined;
       try {
+        // Token is automatically sent via httpOnly cookie
         const [users, maintenance, projects, bookings] = await Promise.all([
-          fetchLiveUsers(token),
-          fetchLiveMaintenance(token),
-          fetchLiveProjects(token),
-          fetchLiveBookings(token),
+          fetchLiveUsers(),
+          fetchLiveMaintenance(),
+          fetchLiveProjects(),
+          fetchLiveBookings(),
         ]);
 
         // Filter for professionals in my division

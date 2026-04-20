@@ -1,15 +1,21 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useLanguage } from '@/context/LanguageContext';
+import { useLanguage } from "@/context/LanguageContext";
 import {
   fetchLiveBookings,
   fetchLiveMaintenance,
   fetchLiveProjects,
   fetchLiveUsers,
 } from "@/lib/live-api";
-import { StatusBadge } from '@/components/common/StatusBadge';
-import type { UserRole, Project, Booking, Maintenance, Space } from "@/types/models";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import type {
+  UserRole,
+  Project,
+  Booking,
+  Maintenance,
+  Space,
+} from "@/types/models";
 import {
   AreaChart,
   Area,
@@ -24,7 +30,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { exportToCSV } from '@/lib/exportUtils';
+import { exportToCSV } from "@/lib/exportUtils";
 import {
   Users,
   ShieldCheck,
@@ -61,7 +67,7 @@ import {
   SectionHeader,
   AlertRow,
   ModulePanel,
-} from '@/components/dashboard/DashboardWidgets';
+} from "@/components/dashboard/DashboardWidgets";
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 function kpiColor(v: number, thresholds: [number, string][]): string {
@@ -92,13 +98,13 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
 
   useEffect(() => {
     const refresh = async () => {
-      const token = sessionStorage.getItem("insa_token") ?? undefined;
       try {
+        // Token is automatically sent via httpOnly cookie
         const [p, b, m, u] = await Promise.all([
-          fetchLiveProjects(token),
-          fetchLiveBookings(token),
-          fetchLiveMaintenance(token),
-          fetchLiveUsers(token),
+          fetchLiveProjects(),
+          fetchLiveBookings(),
+          fetchLiveMaintenance(),
+          fetchLiveUsers(),
         ]);
         setProjects(p);
         setBookings(b);
@@ -1685,4 +1691,3 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
     </div>
   );
 }
-

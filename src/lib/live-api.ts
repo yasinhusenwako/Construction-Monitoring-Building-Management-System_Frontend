@@ -181,13 +181,12 @@ function splitLocation(location?: string): {
 }
 
 export async function fetchLiveProjects(
-  token?: string,
   filterProjectId?: string,
 ): Promise<Project[]> {
   const url = filterProjectId
     ? `/api/projects?projectId=${filterProjectId}`
     : "/api/projects";
-  const list = await apiRequest<BackendProject[]>(url, { token });
+  const list = await apiRequest<BackendProject[]>(url);
   return list.map((item) => {
     const businessId = item.projectId || `PRJ-${item.id}`;
     cacheRequestDbId("PROJECT", businessId, item.id);
@@ -216,13 +215,12 @@ export async function fetchLiveProjects(
 }
 
 export async function fetchLiveBookings(
-  token?: string,
   filterBookingId?: string,
 ): Promise<Booking[]> {
   const url = filterBookingId
     ? `/api/bookings?bookingId=${filterBookingId}`
     : "/api/bookings";
-  const list = await apiRequest<BackendBooking[]>(url, { token });
+  const list = await apiRequest<BackendBooking[]>(url);
   return list.map((item) => {
     const businessId = item.bookingId || `BKG-${item.id}`;
     cacheRequestDbId("BOOKING", businessId, item.id);
@@ -251,15 +249,12 @@ export async function fetchLiveBookings(
 }
 
 export async function fetchLiveMaintenance(
-  token?: string,
   filterMaintenanceId?: string,
 ): Promise<Maintenance[]> {
   const url = filterMaintenanceId
     ? `/api/maintenance?maintenanceId=${filterMaintenanceId}`
     : "/api/maintenance";
-  const list = await apiRequest<BackendMaintenance[]>(url, {
-    token,
-  });
+  const list = await apiRequest<BackendMaintenance[]>(url);
   return list.map((item) => {
     const businessId = item.maintenanceId || `MNT-${item.id}`;
     cacheRequestDbId("MAINTENANCE", businessId, item.id);
@@ -295,12 +290,11 @@ export async function fetchLiveMaintenance(
   });
 }
 
-export async function fetchLiveNotifications(
-  token?: string,
-): Promise<Notification[]> {
-  const list = await apiRequest<BackendNotification[]>("/api/notifications", {
-    token,
-  });
+export async function fetchLiveNotifications(): Promise<Notification[]> {
+  const list = await apiRequest<BackendNotification[]>(
+    "/api/notifications",
+    {},
+  );
   return list.map((item) => ({
     id: `NOTIF-${item.id}`,
     title: item.title,
@@ -313,7 +307,7 @@ export async function fetchLiveNotifications(
   }));
 }
 
-export async function fetchLiveUsers(token?: string): Promise<
+export async function fetchLiveUsers(): Promise<
   Array<{
     id: string;
     name: string;
@@ -340,7 +334,7 @@ export async function fetchLiveUsers(token?: string): Promise<
       divisionId?: number | null;
       createdAt?: string;
     }>
-  >("/api/users", { token });
+  >("/api/users");
   return list.map((item) => {
     const rawName = item.name || "Unknown User";
     const initials = rawName
@@ -375,15 +369,15 @@ export async function fetchLiveUsers(token?: string): Promise<
   });
 }
 
-export async function fetchLiveReports(token?: string): Promise<{
+export async function fetchLiveReports(): Promise<{
   overview: BackendOverview;
   mttr: BackendMttr;
   analytics: BackendAnalytics;
 }> {
   const [overview, mttr, analytics] = await Promise.all([
-    apiRequest<BackendOverview>("/api/reports/overview", { token }),
-    apiRequest<BackendMttr>("/api/reports/mttr", { token }),
-    apiRequest<BackendAnalytics>("/api/reports/analytics", { token }),
+    apiRequest<BackendOverview>("/api/reports/overview"),
+    apiRequest<BackendMttr>("/api/reports/mttr"),
+    apiRequest<BackendAnalytics>("/api/reports/analytics"),
   ]);
   return { overview, mttr, analytics };
 }
@@ -391,12 +385,11 @@ export async function fetchLiveReports(token?: string): Promise<{
 async function fetchRequestDbId(
   module: RequestModule,
   businessId: string,
-  token?: string,
 ): Promise<number> {
   if (module === "PROJECT") {
     const list = await apiRequest<BackendProject[]>(
       `/api/projects?projectId=${encodeURIComponent(businessId)}`,
-      { token },
+      {},
     );
     const match = list.find(
       (item) => (item.projectId || `PRJ-${item.id}`) === businessId,
@@ -411,7 +404,7 @@ async function fetchRequestDbId(
   if (module === "BOOKING") {
     const list = await apiRequest<BackendBooking[]>(
       `/api/bookings?bookingId=${encodeURIComponent(businessId)}`,
-      { token },
+      {},
     );
     const match = list.find(
       (item) => (item.bookingId || `BKG-${item.id}`) === businessId,
@@ -425,7 +418,7 @@ async function fetchRequestDbId(
 
   const list = await apiRequest<BackendMaintenance[]>(
     `/api/maintenance?maintenanceId=${encodeURIComponent(businessId)}`,
-    { token },
+    {},
   );
   const match = list.find(
     (item) => (item.maintenanceId || `MNT-${item.id}`) === businessId,
@@ -440,7 +433,6 @@ async function fetchRequestDbId(
 async function resolveRequestDbId(
   module: RequestModule,
   businessId: string,
-  token?: string,
   requestId?: number,
 ): Promise<number> {
   if (requestId) {
@@ -451,7 +443,7 @@ async function resolveRequestDbId(
   const cachedId = requestCache(module).get(businessId);
   if (cachedId) return cachedId;
 
-  return fetchRequestDbId(module, businessId, token);
+  return fetchRequestDbId(module, businessId);
 }
 
 export async function adminAssignRequest(params: {
@@ -461,12 +453,10 @@ export async function adminAssignRequest(params: {
   divisionId: string;
   supervisorId: string;
   priority?: string;
-  token?: string;
 }): Promise<void> {
   const requestId = await resolveRequestDbId(
     params.module,
     params.businessId,
-    params.token,
     params.requestId,
   );
   if (!requestId)
@@ -478,7 +468,6 @@ export async function adminAssignRequest(params: {
 
   await apiRequest("/api/admin/assign", {
     method: "PATCH",
-    token: params.token,
     body: {
       requestId,
       requestType: params.module,
@@ -494,12 +483,10 @@ export async function adminDecision(params: {
   businessId: string;
   requestId?: number;
   action: "approve" | "reject" | "close";
-  token?: string;
 }): Promise<void> {
   const requestId = await resolveRequestDbId(
     params.module,
     params.businessId,
-    params.token,
     params.requestId,
   );
   if (!requestId)
@@ -508,7 +495,6 @@ export async function adminDecision(params: {
   if (params.module === "MAINTENANCE") {
     await apiRequest(`/api/admin/${params.action}`, {
       method: "PATCH",
-      token: params.token,
       body: { requestId },
     });
     return;
@@ -517,7 +503,6 @@ export async function adminDecision(params: {
   const base = params.module === "PROJECT" ? "/api/projects" : "/api/bookings";
   await apiRequest(`${base}/${requestId}/${params.action}`, {
     method: "PATCH",
-    token: params.token,
   });
 }
 
@@ -525,36 +510,45 @@ export async function adminStartReview(params: {
   module: RequestModule;
   businessId: string;
   requestId?: number;
-  token?: string;
 }): Promise<void> {
   const requestId = await resolveRequestDbId(
     params.module,
     params.businessId,
-    params.token,
     params.requestId,
   );
+  console.log("DEBUG adminStartReview:", {
+    module: params.module,
+    businessId: params.businessId,
+    requestId,
+    resolvedRequestId: requestId,
+  });
   if (!requestId)
     throw new Error(`Unable to resolve request id for ${params.businessId}`);
 
   try {
+    console.log("Calling /api/admin/review with:", {
+      requestId,
+      requestType: params.module,
+    });
     await apiRequest("/api/admin/review", {
       method: "PATCH",
-      token: params.token,
       body: {
         requestId,
         requestType: params.module,
       },
     });
+    console.log("adminStartReview SUCCESS");
   } catch (error) {
+    console.error("adminStartReview FAILED:", error);
     const message = error instanceof Error ? error.message : String(error);
     if (params.module === "MAINTENANCE" || !/\b(404|405)\b/.test(message)) {
       throw error;
     }
 
-    const base = params.module === "PROJECT" ? "/api/projects" : "/api/bookings";
+    const base =
+      params.module === "PROJECT" ? "/api/projects" : "/api/bookings";
     await apiRequest(`${base}/${requestId}/review`, {
       method: "PATCH",
-      token: params.token,
     });
   }
 }
@@ -563,12 +557,10 @@ export async function supervisorReviewRequest(params: {
   module: RequestModule;
   businessId: string;
   requestId?: number;
-  token?: string;
 }): Promise<void> {
   const requestId = await resolveRequestDbId(
     params.module,
     params.businessId,
-    params.token,
     params.requestId,
   );
   if (!requestId)
@@ -577,7 +569,6 @@ export async function supervisorReviewRequest(params: {
   if (params.module === "MAINTENANCE") {
     await apiRequest("/api/supervisor/review", {
       method: "POST",
-      token: params.token,
       body: { requestId },
     });
     return;
@@ -586,7 +577,6 @@ export async function supervisorReviewRequest(params: {
   const base = params.module === "PROJECT" ? "/api/projects" : "/api/bookings";
   await apiRequest(`${base}/${requestId}/review`, {
     method: "POST",
-    token: params.token,
   });
 }
 
@@ -596,12 +586,10 @@ export async function adminAssignProfessional(params: {
   requestId?: number;
   professionalId: string;
   instructions?: string;
-  token?: string;
 }): Promise<void> {
   const requestId = await resolveRequestDbId(
     params.module,
     params.businessId,
-    params.token,
     params.requestId,
   );
   const assignedProfessionalId = parseUserId(params.professionalId);
@@ -616,7 +604,6 @@ export async function adminAssignProfessional(params: {
 
   await apiRequest(endpoint, {
     method: "PATCH",
-    token: params.token,
     body: {
       requestId,
       requestType: params.module,
@@ -632,12 +619,10 @@ export async function supervisorAssignProfessional(params: {
   requestId?: number;
   professionalId: string;
   instructions?: string;
-  token?: string;
 }): Promise<void> {
   const requestId = await resolveRequestDbId(
     params.module,
     params.businessId,
-    params.token,
     params.requestId,
   );
   const assignedProfessionalId = parseUserId(params.professionalId);
@@ -657,7 +642,6 @@ export async function supervisorAssignProfessional(params: {
 
   await apiRequest(endpoint, {
     method: "POST",
-    token: params.token,
     body: {
       requestId,
       requestType: params.module, // added requestType for potential backend dispatcher
@@ -672,12 +656,10 @@ export async function professionalUpdateTaskStatus(params: {
   businessId: string;
   requestId?: number;
   status: "In Progress" | "Completed";
-  token?: string;
 }): Promise<void> {
   const requestId = await resolveRequestDbId(
     params.module,
     params.businessId,
-    params.token,
     params.requestId,
   );
   if (!requestId) {
@@ -692,7 +674,6 @@ export async function professionalUpdateTaskStatus(params: {
 
   await apiRequest(endpoint, {
     method: "PATCH",
-    token: params.token,
     body: { status: params.status },
   });
 }

@@ -1,8 +1,5 @@
-import { getStoredAuthToken } from "@/lib/auth-storage";
-
 type ApiRequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
-  token?: string;
   onError?: (error: Error) => void;
   retryCount?: number;
   retryDelayMs?: number;
@@ -27,13 +24,40 @@ function resolveUrl(url: string): string {
   return `${baseUrl}${url.startsWith("/") ? url : `/${url}`}`;
 }
 
+/**
+ * Check if running on server-side (Next.js server components/API routes)
+ */
+function isServer(): boolean {
+  return typeof window === "undefined";
+}
+
+/**
+ * Get auth token from httpOnly cookie on server-side.
+ * Client-side relies on cookies being sent automatically.
+ */
+async function getServerAuthToken(): Promise<string | undefined> {
+  if (!isServer()) return undefined;
+
+  try {
+    const { cookies } = await import("next/headers");
+    const cookieStore = cookies();
+    // Handle Next.js 15 async cookies() correctly
+    const authCookie =
+      typeof (cookieStore as any).get === "function"
+        ? (cookieStore as any).get("insa_token")
+        : (await cookieStore).get("insa_token");
+    return authCookie?.value;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function apiRequest<T>(
   url: string,
   options: ApiRequestOptions = {},
 ): Promise<T> {
   const {
     body,
-    token,
     headers,
     onError,
     retryCount = 0,
@@ -42,32 +66,17 @@ export async function apiRequest<T>(
   } = options;
   const resolvedHeaders = new Headers(headers || {});
 
-  let authToken = token;
-
-  // Auto-resolve token if not explicitly provided
-  if (!authToken) {
-    if (typeof window === "undefined") {
-      // Server-side: Dynamically import next/headers to avoid breaking client compiler
-      try {
-        const { cookies } = await import("next/headers");
-        const cookieStore = cookies();
-        // Handle Next.js 15 async cookies() correctly
-        const authCookie =
-          typeof (cookieStore as any).get === "function"
-            ? (cookieStore as any).get("insa_token")
-            : (await cookieStore).get("insa_token");
-        authToken = authCookie?.value;
-      } catch (e) {
-        // Ignore headers import errors
-      }
-    } else {
-      authToken = getStoredAuthToken();
+  // Server-side: manually attach Authorization header from cookie
+  // Client-side: cookie is sent automatically by browser
+  if (isServer()) {
+    const authToken = await getServerAuthToken();
+    if (authToken) {
+      resolvedHeaders.set("Authorization", `Bearer ${authToken}`);
     }
   }
 
-  if (authToken) {
-    resolvedHeaders.set("Authorization", `Bearer ${authToken}`);
-  }
+  // Always include credentials so cookies are sent with cross-origin requests
+  const credentials: RequestCredentials = "include";
 
   const isFormData =
     typeof FormData !== "undefined" && body instanceof FormData;
@@ -85,6 +94,7 @@ export async function apiRequest<T>(
       const response = await fetch(resolveUrl(url), {
         ...rest,
         headers: resolvedHeaders,
+        credentials,
         body:
           body === undefined || isFormData
             ? (body as BodyInit | null | undefined)

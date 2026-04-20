@@ -70,8 +70,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const token = sessionStorage.getItem("insa_token") ?? undefined;
-    fetchLiveNotifications(token)
+    // Token is automatically sent via httpOnly cookie
+    fetchLiveNotifications()
       .then(setNotifications)
       .catch(() => {});
   }, []);
@@ -263,6 +263,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-blue-200 dark:text-blue-300 hover:bg-white/10 dark:hover:bg-white/15 hover:text-white transition-colors text-sm"
+          title={sidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
         >
           {sidebarOpen ? (
             <>
@@ -309,6 +310,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <button
                 onClick={() => setMobileSidebarOpen(false)}
                 className="absolute top-3 right-3 text-white/70 hover:text-white"
+                title="Close Menu"
               >
                 <X size={20} />
               </button>
@@ -324,6 +326,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <button
               className="lg:hidden text-primary dark:text-primary hover:bg-secondary rounded-lg p-1.5 transition-colors"
               onClick={() => setMobileSidebarOpen(true)}
+              title="Open Menu"
             >
               <Menu size={20} />
             </button>
@@ -351,6 +354,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <button
                 onClick={() => setNotifOpen(!notifOpen)}
                 className="relative p-2 rounded-lg hover:bg-secondary dark:hover:bg-secondary text-primary dark:text-primary transition-colors"
+                title="Notifications"
               >
                 <Bell size={18} />
                 {unreadCount > 0 && (
@@ -438,6 +442,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <button
                 onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center gap-2 hover:bg-secondary dark:hover:bg-secondary rounded-lg px-2 py-1.5 transition-colors"
+                title="User Profile"
               >
                 <div className="w-8 h-8 rounded-full bg-primary dark:bg-primary text-primary-foreground dark:text-primary-foreground text-sm font-semibold flex items-center justify-center">
                   {currentUser?.avatar}
@@ -479,6 +484,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     <button
                       onClick={handleLogout}
                       className="flex items-center gap-2 px-4 py-2 text-sm text-[#CC1F1A] dark:text-[#EF4444] hover:bg-red-50 dark:hover:bg-red-500/10 w-full text-left"
+                      title="Sign Out"
                     >
                       <LogOut size={14} /> Sign Out
                     </button>

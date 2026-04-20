@@ -15,7 +15,12 @@ import {
   fetchLiveProjects,
   fetchLiveUsers,
 } from "@/lib/live-api";
-import type { Project, Booking, Maintenance, User as UserType } from "@/types/models";
+import type {
+  Project,
+  Booking,
+  Maintenance,
+  User as UserType,
+} from "@/types/models";
 import { divisions } from "@/types/models";
 import {
   ArrowLeft,
@@ -90,23 +95,33 @@ const PRIORITY_ORDER: Record<string, number> = {
 /**
  * Suggests a division based on keywords in the title, description, and category.
  */
-function suggestDivision(title: string, description: string, category: string): string {
+function suggestDivision(
+  title: string,
+  description: string,
+  category: string,
+): string {
   const text = `${title} ${description} ${category}`.toLowerCase();
   for (const div of divisions) {
-    if (div.keywords.some(kw => text.includes(kw.toLowerCase()))) {
+    if (div.keywords.some((kw) => text.includes(kw.toLowerCase()))) {
       return div.id;
     }
   }
   // Default to facility admin if no matches
-  return "DIV-002"; 
+  return "DIV-002";
 }
 
 /**
  * Filters the list of users to find supervisors belonging to a specific division.
  */
-function getSupervisorsByDivision(users: UserType[], divisionId: string): Array<{ id: string; name: string }> {
+function getSupervisorsByDivision(
+  users: UserType[],
+  divisionId: string,
+): Array<{ id: string; name: string }> {
   return users
-    .filter((u) => u.role === "supervisor" && (u.divisionId === divisionId || !divisionId))
+    .filter(
+      (u) =>
+        u.role === "supervisor" && (u.divisionId === divisionId || !divisionId),
+    )
     .map((u) => ({ id: u.id, name: u.name }));
 }
 
@@ -143,7 +158,6 @@ function DetailPanel({
   req,
   onClose,
   onNavigate,
-  token,
   onRefresh,
   getUserInfo,
   users,
@@ -151,7 +165,6 @@ function DetailPanel({
   req: UnifiedRequest;
   onClose: () => void;
   onNavigate: (path: string) => void;
-  token?: string;
   onRefresh: () => Promise<void> | void;
   getUserInfo: (userId: string) => UserType | undefined;
   users: UserType[];
@@ -188,16 +201,20 @@ function DetailPanel({
       return (req.raw as Maintenance).supervisorId || "";
     }
     if (req.module === "Projects") {
-      return (req.raw as Project).assignedSupervisorId || (req.raw as Project).supervisorId || "";
+      return (
+        (req.raw as Project).assignedSupervisorId ||
+        (req.raw as Project).supervisorId ||
+        ""
+      );
     }
     return "";
   });
 
   useEffect(() => {
     const loadUsers = async () => {
-      if (!token) return;
       try {
-        const users = await fetchLiveUsers(token);
+        // Token is automatically sent via httpOnly cookie
+        const users = await fetchLiveUsers();
         setLiveSupervisors(
           users
             .filter((u) => u.role === "supervisor")
@@ -214,12 +231,14 @@ function DetailPanel({
       }
     };
     loadUsers();
-  }, [token]);
+  }, []);
 
   const availableSupervisors = useMemo(() => {
     if (liveSupervisors.length > 0) return liveSupervisors;
     // Fallback using the passed users list and division filter
-    return selectedDivision ? getSupervisorsByDivision(users, selectedDivision) : [];
+    return selectedDivision
+      ? getSupervisorsByDivision(users, selectedDivision)
+      : [];
   }, [liveSupervisors, selectedDivision, users]);
 
   const sendNote = () => {
@@ -296,6 +315,7 @@ function DetailPanel({
             </button>
             <button
               onClick={onClose}
+              title="Close"
               className="w-8 h-8 rounded-lg bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition-colors"
             >
               <X size={15} />
@@ -518,7 +538,9 @@ function DetailPanel({
                           </div>
 
                           <button
-                            disabled={!selectedDivision || !selectedSupervisor || busy}
+                            disabled={
+                              !selectedDivision || !selectedSupervisor || busy
+                            }
                             onClick={() =>
                               runAction(async () => {
                                 await adminAssignRequest({
@@ -527,7 +549,6 @@ function DetailPanel({
                                   divisionId: selectedDivision,
                                   supervisorId: selectedSupervisor,
                                   priority: "Medium",
-                                  token,
                                 });
                               })
                             }
@@ -541,14 +562,19 @@ function DetailPanel({
                         <>
                           <div className="space-y-1">
                             <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                              {t("requests.selectProfessional") || "Select Professional"}
+                              {t("requests.selectProfessional") ||
+                                "Select Professional"}
                             </label>
                             <select
                               value={selectedProfessional}
-                              onChange={(e) => setSelectedProfessional(e.target.value)}
+                              onChange={(e) =>
+                                setSelectedProfessional(e.target.value)
+                              }
                               className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
                             >
-                              <option value="">{t("common.select") || "Select"}</option>
+                              <option value="">
+                                {t("common.select") || "Select"}
+                              </option>
                               {liveProfessionals.map((pr) => (
                                 <option key={pr.id} value={pr.id}>
                                   {pr.name}
@@ -565,7 +591,6 @@ function DetailPanel({
                                   module: "PROJECT",
                                   businessId: p.id,
                                   professionalId: selectedProfessional,
-                                  token,
                                 });
                               })
                             }
@@ -669,7 +694,6 @@ function DetailPanel({
                                     module: "BOOKING",
                                     businessId: b.id,
                                     action: "approve",
-                                    token,
                                   });
                                 })
                               }
@@ -684,7 +708,6 @@ function DetailPanel({
                                     module: "BOOKING",
                                     businessId: b.id,
                                     action: "reject",
-                                    token,
                                   });
                                 })
                               }
@@ -703,7 +726,6 @@ function DetailPanel({
                                   module: "BOOKING",
                                   businessId: b.id,
                                   action: "close",
-                                  token,
                                 });
                               })
                             }
@@ -756,7 +778,9 @@ function DetailPanel({
                               }}
                               className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#7C3AED]"
                             >
-                              <option value="">{t("requests.selectDivision")}</option>
+                              <option value="">
+                                {t("requests.selectDivision")}
+                              </option>
                               {divisions.map((d) => (
                                 <option key={d.id} value={d.id}>
                                   {d.name}
@@ -772,10 +796,14 @@ function DetailPanel({
                             <select
                               disabled={!selectedDivision}
                               value={selectedSupervisor}
-                              onChange={(e) => setSelectedSupervisor(e.target.value)}
+                              onChange={(e) =>
+                                setSelectedSupervisor(e.target.value)
+                              }
                               className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#7C3AED] disabled:opacity-50"
                             >
-                              <option value="">{t("requests.assignLeadSupervisor")}</option>
+                              <option value="">
+                                {t("requests.assignLeadSupervisor")}
+                              </option>
                               {availableSupervisors.map((s) => (
                                 <option key={s.id} value={s.id}>
                                   {s.name}
@@ -785,7 +813,9 @@ function DetailPanel({
                           </div>
 
                           <button
-                            disabled={!selectedDivision || !selectedSupervisor || busy}
+                            disabled={
+                              !selectedDivision || !selectedSupervisor || busy
+                            }
                             onClick={() =>
                               runAction(async () => {
                                 await adminAssignRequest({
@@ -794,7 +824,6 @@ function DetailPanel({
                                   divisionId: selectedDivision,
                                   supervisorId: selectedSupervisor,
                                   priority: "Medium",
-                                  token,
                                 });
                               })
                             }
@@ -807,14 +836,19 @@ function DetailPanel({
                         <>
                           <div className="space-y-1">
                             <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                              {t("requests.selectProfessional") || "Select Professional"}
+                              {t("requests.selectProfessional") ||
+                                "Select Professional"}
                             </label>
                             <select
                               value={selectedProfessional}
-                              onChange={(e) => setSelectedProfessional(e.target.value)}
+                              onChange={(e) =>
+                                setSelectedProfessional(e.target.value)
+                              }
                               className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#7C3AED]"
                             >
-                              <option value="">{t("common.select") || "Select"}</option>
+                              <option value="">
+                                {t("common.select") || "Select"}
+                              </option>
                               {liveProfessionals.map((pr) => (
                                 <option key={pr.id} value={pr.id}>
                                   {pr.name}
@@ -831,7 +865,6 @@ function DetailPanel({
                                   module: "BOOKING",
                                   businessId: b.id,
                                   professionalId: selectedProfessional,
-                                  token,
                                 });
                               })
                             }
@@ -987,7 +1020,9 @@ function DetailPanel({
                               }}
                               className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#CC1F1A]"
                             >
-                              <option value="">{t("requests.selectDivision")}</option>
+                              <option value="">
+                                {t("requests.selectDivision")}
+                              </option>
                               {divisions.map((d) => (
                                 <option key={d.id} value={d.id}>
                                   {d.name}
@@ -1002,10 +1037,14 @@ function DetailPanel({
                             <select
                               disabled={!selectedDivision}
                               value={selectedSupervisor}
-                              onChange={(e) => setSelectedSupervisor(e.target.value)}
+                              onChange={(e) =>
+                                setSelectedSupervisor(e.target.value)
+                              }
                               className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#CC1F1A] disabled:opacity-50"
                             >
-                              <option value="">{t("requests.selectSupervisor")}</option>
+                              <option value="">
+                                {t("requests.selectSupervisor")}
+                              </option>
                               {availableSupervisors.map((s) => (
                                 <option key={s.id} value={s.id}>
                                   {s.name}
@@ -1014,7 +1053,9 @@ function DetailPanel({
                             </select>
                           </div>
                           <button
-                            disabled={!selectedDivision || !selectedSupervisor || busy}
+                            disabled={
+                              !selectedDivision || !selectedSupervisor || busy
+                            }
                             onClick={() =>
                               runAction(async () => {
                                 await adminAssignRequest({
@@ -1023,27 +1064,32 @@ function DetailPanel({
                                   divisionId: selectedDivision,
                                   supervisorId: selectedSupervisor,
                                   priority: m.priority || "Medium",
-                                  token,
                                 });
                               })
                             }
                             className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#CC1F1A] hover:bg-[#991B1B] transition-all disabled:opacity-40"
                           >
-                            {t("maintenance.assignSupervisor") || t("requests.processAssignment")}
+                            {t("maintenance.assignSupervisor") ||
+                              t("requests.processAssignment")}
                           </button>
                         </>
                       ) : (
                         <>
                           <div className="space-y-1">
                             <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                              {t("requests.selectProfessional") || "Select Professional"}
+                              {t("requests.selectProfessional") ||
+                                "Select Professional"}
                             </label>
                             <select
                               value={selectedProfessional}
-                              onChange={(e) => setSelectedProfessional(e.target.value)}
+                              onChange={(e) =>
+                                setSelectedProfessional(e.target.value)
+                              }
                               className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#CC1F1A]"
                             >
-                              <option value="">{t("common.select") || "Select"}</option>
+                              <option value="">
+                                {t("common.select") || "Select"}
+                              </option>
                               {liveProfessionals.map((pr) => (
                                 <option key={pr.id} value={pr.id}>
                                   {pr.name}
@@ -1059,7 +1105,6 @@ function DetailPanel({
                                   module: "MAINTENANCE",
                                   businessId: m.id,
                                   professionalId: selectedProfessional,
-                                  token,
                                 });
                               })
                             }
@@ -1240,13 +1285,6 @@ export function AllRequestsPage() {
   const [sortAsc, setSortAsc] = useState(false);
   const [selectedReq, setSelectedReq] = useState<UnifiedRequest | null>(null);
   const [showFilters, setShowFilters] = useState(false);
-  const [token, setToken] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setToken(sessionStorage.getItem("insa_token") || undefined);
-    }
-  }, []);
 
   // ─── Live data fetched from backend ────────────────────────────────────────
   const [projects, setProjects] = useState<Project[]>([]);
@@ -1254,18 +1292,22 @@ export function AllRequestsPage() {
   const [maintenance, setMaintenance] = useState<Maintenance[]>([]);
   const [users, setUsers] = useState<UserType[]>([]);
 
-  const getUserInfo = useCallback((userId: string) => {
-    return users.find((u) => String(u.id) === String(userId));
-  }, [users]);
+  const getUserInfo = useCallback(
+    (userId: string) => {
+      return users.find((u) => String(u.id) === String(userId));
+    },
+    [users],
+  );
 
   const refresh = async () => {
     try {
-      const [liveProjects, liveBookings, liveMaintenance, liveUsers] = await Promise.all([
-        fetchLiveProjects(),
-        fetchLiveBookings(),
-        fetchLiveMaintenance(),
-        fetchLiveUsers(),
-      ]);
+      const [liveProjects, liveBookings, liveMaintenance, liveUsers] =
+        await Promise.all([
+          fetchLiveProjects(),
+          fetchLiveBookings(),
+          fetchLiveMaintenance(),
+          fetchLiveUsers(),
+        ]);
       setProjects(liveProjects);
       setBookings(liveBookings);
       setMaintenance(liveMaintenance);
@@ -1402,7 +1444,6 @@ export function AllRequestsPage() {
         <DetailPanel
           req={selectedReq}
           onClose={() => setSelectedReq(null)}
-          token={token}
           users={users}
           getUserInfo={getUserInfo}
           onRefresh={refresh}

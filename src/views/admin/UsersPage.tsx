@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { User, UserRole } from "@/types/models";
-import { getStoredAuthToken } from "@/lib/auth-storage";
 import { fetchLiveUsers } from "@/lib/live-api";
 import { StatusBadge, RoleBadge } from "@/components/common/StatusBadge";
 import {
@@ -33,12 +32,14 @@ export function UsersPage() {
       setLoading(true);
       setLoadError("");
       try {
-        const token = getStoredAuthToken();
-        const liveUsers = await fetchLiveUsers(token);
+        // Token is automatically sent via httpOnly cookie
+        const liveUsers = await fetchLiveUsers();
         setUsers(liveUsers as User[]);
       } catch (err) {
         console.error("Failed to load users", err);
-        setLoadError(err instanceof Error ? err.message : "Failed to load users");
+        setLoadError(
+          err instanceof Error ? err.message : "Failed to load users",
+        );
         setUsers([]);
       } finally {
         setLoading(false);

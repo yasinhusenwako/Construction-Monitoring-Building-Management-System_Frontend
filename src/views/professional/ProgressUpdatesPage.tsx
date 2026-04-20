@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { useAuth } from '@/context/AuthContext';
-import { useLanguage } from '@/context/LanguageContext';
-import { StatusBadge } from '@/components/common/StatusBadge';
-import { WorkflowStatus, getAllowedTransitions } from '@/lib/workflow';
+import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { WorkflowStatus, getAllowedTransitions } from "@/lib/workflow";
 import {
   Activity,
   CheckCircle,
@@ -104,15 +104,17 @@ export function ProgressUpdatesPage() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [updating, setUpdating] = useState<string | null>(null);
 
-  const handleUpdateStatus = async (taskId: string, newStatus: WorkflowStatus) => {
+  const handleUpdateStatus = async (
+    taskId: string,
+    newStatus: WorkflowStatus,
+  ) => {
     setUpdating(taskId);
     try {
-      const token = sessionStorage.getItem("insa_token") ?? undefined;
       if (taskId.startsWith("MNT-")) {
         await professionalUpdateTaskStatus({
-          module: "MAINTENANCE", businessId: taskId,
+          module: "MAINTENANCE",
+          businessId: taskId,
           status: newStatus === "Completed" ? "Completed" : "In Progress",
-          token,
         });
       }
       setAllAssignedTasks((prev) =>

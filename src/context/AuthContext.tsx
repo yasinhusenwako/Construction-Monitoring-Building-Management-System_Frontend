@@ -5,7 +5,6 @@ import { User, UserRole } from "@/types/models";
 import { apiRequest } from "@/lib/api";
 import {
   clearStoredAuthSession,
-  getStoredAuthToken,
   migrateLegacyAuthSession,
   persistAuthSession,
   updateStoredAuthUser,
@@ -130,9 +129,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setMounted(true);
     const { user: storedUser } = migrateLegacyAuthSession();
-    const token = getStoredAuthToken();
 
-    if (!storedUser || !token) {
+    if (!storedUser) {
       clearStoredAuthSession();
       return;
     }
@@ -156,7 +154,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       const sessionUser = toSessionUser(payload);
       setCurrentUser(sessionUser);
-      persistAuthSession(sessionUser, payload.token);
+      // Token is stored in httpOnly cookie by backend
+      persistAuthSession(sessionUser);
       return { success: true };
     } catch (error) {
       return {
@@ -197,7 +196,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
       const sessionUser = toSessionUser(payload);
       setCurrentUser(sessionUser);
-      persistAuthSession(sessionUser, payload.token);
+      // Token is stored in httpOnly cookie by backend
+      persistAuthSession(sessionUser);
       return { success: true };
     } catch (error) {
       return {

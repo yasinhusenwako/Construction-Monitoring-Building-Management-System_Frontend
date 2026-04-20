@@ -1,25 +1,20 @@
-const AUTH_TOKEN_KEY = "insa_token";
 const AUTH_USER_KEY = "insa_user";
 
 function isBrowser(): boolean {
   return typeof window !== "undefined";
 }
 
-function readLegacyCookieToken(): string | undefined {
-  if (!isBrowser()) return undefined;
-  const match = document.cookie.match(/(?:^|; )insa_token=([^;]*)/);
-  return match ? decodeURIComponent(match[1]) : undefined;
-}
-
-function clearLegacyCookieToken(): void {
+/**
+ * Clear the httpOnly auth cookie by calling the logout API endpoint.
+ * This is the only way to clear an httpOnly cookie from client-side.
+ */
+async function clearAuthCookie(): Promise<void> {
   if (!isBrowser()) return;
-  document.cookie =
-    "insa_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-}
-
-export function getStoredAuthToken(): string | undefined {
-  if (!isBrowser()) return undefined;
-  return sessionStorage.getItem(AUTH_TOKEN_KEY) ?? undefined;
+  try {
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+  } catch {
+    // Ignore errors - cookie may already be expired
+  }
 }
 
 export function getStoredAuthUser<T>(): T | undefined {
@@ -29,17 +24,18 @@ export function getStoredAuthUser<T>(): T | undefined {
   try {
     return JSON.parse(raw) as T;
   } catch {
-    clearStoredAuthSession();
+    clearStoredAuthUser();
     return undefined;
   }
 }
 
-export function persistAuthSession(user: unknown, token: string): void {
+/**
+ * Persist user data to sessionStorage (non-sensitive).
+ * The JWT token is stored in an httpOnly cookie by the backend.
+ */
+export function persistAuthSession(user: unknown): void {
   if (!isBrowser()) return;
   sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-  sessionStorage.setItem(AUTH_TOKEN_KEY, token);
-  localStorage.removeItem(AUTH_TOKEN_KEY);
-  clearLegacyCookieToken();
 }
 
 export function updateStoredAuthUser(user: unknown): void {
@@ -50,33 +46,28 @@ export function updateStoredAuthUser(user: unknown): void {
 export function clearStoredAuthSession(): void {
   if (!isBrowser()) return;
   sessionStorage.removeItem(AUTH_USER_KEY);
-  sessionStorage.removeItem(AUTH_TOKEN_KEY);
-  localStorage.removeItem(AUTH_TOKEN_KEY);
-  clearLegacyCookieToken();
+  void clearAuthCookie();
 }
 
-export function migrateLegacyAuthSession(): {
-  token?: string;
-  user?: string;
-} {
+export function clearStoredAuthUser(): void {
+  if (!isBrowser()) return;
+  sessionStorage.removeItem(AUTH_USER_KEY);
+}
+
+/**
+ * Migrate from legacy sessionStorage token storage to cookie-based auth.
+ * This runs once on app mount to clear old tokens.
+ */
+export function migrateLegacyAuthSession(): { user?: string } {
   if (!isBrowser()) return {};
 
-  const sessionToken = sessionStorage.getItem(AUTH_TOKEN_KEY) ?? undefined;
   const sessionUser = sessionStorage.getItem(AUTH_USER_KEY) ?? undefined;
-  const legacyToken =
-    localStorage.getItem(AUTH_TOKEN_KEY) ?? readLegacyCookieToken();
 
-  if (!sessionToken && legacyToken) {
-    sessionStorage.setItem(AUTH_TOKEN_KEY, legacyToken);
-  }
+  // Clear any legacy token storage (token now in httpOnly cookie only)
+  sessionStorage.removeItem("insa_token");
+  localStorage.removeItem("insa_token");
 
-  localStorage.removeItem(AUTH_TOKEN_KEY);
-  clearLegacyCookieToken();
-
-  return {
-    token: sessionStorage.getItem(AUTH_TOKEN_KEY) ?? undefined,
-    user: sessionUser,
-  };
+  return { user: sessionUser };
 }
 
-export { AUTH_TOKEN_KEY, AUTH_USER_KEY };
+export { AUTH_USER_KEY };

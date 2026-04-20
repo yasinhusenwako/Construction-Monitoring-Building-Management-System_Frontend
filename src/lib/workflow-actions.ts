@@ -1,4 +1,3 @@
-import { getStoredAuthToken } from "@/lib/auth-storage";
 import {
   adminAssignProfessional,
   adminAssignRequest,
@@ -61,7 +60,7 @@ export async function executeWorkflowAction(params: {
   token?: string;
 }): Promise<WorkflowActionResult> {
   const workflowModule = resolveWorkflowModule(params.module);
-  const token = params.token ?? getStoredAuthToken();
+  // Token is automatically sent via httpOnly cookie
 
   if (
     !canTransition(
@@ -77,7 +76,10 @@ export async function executeWorkflowAction(params: {
   try {
     if (params.actorRole === "admin") {
       if (params.nextStatus === "Assigned to Supervisor") {
-        if (!params.extraUpdates?.supervisorId || !params.extraUpdates?.divisionId) {
+        if (
+          !params.extraUpdates?.supervisorId ||
+          !params.extraUpdates?.divisionId
+        ) {
           return fail(
             "validation",
             "Division and supervisor are required for this assignment.",
@@ -90,7 +92,6 @@ export async function executeWorkflowAction(params: {
           requestId: params.requestId,
           divisionId: params.extraUpdates.divisionId,
           supervisorId: params.extraUpdates.supervisorId,
-          token,
         });
         return { ok: true };
       }
@@ -100,12 +101,16 @@ export async function executeWorkflowAction(params: {
           module: params.module,
           businessId: params.businessId,
           requestId: params.requestId,
-          token,
         });
         return { ok: true };
       }
 
-      if (params.nextStatus === "Assigned to Professional") {
+      // Admin assigns professional for PROJECT and BOOKING only
+      // MAINTENANCE is handled by supervisor
+      if (
+        params.nextStatus === "Assigned to Professional" &&
+        params.module !== "MAINTENANCE"
+      ) {
         if (!params.extraUpdates?.assignedTo) {
           return fail(
             "validation",
@@ -118,7 +123,6 @@ export async function executeWorkflowAction(params: {
           businessId: params.businessId,
           requestId: params.requestId,
           professionalId: params.extraUpdates.assignedTo,
-          token,
         });
         return { ok: true };
       }
@@ -140,7 +144,6 @@ export async function executeWorkflowAction(params: {
           businessId: params.businessId,
           requestId: params.requestId,
           action,
-          token,
         });
         return { ok: true };
       }
@@ -165,7 +168,6 @@ export async function executeWorkflowAction(params: {
           requestId: params.requestId,
           professionalId: params.extraUpdates.assignedTo,
           instructions: params.extraUpdates.notes || "",
-          token,
         });
         return { ok: true };
       }
@@ -175,7 +177,6 @@ export async function executeWorkflowAction(params: {
           module: params.module,
           businessId: params.businessId,
           requestId: params.requestId,
-          token,
         });
         return { ok: true };
       }
@@ -191,7 +192,6 @@ export async function executeWorkflowAction(params: {
           businessId: params.businessId,
           requestId: params.requestId,
           status: params.nextStatus,
-          token,
         });
         return { ok: true };
       }
@@ -204,7 +204,9 @@ export async function executeWorkflowAction(params: {
   } catch (error) {
     return fail(
       "request",
-      error instanceof Error ? error.message : "Failed to perform workflow action.",
+      error instanceof Error
+        ? error.message
+        : "Failed to perform workflow action.",
     );
   }
 }

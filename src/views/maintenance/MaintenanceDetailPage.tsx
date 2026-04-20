@@ -24,10 +24,7 @@ import {
   UserPlus,
   Users as UsersIcon,
 } from "lucide-react";
-import {
-  fetchLiveMaintenance,
-  fetchLiveUsers,
-} from "@/lib/live-api";
+import { fetchLiveMaintenance, fetchLiveUsers } from "@/lib/live-api";
 import { executeWorkflowAction } from "@/lib/workflow-actions";
 
 import {
@@ -113,11 +110,11 @@ export function MaintenanceDetailPage() {
   useEffect(() => {
     const refresh = async () => {
       setLoading(true);
-      const token = sessionStorage.getItem("insa_token") ?? undefined;
       try {
+        // Token is automatically sent via httpOnly cookie
         const [liveMaintenance, liveUsers] = await Promise.all([
-          fetchLiveMaintenance(token, id),
-          fetchLiveUsers(token),
+          fetchLiveMaintenance(id),
+          fetchLiveUsers(),
         ]);
         setSystemUsers(liveUsers);
         const found = liveMaintenance.find((m) => m.id === id);
@@ -189,6 +186,13 @@ export function MaintenanceDetailPage() {
     const trimmedNote = note?.trim();
     const isNoteOnly = action === maint.status && !!trimmedNote;
 
+    // Skip if already in target status
+    if (action === maint.status) {
+      setActionDone(`Already in ${action} status`);
+      setTimeout(() => setActionDone(""), 2000);
+      return;
+    }
+
     if (!isNoteOnly) {
       const result = await executeWorkflowAction({
         module: "MAINTENANCE",
@@ -201,8 +205,19 @@ export function MaintenanceDetailPage() {
       });
 
       if (!result.ok) {
-        console.error("Action failed", result);
-        setActionDone(result.message || (t("message.error") || "Error performing action"));
+        console.error("Action failed:", JSON.stringify(result, null, 2));
+        console.error("Request details:", {
+          module: "MAINTENANCE",
+          businessId: maint.id,
+          requestId: maint.dbId,
+          action,
+          actorRole,
+        });
+        setActionDone(
+          result.message ||
+            t("message.error") ||
+            `Error: Action failed - ${result.reason || "Unknown error"}`,
+        );
         setTimeout(() => setActionDone(""), 3000);
         return;
       }
@@ -235,8 +250,8 @@ export function MaintenanceDetailPage() {
 
     // Re-sync after action
     try {
-      const token = sessionStorage.getItem("insa_token") ?? undefined;
-      const liveMaintenance = await fetchLiveMaintenance(token, id);
+      // Token is automatically sent via httpOnly cookie
+      const liveMaintenance = await fetchLiveMaintenance(id);
       const found = liveMaintenance.find((m) => m.id === id);
       if (found) setMaintenanceItem(found);
     } catch (err) {
@@ -689,7 +704,8 @@ export function MaintenanceDetailPage() {
               )}
 
               <div className="space-y-4">
-                {(maint.status === "Submitted" || maint.status === "Under Review") && (
+                {(maint.status === "Submitted" ||
+                  maint.status === "Under Review") && (
                   <div className="space-y-3 bg-white border border-border rounded-xl p-4 shadow-sm">
                     {maint.status === "Submitted" && (
                       <div className="mb-4 pb-4 border-b border-dashed border-border text-center">
@@ -716,9 +732,17 @@ export function MaintenanceDetailPage() {
                     <div className="flex items-center justify-between mb-4 pb-2 border-b border-dashed border-border">
                       <h4 className="text-[10px] font-bold uppercase tracking-wider text-[#1A3580] flex items-center gap-1.5">
                         {role === "admin" ? (
-                          <><UsersIcon size={12} /> {t("requests.assignToTeam") || "Division Assignment"}</>
+                          <>
+                            <UsersIcon size={12} />{" "}
+                            {t("requests.assignToTeam") ||
+                              "Division Assignment"}
+                          </>
                         ) : (
-                          <><User size={12} /> {t("requests.assignDirect") || "Professional Assignment"}</>
+                          <>
+                            <User size={12} />{" "}
+                            {t("requests.assignDirect") ||
+                              "Professional Assignment"}
+                          </>
                         )}
                       </h4>
                       <span className="text-[9px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-bold border border-blue-100 uppercase">
@@ -740,7 +764,9 @@ export function MaintenanceDetailPage() {
                             }}
                             className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
                           >
-                            <option value="">{t("requests.selectDivision")}</option>
+                            <option value="">
+                              {t("requests.selectDivision")}
+                            </option>
                             {divisions.map((d) => (
                               <option key={d.id} value={d.id}>
                                 {d.name}
@@ -751,15 +777,20 @@ export function MaintenanceDetailPage() {
 
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                            {t("requests.assignLeadSupervisor") || "Lead Supervisor"}
+                            {t("requests.assignLeadSupervisor") ||
+                              "Lead Supervisor"}
                           </label>
                           <select
                             disabled={!selectedDivisionId}
                             value={selectedSupervisor}
-                            onChange={(e) => setSelectedSupervisor(e.target.value)}
+                            onChange={(e) =>
+                              setSelectedSupervisor(e.target.value)
+                            }
                             className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580] disabled:opacity-50"
                           >
-                            <option value="">{t("common.select") || "Select"}</option>
+                            <option value="">
+                              {t("common.select") || "Select"}
+                            </option>
                             {systemUsers
                               .filter((u) => u.role === "supervisor")
                               .map((s) => (
@@ -771,7 +802,9 @@ export function MaintenanceDetailPage() {
                         </div>
 
                         <button
-                          disabled={!selectedDivisionId || !selectedSupervisor || busy}
+                          disabled={
+                            !selectedDivisionId || !selectedSupervisor || busy
+                          }
                           onClick={() => {
                             setBusy(true);
                             handleAction(
@@ -786,21 +819,25 @@ export function MaintenanceDetailPage() {
                           }}
                           className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#1A3580] hover:bg-[#0E2271] transition-all disabled:opacity-40"
                         >
-                          {t("maintenance.assignSupervisor") || "Process Assignment"}
+                          {t("maintenance.assignSupervisor") ||
+                            "Process Assignment"}
                         </button>
                       </>
                     ) : (
                       <>
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                            {t("requests.selectProfessional") || "Select Professional"}
+                            {t("requests.selectProfessional") ||
+                              "Select Professional"}
                           </label>
                           <select
                             value={selectedTech}
                             onChange={(e) => setSelectedTech(e.target.value)}
                             className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
                           >
-                            <option value="">{t("common.select") || "Select"}</option>
+                            <option value="">
+                              {t("common.select") || "Select"}
+                            </option>
                             {systemUsers
                               .filter((u) => u.role === "professional")
                               .map((pr) => (

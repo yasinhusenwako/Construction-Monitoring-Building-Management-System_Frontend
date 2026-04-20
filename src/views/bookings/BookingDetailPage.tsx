@@ -24,10 +24,7 @@ import {
   User,
   Users,
 } from "lucide-react";
-import {
-  fetchLiveBookings,
-  fetchLiveUsers,
-} from "@/lib/live-api";
+import { fetchLiveBookings, fetchLiveUsers } from "@/lib/live-api";
 import { executeWorkflowAction } from "@/lib/workflow-actions";
 
 export default function BookingDetailPage({ id }: { id: string }) {
@@ -49,11 +46,11 @@ export default function BookingDetailPage({ id }: { id: string }) {
   useEffect(() => {
     const fetchBooking = async () => {
       setLoading(true);
-      const token = sessionStorage.getItem("insa_token") ?? undefined;
       try {
+        // Token is automatically sent via httpOnly cookie
         const [liveBookings, liveUsers] = await Promise.all([
-          fetchLiveBookings(token, id),
-          fetchLiveUsers(token),
+          fetchLiveBookings(id),
+          fetchLiveUsers(),
         ]);
         setSystemUsers(liveUsers);
         const found = liveBookings.find((b) => b.id === id);
@@ -142,7 +139,9 @@ export default function BookingDetailPage({ id }: { id: string }) {
     });
 
     if (!result.ok) {
-      setActionDone(result.message || (t("message.error") || "Error performing action"));
+      setActionDone(
+        result.message || t("message.error") || "Error performing action",
+      );
       setTimeout(() => setActionDone(""), 3000);
       return;
     }
@@ -158,8 +157,8 @@ export default function BookingDetailPage({ id }: { id: string }) {
 
     // Re-sync after action
     try {
-      const token = sessionStorage.getItem("insa_token") ?? undefined;
-      const liveBookings = await fetchLiveBookings(token, id);
+      // Token is automatically sent via httpOnly cookie
+      const liveBookings = await fetchLiveBookings(id);
       const found = liveBookings.find((b) => b.id === id);
       if (found) setBooking(found);
     } catch (err) {
@@ -350,7 +349,8 @@ export default function BookingDetailPage({ id }: { id: string }) {
               )}
 
               <div className="space-y-4">
-                {(booking.status === "Submitted" || booking.status === "Under Review") && (
+                {(booking.status === "Submitted" ||
+                  booking.status === "Under Review") && (
                   <div className="space-y-3 bg-white border border-border rounded-xl p-4 shadow-sm">
                     {booking.status === "Submitted" && (
                       <div className="mb-4 pb-4 border-b border-dashed border-border text-center">
@@ -377,14 +377,19 @@ export default function BookingDetailPage({ id }: { id: string }) {
                       <>
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                            {t("requests.selectProfessional") || "Select Professional"}
+                            {t("requests.selectProfessional") ||
+                              "Select Professional"}
                           </label>
                           <select
                             value={selectedAssignee}
-                            onChange={(e) => setSelectedAssignee(e.target.value)}
+                            onChange={(e) =>
+                              setSelectedAssignee(e.target.value)
+                            }
                             className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
                           >
-                            <option value="">{t("common.select") || "Select"}</option>
+                            <option value="">
+                              {t("common.select") || "Select"}
+                            </option>
                             {systemUsers
                               .filter((u) => u.role === "professional")
                               .map((pr) => (

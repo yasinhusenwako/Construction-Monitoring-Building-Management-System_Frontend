@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from '@/context/AuthContext';
-import { useLanguage } from '@/context/LanguageContext';
+import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import {
   fetchLiveBookings,
   fetchLiveUsers,
@@ -21,12 +21,36 @@ import {
   WORKFLOW_STATUSES,
   WorkflowRole,
   WorkflowStatus,
-} from '@/lib/workflow';
+} from "@/lib/workflow";
 
 const initialSpaces = [
-  { id: "SP-001", name: "Executive Conference Hall", capacity: 50, type: "Conference Hall", floor: "Floor 1", building: "Main Block", available: true },
-  { id: "SP-002", name: "Tech Lab A", capacity: 20, type: "Lab", floor: "Floor 2", building: "IT Wing", available: false },
-  { id: "SP-003", name: "Seminar Room 1", capacity: 100, type: "Conference Hall", floor: "Ground Floor", building: "Education Center", available: true },
+  {
+    id: "SP-001",
+    name: "Executive Conference Hall",
+    capacity: 50,
+    type: "Conference Hall",
+    floor: "Floor 1",
+    building: "Main Block",
+    available: true,
+  },
+  {
+    id: "SP-002",
+    name: "Tech Lab A",
+    capacity: 20,
+    type: "Lab",
+    floor: "Floor 2",
+    building: "IT Wing",
+    available: false,
+  },
+  {
+    id: "SP-003",
+    name: "Seminar Room 1",
+    capacity: 100,
+    type: "Conference Hall",
+    floor: "Ground Floor",
+    building: "Education Center",
+    available: true,
+  },
 ];
 import {
   Plus,
@@ -131,9 +155,7 @@ function SpaceModal({
     >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
         {/* Header */}
-        <div
-          className="flex items-center justify-between px-6 py-4 border-b border-border bg-gradient-to-br from-[#0E2271] to-[#1A3580]"
-        >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-gradient-to-br from-[#0E2271] to-[#1A3580]">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center">
               <Building2 size={16} className="text-white" />
@@ -150,6 +172,7 @@ function SpaceModal({
           <button
             onClick={onClose}
             className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+            title="Close"
           >
             <X size={14} />
           </button>
@@ -400,11 +423,11 @@ export function BookingsPage() {
   useEffect(() => {
     const refresh = async () => {
       setLoading(true);
-      const token = sessionStorage.getItem("insa_token") ?? undefined;
       try {
+        // Token is automatically sent via httpOnly cookie
         const [liveBookings, liveUsers] = await Promise.all([
-          fetchLiveBookings(token),
-          fetchLiveUsers(token),
+          fetchLiveBookings(),
+          fetchLiveUsers(),
         ]);
         setBookings(liveBookings);
         setUsers(liveUsers);
@@ -418,7 +441,9 @@ export function BookingsPage() {
   }, []);
 
   // ─── Spaces state ────────────────────────────────────────────────────────────
-  const [spaceList, setSpaceList] = useState<Space[]>(initialSpaces as unknown as Space[]);
+  const [spaceList, setSpaceList] = useState<Space[]>(
+    initialSpaces as unknown as Space[],
+  );
   const [spaceModal, setSpaceModal] = useState<"add" | "edit" | null>(null);
   const [editTarget, setEditTarget] = useState<Space | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Space | null>(null);
@@ -459,7 +484,6 @@ export function BookingsPage() {
     setTimeout(() => setCopied(""), 2000);
   };
 
-
   const applyTransition = async (
     bookingId: string,
     currentStatus: WorkflowStatus,
@@ -474,7 +498,6 @@ export function BookingsPage() {
       return false;
     }
 
-    const token = sessionStorage.getItem("insa_token") ?? undefined;
     const requestModule = "BOOKING";
 
     try {
@@ -484,24 +507,37 @@ export function BookingsPage() {
           businessId: bookingId,
           supervisorId: extraUpdates?.supervisorId || "",
           divisionId: "DIV-001", // Fallback
-          token,
         });
-      } else if (nextStatus === "Assigned to Professional" && actorRole === "supervisor") {
+      } else if (
+        nextStatus === "Assigned to Professional" &&
+        actorRole === "supervisor"
+      ) {
         await supervisorAssignProfessional({
           module: requestModule,
 
           businessId: bookingId,
           professionalId: extraUpdates?.assignedTo || "",
-          token,
         });
       } else if (nextStatus === "Reviewed" && actorRole === "supervisor") {
-        await supervisorReviewRequest({ module: requestModule, businessId: bookingId, token });
+        await supervisorReviewRequest({
+          module: requestModule,
+          businessId: bookingId,
+        });
       } else if (
-        (nextStatus === "Approved" || nextStatus === "Rejected" || nextStatus === "Closed") &&
+        (nextStatus === "Approved" ||
+          nextStatus === "Rejected" ||
+          nextStatus === "Closed") &&
         actorRole === "admin"
       ) {
-        const action = nextStatus.toLowerCase() as "approve" | "reject" | "close";
-        await adminDecision({ module: requestModule, businessId: bookingId, action, token });
+        const action = nextStatus.toLowerCase() as
+          | "approve"
+          | "reject"
+          | "close";
+        await adminDecision({
+          module: requestModule,
+          businessId: bookingId,
+          action,
+        });
       } else if (
         (nextStatus === "In Progress" || nextStatus === "Completed") &&
         actorRole === "professional"
@@ -510,7 +546,6 @@ export function BookingsPage() {
           module: requestModule,
           businessId: bookingId,
           status: nextStatus,
-          token,
         });
       }
 
@@ -518,9 +553,14 @@ export function BookingsPage() {
       setBookings((prev) =>
         prev.map((b) =>
           b.id === bookingId
-            ? { ...b, status: nextStatus, ...extraUpdates, updatedAt: new Date().toISOString() }
-            : b
-        )
+            ? {
+                ...b,
+                status: nextStatus,
+                ...extraUpdates,
+                updatedAt: new Date().toISOString(),
+              }
+            : b,
+        ),
       );
       setActionMsg(t(message));
       setTimeout(() => setActionMsg(""), 3000);
@@ -760,6 +800,7 @@ export function BookingsPage() {
                       <button
                         onClick={() => copyId(booking.id)}
                         className="text-muted-foreground hover:text-green-700"
+                        title="Copy booking ID"
                       >
                         {copied === booking.id ? (
                           <CheckCircle size={12} className="text-green-500" />

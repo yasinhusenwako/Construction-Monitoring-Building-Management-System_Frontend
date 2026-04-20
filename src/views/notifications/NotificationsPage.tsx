@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from '@/context/AuthContext';
-import { useLanguage } from '@/context/LanguageContext';
+import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { fetchLiveNotifications } from "@/lib/live-api";
 import type { Notification } from "@/types/models";
 import {
@@ -60,9 +60,9 @@ export function NotificationsPage() {
 
   useEffect(() => {
     const refresh = async () => {
-      const token = sessionStorage.getItem("insa_token") ?? undefined;
       try {
-        const live = await fetchLiveNotifications(token);
+        // Token is automatically sent via httpOnly cookie
+        const live = await fetchLiveNotifications();
         setNotifications(live);
       } catch (error) {
         console.error("Failed to fetch live notifications:", error);
@@ -71,7 +71,9 @@ export function NotificationsPage() {
     refresh();
   }, []);
 
-  const unreadCount = notifications.filter((n) => n.userId === currentUser?.id && !n.read).length;
+  const unreadCount = notifications.filter(
+    (n) => n.userId === currentUser?.id && !n.read,
+  ).length;
   const userNotifs = notifications.filter((n) => n.userId === currentUser?.id);
   const filtered = userNotifs.filter((n) => {
     if (filter === "unread") return !n.read;

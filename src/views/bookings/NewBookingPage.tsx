@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { apiRequest } from "@/lib/api";
 import { fetchLiveBookings } from "@/lib/live-api";
-import { useLanguage } from '@/context/LanguageContext';
-import { DatePicker } from '@/components/common/DatePicker';
-import type { Booking, Space } from '@/types/models';
+import { useLanguage } from "@/context/LanguageContext";
+import { DatePicker } from "@/components/common/DatePicker";
+import type { Booking, Space } from "@/types/models";
 import {
   CheckCircle,
   ArrowLeft,
@@ -302,7 +302,6 @@ export function NewBookingPage() {
   const handleSubmit = async () => {
     const prefix = bookingType === "B1" ? "ALLOC" : "BKG";
     const id = `${prefix}-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900) + 100)}`;
-    const token = sessionStorage.getItem("insa_token");
     const storedUser = sessionStorage.getItem("insa_user");
     const parsedUser = storedUser ? JSON.parse(storedUser) : null;
     const rawUserId = parsedUser?.id ?? parsedUser?.userId ?? "";
@@ -356,26 +355,29 @@ export function NewBookingPage() {
     };
 
     try {
-      const response = await apiRequest<{ bookingId?: string }>("/api/bookings", {
-        method: "POST",
-        token: token ?? undefined,
-        body: {
-          bookingId: id,
-          type: isOfficeAllocation ? "OFFICE" : "HALL",
-          requester: requesterId,
-          dateTime: isOfficeAllocation
-            ? new Date().toISOString()
-            : `${b2Form.date}T${b2Form.startTime}:00`,
-          capacity: Number.isFinite(attendees) ? attendees : 0,
-          layout: isOfficeAllocation
-            ? b1Form.preferredLocation || "Office"
-            : selectedSpace?.name || b2Form.space || "Hall",
-          amenities: isOfficeAllocation
-            ? finalB1Reqs || "Office allocation"
-            : b2Form.amenities.join(", "),
-          divisionId: parsedDivisionId,
+      // Token is automatically sent via httpOnly cookie
+      const response = await apiRequest<{ bookingId?: string }>(
+        "/api/bookings",
+        {
+          method: "POST",
+          body: {
+            bookingId: id,
+            type: isOfficeAllocation ? "OFFICE" : "HALL",
+            requester: requesterId,
+            dateTime: isOfficeAllocation
+              ? new Date().toISOString()
+              : `${b2Form.date}T${b2Form.startTime}:00`,
+            capacity: Number.isFinite(attendees) ? attendees : 0,
+            layout: isOfficeAllocation
+              ? b1Form.preferredLocation || "Office"
+              : selectedSpace?.name || b2Form.space || "Hall",
+            amenities: isOfficeAllocation
+              ? finalB1Reqs || "Office allocation"
+              : b2Form.amenities.join(", "),
+            divisionId: parsedDivisionId,
+          },
         },
-      });
+      );
       bookingItem.id = response.bookingId || id;
     } catch (error) {
       setErrors((prev) => ({
@@ -386,8 +388,8 @@ export function NewBookingPage() {
       return;
     }
 
-      setSubmittedId(bookingItem.id);
-      setSubmitted(true);
+    setSubmittedId(bookingItem.id);
+    setSubmitted(true);
   };
 
   const inputClass = (field: string) =>
@@ -918,7 +920,9 @@ export function NewBookingPage() {
                 <button
                   key={space.id}
                   onClick={() =>
-                    !(space as any).available ? undefined : updateB2("space", space.id)
+                    !(space as any).available
+                      ? undefined
+                      : updateB2("space", space.id)
                   }
                   disabled={!(space as any).available}
                   className={`text-left border-2 rounded-xl p-4 transition-all ${

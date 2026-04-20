@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from '@/context/AuthContext';
-import { useLanguage } from '@/context/LanguageContext';
-import type { Maintenance } from '@/types/models';
+import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
+import type { Maintenance } from "@/types/models";
 import {
   fetchLiveBookings,
   fetchLiveMaintenance,
@@ -16,16 +16,13 @@ import {
   supervisorAssignProfessional,
   professionalUpdateTaskStatus,
 } from "@/lib/live-api";
-import {
-  StatusBadge,
-  PriorityBadge,
-} from '@/components/common/StatusBadge';
+import { StatusBadge, PriorityBadge } from "@/components/common/StatusBadge";
 import {
   canViewItem,
   canTransition,
   type WorkflowRole,
   type WorkflowStatus,
-} from '@/lib/workflow';
+} from "@/lib/workflow";
 import { Plus, Search, Wrench, Clock, CheckCircle } from "lucide-react";
 import { MaintenanceListItem } from "./MaintenanceListItem";
 
@@ -50,14 +47,14 @@ export function MaintenancePage() {
   useEffect(() => {
     const refresh = async () => {
       setLoading(true);
-      const token = sessionStorage.getItem("insa_token") ?? undefined;
       try {
+        // Token is automatically sent via httpOnly cookie
         const [liveMaintenance, liveProjects, liveBookings, liveUsers] =
           await Promise.all([
-            fetchLiveMaintenance(token),
-            fetchLiveProjects(token),
-            fetchLiveBookings(token),
-            fetchLiveUsers(token),
+            fetchLiveMaintenance(),
+            fetchLiveProjects(),
+            fetchLiveBookings(),
+            fetchLiveUsers(),
           ]);
         setUsers(liveUsers);
         let items: Maintenance[] = liveMaintenance;
@@ -181,13 +178,20 @@ export function MaintenancePage() {
       if (to === "Under Review" && actorRole === "admin") {
         // Just UI state for now as there's no specific 'start review' endpoint other than assignment
       } else if (to === "Reviewed" && actorRole === "supervisor") {
-        await supervisorReviewRequest({ module: requestModule, businessId: m.id, token });
+        await supervisorReviewRequest({
+          module: requestModule,
+          businessId: m.id,
+        });
       } else if (
         (to === "Approved" || to === "Rejected" || to === "Closed") &&
         actorRole === "admin"
       ) {
         const action = to.toLowerCase() as "approve" | "reject" | "close";
-        await adminDecision({ module: requestModule, businessId: m.id, action, token });
+        await adminDecision({
+          module: requestModule,
+          businessId: m.id,
+          action,
+        });
       } else if (
         (to === "In Progress" || to === "Completed") &&
         actorRole === "professional"
@@ -196,15 +200,16 @@ export function MaintenancePage() {
           module: requestModule,
           businessId: m.id,
           status: to,
-          token,
         });
       }
 
       // Update local state and show message
       setMaintenanceItems((prev) =>
         prev.map((item) =>
-          item.id === m.id ? { ...item, status: to, updatedAt: new Date().toISOString() } : item
-        )
+          item.id === m.id
+            ? { ...item, status: to, updatedAt: new Date().toISOString() }
+            : item,
+        ),
       );
       setActionMsg(msg);
       setTimeout(() => setActionMsg(""), 3000);
@@ -233,7 +238,6 @@ export function MaintenancePage() {
           businessId: m.id,
           supervisorId: selectedTech,
           divisionId: m.divisionId || "DIV-001",
-          token,
         });
         setMaintenanceItems((prev) =>
           prev.map((item) =>
@@ -252,7 +256,6 @@ export function MaintenancePage() {
           module: requestModule,
           businessId: m.id,
           professionalId: selectedTech,
-          token,
         });
         setMaintenanceItems((prev) =>
           prev.map((item) =>

@@ -39,7 +39,7 @@ import {
   AlertTriangle,
   BarChart3,
 } from "lucide-react";
-import { useLanguage } from '@/context/LanguageContext';
+import { useLanguage } from "@/context/LanguageContext";
 import type { Booking, Maintenance, Project } from "@/types/models";
 
 // ─── Static Data ────────────────────────────────────────────────────────────
@@ -185,11 +185,15 @@ export function ReportsPage() {
   const { t } = useLanguage();
   const [projects, setProjects] = useState<Project[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [maintenanceItems, setMaintenanceItems] =
-    useState<Maintenance[]>([]);
+  const [maintenanceItems, setMaintenanceItems] = useState<Maintenance[]>([]);
   const [reportData, setReportData] = useState<{
     statusDistribution: { name: string; value: number; color: string }[];
-    requestVolume: { month: string; projects: number; bookings: number; maintenance: number }[];
+    requestVolume: {
+      month: string;
+      projects: number;
+      bookings: number;
+      maintenance: number;
+    }[];
     mttr: { month: string; hours: number }[];
     spaceUtilization: { space: string; utilization: number }[];
     costTracking: { month: string; planned: number; actual: number }[];
@@ -204,16 +208,16 @@ export function ReportsPage() {
 
   useEffect(() => {
     const load = async () => {
-      const token = sessionStorage.getItem("insa_token") ?? undefined;
       try {
+        // Token is automatically sent via httpOnly cookie
         const [liveProjects, liveBookings, liveMaintenance, reportBundle] =
           await Promise.all([
-            fetchLiveProjects(token),
-            fetchLiveBookings(token),
-            fetchLiveMaintenance(token),
-            fetchLiveReports(token),
+            fetchLiveProjects(),
+            fetchLiveBookings(),
+            fetchLiveMaintenance(),
+            fetchLiveReports(),
           ]);
-        
+
         setProjects(liveProjects);
         setBookings(liveBookings);
         setMaintenanceItems(liveMaintenance);
@@ -223,9 +227,16 @@ export function ReportsPage() {
         const dist = Object.entries(statusMap).map(([name, value], i) => ({
           name: name || t("common.unknown"),
           value: Number(value) || 0,
-          color: ["#1A3580", "#CC1F1A", "#F5B800", "#16A34A", "#7C3AED", "#9CA3AF"][i % 6]
+          color: [
+            "#1A3580",
+            "#CC1F1A",
+            "#F5B800",
+            "#16A34A",
+            "#7C3AED",
+            "#9CA3AF",
+          ][i % 6],
         }));
-        
+
         const liveHours = reportBundle?.mttr?.mttrHours || 0;
         setAvgMTTR(Math.round(liveHours));
 
@@ -236,7 +247,6 @@ export function ReportsPage() {
           spaceUtilization: [],
           costTracking: [],
         });
-
       } catch (error) {
         console.error("Failed to load live reports:", error);
       }
@@ -878,19 +888,17 @@ export function ReportsPage() {
                   projects.length,
                   bookings.length,
                   maintenanceItems.length,
-                  projects.length +
-                    bookings.length +
-                    maintenanceItems.length,
+                  projects.length + bookings.length + maintenanceItems.length,
                 ],
                 [
                   t("reports.completedConfirmed"),
                   projects.filter((p) => p.status === "Completed").length,
                   bookings.filter((b) => b.status === "Approved").length,
-                  maintenanceItems.filter((m) => m.status === "Closed")
-                    .length,
-                  projects.filter((p) => p.status === "Completed").length +
-                  bookings.filter((b) => b.status === "Approved").length +
                   maintenanceItems.filter((m) => m.status === "Closed").length,
+                  projects.filter((p) => p.status === "Completed").length +
+                    bookings.filter((b) => b.status === "Approved").length +
+                    maintenanceItems.filter((m) => m.status === "Closed")
+                      .length,
                 ],
                 [
                   t("reports.pendingOpen"),
@@ -899,8 +907,7 @@ export function ReportsPage() {
                   maintenanceItems.filter((m) => m.status === "Submitted")
                     .length,
                   projects.filter((p) => p.status === "Submitted").length +
-                    bookings.filter((b) => b.status === "Submitted")
-                      .length +
+                    bookings.filter((b) => b.status === "Submitted").length +
                     maintenanceItems.filter((m) => m.status === "Submitted")
                       .length,
                 ],

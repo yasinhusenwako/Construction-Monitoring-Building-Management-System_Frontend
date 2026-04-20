@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { exportToCSV } from '@/lib/exportUtils';
+import { exportToCSV } from "@/lib/exportUtils";
 import { useRouter } from "next/navigation";
-import { useAuth } from '@/context/AuthContext';
-import { useLanguage } from '@/context/LanguageContext';
+import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import {
   fetchLiveBookings,
   fetchLiveMaintenance,
@@ -27,7 +27,7 @@ import {
   User,
   UserCheck,
   Eye,
-  Download
+  Download,
 } from "lucide-react";
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
@@ -47,13 +47,13 @@ export function SupervisorDashboard() {
   useEffect(() => {
     const refresh = async () => {
       setLoading(true);
-      const token = sessionStorage.getItem("insa_token") ?? undefined;
       try {
+        // Token is automatically sent via httpOnly cookie
         const [maintenance, projects, bookings, liveUsers] = await Promise.all([
-          fetchLiveMaintenance(token),
-          fetchLiveProjects(token),
-          fetchLiveBookings(token),
-          fetchLiveUsers(token),
+          fetchLiveMaintenance(),
+          fetchLiveProjects(),
+          fetchLiveBookings(),
+          fetchLiveUsers(),
         ]);
         setAllTasks([...maintenance, ...projects, ...bookings]);
         setUsers(liveUsers);
@@ -92,7 +92,6 @@ export function SupervisorDashboard() {
   const handleAssign = async (professionalId: string, instructions: string) => {
     const task = myTasks.find((m) => m.id === assignTarget);
     if (!task) return;
-    const token = sessionStorage.getItem("insa_token") ?? undefined;
     const requestModule = task.id.startsWith("PRJ-")
       ? "PROJECT"
       : task.id.startsWith("BKG-")
@@ -105,7 +104,6 @@ export function SupervisorDashboard() {
         businessId: task.id,
         professionalId,
         instructions,
-        token,
       });
 
       setAllTasks((prev) =>
@@ -132,7 +130,6 @@ export function SupervisorDashboard() {
   const handleSubmitReport = async (id: string) => {
     const task = myTasks.find((m) => m.id === id);
     if (!task) return;
-    const token = sessionStorage.getItem("insa_token") ?? undefined;
     const requestModule = id.startsWith("PRJ-")
       ? "PROJECT"
       : id.startsWith("BKG-")
@@ -143,7 +140,6 @@ export function SupervisorDashboard() {
       await supervisorReviewRequest({
         module: requestModule,
         businessId: id,
-        token,
       });
       setAllTasks((prev) =>
         prev.map((t) =>

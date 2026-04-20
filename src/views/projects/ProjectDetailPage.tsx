@@ -25,10 +25,7 @@ import {
   UserPlus,
   Briefcase,
 } from "lucide-react";
-import {
-  fetchLiveProjects,
-  fetchLiveUsers,
-} from "@/lib/live-api";
+import { fetchLiveProjects, fetchLiveUsers } from "@/lib/live-api";
 import { executeWorkflowAction } from "@/lib/workflow-actions";
 import {
   getUserFacingStatus,
@@ -59,11 +56,11 @@ export function ProjectDetailPage() {
   useEffect(() => {
     const refresh = async () => {
       setLoading(true);
-      const token = sessionStorage.getItem("insa_token") ?? undefined;
       try {
+        // Token is automatically sent via httpOnly cookie
         const [liveProjects, liveUsers] = await Promise.all([
-          fetchLiveProjects(token, id),
-          fetchLiveUsers(token),
+          fetchLiveProjects(id),
+          fetchLiveUsers(),
         ]);
         setSystemUsers(liveUsers);
         const found = liveProjects.find((p) => p.id === id);
@@ -119,6 +116,18 @@ export function ProjectDetailPage() {
 
   const requester = systemUsers.find((u) => u.id === project.requestedBy);
   const assignee = systemUsers.find((u) => u.id === project.assignedTo);
+  const professionals = systemUsers.filter((u) => u.role === "professional");
+
+  // Debug logging for assign professional visibility
+  console.log("DEBUG ProjectDetail:", {
+    role,
+    isAdmin: role === "admin",
+    status: project.status,
+    isUnderReview: project.status === "Under Review",
+    systemUsersCount: systemUsers.length,
+    professionalsCount: professionals.length,
+    professionals: professionals.map((p) => ({ id: p.id, name: p.name })),
+  });
 
   const handleAction = async (
     action: WorkflowStatus,
@@ -137,7 +146,9 @@ export function ProjectDetailPage() {
     });
 
     if (!result.ok) {
-      setActionDone(result.message || (t("message.error") || "Error performing action"));
+      setActionDone(
+        result.message || t("message.error") || "Error performing action",
+      );
       setTimeout(() => setActionDone(""), 3000);
       return;
     }
@@ -152,8 +163,8 @@ export function ProjectDetailPage() {
 
     // Re-sync after a short delay or immediately
     try {
-      const token = sessionStorage.getItem("insa_token") ?? undefined;
-      const liveProjects = await fetchLiveProjects(token, id);
+      // Token is automatically sent via httpOnly cookie
+      const liveProjects = await fetchLiveProjects(id);
       const found = liveProjects.find((p) => p.id === id);
       if (found) setProjectItem(found);
     } catch (err) {
@@ -502,7 +513,8 @@ export function ProjectDetailPage() {
               )}
 
               <div className="space-y-4">
-                {(project.status === "Submitted" || project.status === "Under Review") && (
+                {(project.status === "Submitted" ||
+                  project.status === "Under Review") && (
                   <div className="space-y-3 bg-white border border-border rounded-xl p-4 shadow-sm">
                     {project.status === "Submitted" && (
                       <div className="mb-4 pb-4 border-b border-dashed border-border">
@@ -529,14 +541,17 @@ export function ProjectDetailPage() {
                       <>
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                            {t("requests.selectProfessional") || "Select Professional"}
+                            {t("requests.selectProfessional") ||
+                              "Select Professional"}
                           </label>
                           <select
                             value={selectedTech}
                             onChange={(e) => setSelectedTech(e.target.value)}
                             className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
                           >
-                            <option value="">{t("common.select") || "Select"}</option>
+                            <option value="">
+                              {t("common.select") || "Select"}
+                            </option>
                             {systemUsers
                               .filter((u) => u.role === "professional")
                               .map((pr) => (
