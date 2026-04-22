@@ -105,6 +105,9 @@ export default function BookingDetailPage({ id }: { id: string }) {
   const requester = systemUsers.find((u) => u.id === booking.requestedBy);
   const assignee = systemUsers.find((u) => u.id === booking.assignedTo);
   const supervisorUser = systemUsers.find((u) => u.id === booking.supervisorId);
+  const bookingProfessionals = systemUsers.filter(
+    (u) => u.role === "professional" && u.divisionId === "OTHER",
+  );
 
   const copyId = () => {
     try {
@@ -301,7 +304,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
-                      {t("requests.supervisor") || "Division Director"}
+                      {t("requests.supervisor") || "Division Supervisor"}
                     </p>
                     <p className="font-bold text-[#0E2271]">
                       {supervisorUser?.name ||
@@ -390,14 +393,17 @@ export default function BookingDetailPage({ id }: { id: string }) {
                             <option value="">
                               {t("common.select") || "Select"}
                             </option>
-                            {systemUsers
-                              .filter((u) => u.role === "professional")
-                              .map((pr) => (
-                                <option key={pr.id} value={pr.id}>
-                                  {pr.name}
-                                </option>
-                              ))}
+                            {bookingProfessionals.map((pr) => (
+                              <option key={pr.id} value={pr.id}>
+                                {pr.name}
+                              </option>
+                            ))}
                           </select>
+                          {bookingProfessionals.length === 0 && (
+                            <p className="text-[10px] text-muted-foreground">
+                              No Project/Booking professionals found (Division: Other).
+                            </p>
+                          )}
                         </div>
 
                         <button
@@ -405,9 +411,9 @@ export default function BookingDetailPage({ id }: { id: string }) {
                           onClick={() => {
                             setBusy(true);
                             handleAction(
-                              "Assigned to Professional",
+                              "Assigned to Professionals",
                               "admin",
-                              "Assigned to Professional",
+                              "Assigned to Professionals",
                               {
                                 assignedTo: selectedAssignee,
                               },
@@ -415,7 +421,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
                           }}
                           className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#1A3580] hover:bg-[#0E2271] transition-all disabled:opacity-40"
                         >
-                          {t("requests.assignDirect") || "Assign Direct"}
+                          {t("requests.assignToProfessional") || "Assign to Professional"}
                         </button>
                       </>
                     )}
@@ -485,7 +491,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
               )}
 
               <div className="space-y-4">
-                {booking.status === "Assigned to Professional" && (
+                {booking.status === "Assigned to Professionals" && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
                     <button
                       onClick={() =>

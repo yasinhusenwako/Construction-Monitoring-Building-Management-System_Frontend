@@ -19,11 +19,16 @@ interface BackendProject {
   status: BackendStatus;
   createdBy: number;
   assignedSupervisorId?: number | null;
+  assignedProfessionalId?: number | null;
   location?: string;
   budget?: number;
   startDate?: string;
   endDate?: string;
   createdAt?: string;
+  materialCost?: number;
+  laborCost?: number;
+  totalCost?: number;
+  partsUsed?: string;
 }
 
 interface BackendBooking {
@@ -33,10 +38,15 @@ interface BackendBooking {
   status: BackendStatus;
   requester: number;
   assignedSupervisorId?: number | null;
+  assignedProfessionalId?: number | null;
   dateTime: string;
   capacity?: number;
   layout?: string;
   amenities?: string;
+  materialCost?: number;
+  laborCost?: number;
+  totalCost?: number;
+  partsUsed?: string;
 }
 
 interface BackendMaintenance {
@@ -52,6 +62,10 @@ interface BackendMaintenance {
   divisionId?: number | null;
   location?: string;
   createdAt?: string;
+  materialCost?: number;
+  laborCost?: number;
+  totalCost?: number;
+  partsUsed?: string;
 }
 
 interface BackendNotification {
@@ -134,7 +148,7 @@ function normalizeStatus(status: string): string {
       return "WorkOrder Created";
     case "ASSIGNED_TO_PROFESSIONAL":
     case "ASSIGNED_TO_PROFESSIONALS":
-      return "Assigned to Professional";
+      return "Assigned to Professionals";
     case "IN_PROGRESS":
       return "In Progress";
     case "COMPLETED":
@@ -202,6 +216,9 @@ export async function fetchLiveProjects(
       supervisorId: item.assignedSupervisorId
         ? userId(item.assignedSupervisorId)
         : undefined,
+      assignedTo: item.assignedProfessionalId
+        ? userId(item.assignedProfessionalId)
+        : undefined,
       location: item.location || "N/A",
       budget: Number(item.budget || 0),
       startDate: item.startDate || "",
@@ -210,6 +227,10 @@ export async function fetchLiveProjects(
       updatedAt: toIsoDate(item.createdAt),
       documents: [],
       timeline: [],
+      materialCost: item.materialCost,
+      laborCost: item.laborCost,
+      totalCost: item.totalCost,
+      partsUsed: item.partsUsed,
     };
   });
 }
@@ -236,6 +257,9 @@ export async function fetchLiveBookings(
       supervisorId: item.assignedSupervisorId
         ? userId(item.assignedSupervisorId)
         : undefined,
+      assignedTo: item.assignedProfessionalId
+        ? userId(item.assignedProfessionalId)
+        : undefined,
       date: dt.toISOString().slice(0, 10),
       startTime: dt.toISOString().slice(11, 16),
       endTime: dt.toISOString().slice(11, 16),
@@ -244,6 +268,10 @@ export async function fetchLiveBookings(
       requirements: item.amenities || "",
       createdAt: toIsoDate(item.dateTime),
       updatedAt: toIsoDate(item.dateTime),
+      materialCost: item.materialCost,
+      laborCost: item.laborCost,
+      totalCost: item.totalCost,
+      partsUsed: item.partsUsed,
     };
   });
 }
@@ -286,6 +314,10 @@ export async function fetchLiveMaintenance(
       notes: "",
       attachments: [],
       timeline: [],
+      materialCost: item.materialCost,
+      laborCost: item.laborCost,
+      totalCost: item.totalCost,
+      partsUsed: item.partsUsed,
     };
   });
 }
@@ -307,6 +339,19 @@ export async function fetchLiveNotifications(): Promise<Notification[]> {
   }));
 }
 
+export async function markNotificationAsRead(notificationId: string): Promise<void> {
+  const dbId = parseInt(notificationId.replace("NOTIF-", ""));
+  await apiRequest(`/api/notifications/${dbId}/read`, {
+    method: "PATCH",
+  });
+}
+
+export async function markAllNotificationsAsRead(): Promise<void> {
+  await apiRequest("/api/notifications/read-all", {
+    method: "PATCH",
+  });
+}
+
 export async function fetchLiveUsers(): Promise<
   Array<{
     id: string;
@@ -320,6 +365,7 @@ export async function fetchLiveUsers(): Promise<
     password: string;
     createdAt: string;
     divisionId?: string;
+    profession?: string;
   }>
 > {
   const list = await apiRequest<
@@ -332,6 +378,7 @@ export async function fetchLiveUsers(): Promise<
       department?: string;
       phone?: string;
       divisionId?: number | null;
+      profession?: string | null;
       createdAt?: string;
     }>
   >("/api/users");
@@ -343,18 +390,19 @@ export async function fetchLiveUsers(): Promise<
       .join("")
       .toUpperCase()
       .slice(0, 2);
+    const frontendRole: UserRole =
+      item.role === "ADMIN"
+        ? "admin"
+        : item.role === "SUPERVISOR"
+          ? "supervisor"
+          : item.role === "PROFESSIONAL"
+            ? "professional"
+            : "user";
     return {
       id: userId(item.id),
       name: rawName,
       email: item.email || "",
-      role:
-        item.role === "ADMIN"
-          ? "admin"
-          : item.role === "SUPERVISOR"
-            ? "supervisor"
-            : item.role === "PROFESSIONAL"
-              ? "professional"
-              : "user",
+      role: frontendRole,
       status: item.status || "active",
       avatar: initials,
       department: item.department || "",
@@ -363,10 +411,118 @@ export async function fetchLiveUsers(): Promise<
       createdAt: item.createdAt || new Date().toISOString().slice(0, 10),
       divisionId:
         item.divisionId == null
-          ? undefined
+          ? frontendRole === "professional"
+            ? "OTHER"
+            : undefined
           : `DIV-${String(item.divisionId).padStart(3, "0")}`,
+      profession: item.profession || undefined,
     };
   });
+}
+
+export async function deleteUser(userId: string): Promise<void> {
+  const dbId = parseUserId(userId);
+  await apiRequest(`/api/users/${dbId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function updateLiveUser(params: {
+  userId: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  phone: string;
+  department: string;
+  profession?: string;
+  divisionId?: string;
+}): Promise<{
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  status: string;
+  avatar: string;
+  department: string;
+  phone: string;
+  password: string;
+  createdAt: string;
+  divisionId?: string;
+  profession?: string;
+}> {
+  const dbId = parseUserId(params.userId);
+  if (!dbId) throw new Error("Invalid user id");
+
+  const backendRole: BackendRole =
+    params.role === "admin"
+      ? "ADMIN"
+      : params.role === "supervisor"
+        ? "SUPERVISOR"
+        : params.role === "professional"
+          ? "PROFESSIONAL"
+          : "USER";
+
+  const parsedDivisionId =
+    !params.divisionId || params.divisionId === "OTHER"
+      ? null
+      : parseUserId(params.divisionId);
+
+  const item = await apiRequest<{
+    id: number;
+    name: string;
+    email?: string;
+    role: BackendRole;
+    department?: string;
+    phone?: string;
+    divisionId?: number | null;
+    profession?: string | null;
+    createdAt?: string;
+  }>(`/api/users/${dbId}`, {
+    method: "PATCH",
+    body: {
+      name: params.name,
+      email: params.email,
+      role: backendRole,
+      phone: params.phone,
+      department: params.department,
+      profession: params.profession,
+      divisionId: parsedDivisionId,
+    },
+  });
+
+  const initials = (item.name || "Unknown User")
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+  return {
+    id: userId(item.id),
+    name: item.name || "Unknown User",
+    email: item.email || "",
+    role:
+      item.role === "ADMIN"
+        ? "admin"
+        : item.role === "SUPERVISOR"
+          ? "supervisor"
+          : item.role === "PROFESSIONAL"
+            ? "professional"
+            : "user",
+    status: "active",
+    avatar: initials,
+    department: item.department || "",
+    phone: item.phone || "",
+    password: "",
+    createdAt: item.createdAt || new Date().toISOString().slice(0, 10),
+    divisionId:
+      item.divisionId == null
+        ? params.role === "professional"
+          ? "OTHER"
+          : undefined
+        : `DIV-${String(item.divisionId).padStart(3, "0")}`,
+    profession: item.profession || undefined,
+  };
 }
 
 export async function fetchLiveReports(): Promise<{
@@ -450,8 +606,8 @@ export async function adminAssignRequest(params: {
   module: RequestModule;
   businessId: string;
   requestId?: number;
-  divisionId: string;
-  supervisorId: string;
+  divisionId?: string;
+  supervisorId?: string;
   priority?: string;
 }): Promise<void> {
   const requestId = await resolveRequestDbId(
@@ -461,18 +617,23 @@ export async function adminAssignRequest(params: {
   );
   if (!requestId)
     throw new Error(`Unable to resolve request id for ${params.businessId}`);
-  const divisionId = parseUserId(params.divisionId);
-  const supervisorId = parseUserId(params.supervisorId);
-  if (!divisionId || !supervisorId)
-    throw new Error("Invalid division/supervisor selection");
+  const divisionId = params.divisionId ? parseUserId(params.divisionId) : 0;
+  const supervisorId = params.supervisorId
+    ? parseUserId(params.supervisorId)
+    : undefined;
+  if (params.module === "MAINTENANCE" && !divisionId) {
+    throw new Error("Invalid division selection");
+  }
+  if (params.supervisorId && !supervisorId)
+    throw new Error("Invalid supervisor selection");
 
   await apiRequest("/api/admin/assign", {
     method: "PATCH",
     body: {
       requestId,
       requestType: params.module,
-      divisionId,
-      supervisorId,
+      ...(divisionId ? { divisionId } : {}),
+      ...(supervisorId ? { supervisorId } : {}),
       priority: params.priority || "Medium",
     },
   });

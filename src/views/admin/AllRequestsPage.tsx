@@ -110,21 +110,6 @@ function suggestDivision(
   return "DIV-002";
 }
 
-/**
- * Filters the list of users to find supervisors belonging to a specific division.
- */
-function getSupervisorsByDivision(
-  users: UserType[],
-  divisionId: string,
-): Array<{ id: string; name: string }> {
-  return users
-    .filter(
-      (u) =>
-        u.role === "supervisor" && (u.divisionId === divisionId || !divisionId),
-    )
-    .map((u) => ({ id: u.id, name: u.name }));
-}
-
 function Avatar({
   name,
   size = "sm",
@@ -175,9 +160,6 @@ function DetailPanel({
   const [adminNote, setAdminNote] = useState("");
   const [noteSent, setNoteSent] = useState(false);
   const [actionError, setActionError] = useState("");
-  const [liveSupervisors, setLiveSupervisors] = useState<
-    Array<{ id: string; name: string }>
-  >([]);
   const [liveProfessionals, setLiveProfessionals] = useState<
     Array<{ id: string; name: string }>
   >([]);
@@ -196,50 +178,22 @@ function DetailPanel({
     }
     return "";
   });
-  const [selectedSupervisor, setSelectedSupervisor] = useState<string>(() => {
-    if (req.module === "Maintenance") {
-      return (req.raw as Maintenance).supervisorId || "";
-    }
-    if (req.module === "Projects") {
-      return (
-        (req.raw as Project).assignedSupervisorId ||
-        (req.raw as Project).supervisorId ||
-        ""
-      );
-    }
-    return "";
-  });
-
   useEffect(() => {
     const loadUsers = async () => {
       try {
         // Token is automatically sent via httpOnly cookie
         const users = await fetchLiveUsers();
-        setLiveSupervisors(
-          users
-            .filter((u) => u.role === "supervisor")
-            .map((u) => ({ id: u.id, name: u.name })),
-        );
         setLiveProfessionals(
           users
             .filter((u) => u.role === "professional")
             .map((u) => ({ id: u.id, name: u.name })),
         );
       } catch {
-        setLiveSupervisors([]);
         setLiveProfessionals([]);
       }
     };
     loadUsers();
   }, []);
-
-  const availableSupervisors = useMemo(() => {
-    if (liveSupervisors.length > 0) return liveSupervisors;
-    // Fallback using the passed users list and division filter
-    return selectedDivision
-      ? getSupervisorsByDivision(users, selectedDivision)
-      : [];
-  }, [liveSupervisors, selectedDivision, users]);
 
   const sendNote = () => {
     if (!adminNote.trim()) return;
@@ -499,7 +453,6 @@ function DetailPanel({
                               value={selectedDivision}
                               onChange={(e) => {
                                 setSelectedDivision(e.target.value);
-                                setSelectedSupervisor("");
                               }}
                               className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
                             >
@@ -514,40 +467,14 @@ function DetailPanel({
                             </select>
                           </div>
 
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                              {t("requests.assignLeadSupervisor")}
-                            </label>
-                            <select
-                              disabled={!selectedDivision}
-                              value={selectedSupervisor}
-                              onChange={(e) =>
-                                setSelectedSupervisor(e.target.value)
-                              }
-                              className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580] disabled:opacity-50"
-                            >
-                              <option value="">
-                                {t("requests.assignLeadSupervisor")}
-                              </option>
-                              {availableSupervisors.map((s) => (
-                                <option key={s.id} value={s.id}>
-                                  {s.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
                           <button
-                            disabled={
-                              !selectedDivision || !selectedSupervisor || busy
-                            }
+                            disabled={!selectedDivision || busy}
                             onClick={() =>
                               runAction(async () => {
                                 await adminAssignRequest({
                                   module: "PROJECT",
                                   businessId: p.id,
                                   divisionId: selectedDivision,
-                                  supervisorId: selectedSupervisor,
                                   priority: "Medium",
                                 });
                               })
@@ -774,7 +701,6 @@ function DetailPanel({
                               value={selectedDivision}
                               onChange={(e) => {
                                 setSelectedDivision(e.target.value);
-                                setSelectedSupervisor("");
                               }}
                               className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#7C3AED]"
                             >
@@ -789,40 +715,14 @@ function DetailPanel({
                             </select>
                           </div>
 
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                              {t("requests.assignLeadSupervisor")}
-                            </label>
-                            <select
-                              disabled={!selectedDivision}
-                              value={selectedSupervisor}
-                              onChange={(e) =>
-                                setSelectedSupervisor(e.target.value)
-                              }
-                              className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#7C3AED] disabled:opacity-50"
-                            >
-                              <option value="">
-                                {t("requests.assignLeadSupervisor")}
-                              </option>
-                              {availableSupervisors.map((s) => (
-                                <option key={s.id} value={s.id}>
-                                  {s.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
                           <button
-                            disabled={
-                              !selectedDivision || !selectedSupervisor || busy
-                            }
+                            disabled={!selectedDivision || busy}
                             onClick={() =>
                               runAction(async () => {
                                 await adminAssignRequest({
                                   module: "BOOKING",
                                   businessId: b.id,
                                   divisionId: selectedDivision,
-                                  supervisorId: selectedSupervisor,
                                   priority: "Medium",
                                 });
                               })
@@ -1016,7 +916,6 @@ function DetailPanel({
                               value={selectedDivision}
                               onChange={(e) => {
                                 setSelectedDivision(e.target.value);
-                                setSelectedSupervisor("");
                               }}
                               className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#CC1F1A]"
                             >
@@ -1030,39 +929,14 @@ function DetailPanel({
                               ))}
                             </select>
                           </div>
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                              {t("requests.selectSupervisor")}
-                            </label>
-                            <select
-                              disabled={!selectedDivision}
-                              value={selectedSupervisor}
-                              onChange={(e) =>
-                                setSelectedSupervisor(e.target.value)
-                              }
-                              className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#CC1F1A] disabled:opacity-50"
-                            >
-                              <option value="">
-                                {t("requests.selectSupervisor")}
-                              </option>
-                              {availableSupervisors.map((s) => (
-                                <option key={s.id} value={s.id}>
-                                  {s.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
                           <button
-                            disabled={
-                              !selectedDivision || !selectedSupervisor || busy
-                            }
+                            disabled={!selectedDivision || busy}
                             onClick={() =>
                               runAction(async () => {
                                 await adminAssignRequest({
                                   module: "MAINTENANCE",
                                   businessId: m.id,
                                   divisionId: selectedDivision,
-                                  supervisorId: selectedSupervisor,
                                   priority: m.priority || "Medium",
                                 });
                               })
@@ -1212,63 +1086,10 @@ function DetailRow({
       <span className="mt-0.5 flex-shrink-0" style={{ color }}>
         {icon}
       </span>
-      <div className="flex-1 min-w-0">
+      <div className="flex-1">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-sm font-medium text-foreground">{value}</p>
+        <p className="text-sm font-medium">{value}</p>
       </div>
-    </div>
-  );
-}
-
-function Timeline({
-  events,
-  color,
-}: {
-  events: {
-    id: string;
-    action: string;
-    actor: string;
-    timestamp: string;
-    note?: string;
-  }[];
-  color: string;
-}) {
-  return (
-    <div className="space-y-3">
-      {events.map((ev, i) => (
-        <div key={ev.id} className="flex gap-2.5">
-          <div className="flex flex-col items-center">
-            <div
-              className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 border-2"
-              style={{ background: color + "15", borderColor: color }}
-            >
-              <Clock size={10} style={{ color }} />
-            </div>
-            {i < events.length - 1 && (
-              <div
-                className="w-0.5 flex-1 mt-1"
-                style={{ background: color + "30" }}
-              />
-            )}
-          </div>
-          <div className="pb-3 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <StatusBadge status={ev.action} />
-              <span className="text-xs text-muted-foreground">
-                {ev.timestamp}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              by <span className="font-medium text-foreground">{ev.actor}</span>
-            </p>
-            {ev.note && (
-              <p className="text-xs text-foreground mt-1 bg-secondary/60 rounded px-2 py-1.5 leading-relaxed">
-                {ev.note}
-              </p>
-            )}
-          </div>
-        </div>
-      ))}
     </div>
   );
 }

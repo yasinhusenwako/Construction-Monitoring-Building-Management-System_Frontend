@@ -23,6 +23,7 @@ export interface User {
   role: UserRole;
   department: string;
   divisionId?: string;
+  profession?: string;
   phone: string;
   avatar: string;
   status: string;
@@ -65,6 +66,10 @@ export interface Project {
   assignedProfessionalId?: string;
   documents: string[];
   timeline: TimelineEvent[];
+  materialCost?: number;
+  laborCost?: number;
+  totalCost?: number;
+  partsUsed?: string;
 }
 
 export interface Booking {
@@ -86,6 +91,10 @@ export interface Booking {
   requirements: string;
   createdAt: string;
   updatedAt: string;
+  materialCost?: number;
+  laborCost?: number;
+  totalCost?: number;
+  partsUsed?: string;
 }
 
 export interface Maintenance {
@@ -118,6 +127,10 @@ export interface Maintenance {
   notes: string;
   attachments: string[];
   timeline: TimelineEvent[];
+  materialCost?: number;
+  laborCost?: number;
+  totalCost?: number;
+  partsUsed?: string;
 }
 
 export interface Notification {

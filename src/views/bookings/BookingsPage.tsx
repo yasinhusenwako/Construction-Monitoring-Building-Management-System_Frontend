@@ -492,7 +492,7 @@ export function BookingsPage() {
     message: string,
     extraUpdates?: Partial<Booking>,
   ) => {
-    if (!canTransition(actorRole, currentStatus, nextStatus)) {
+    if (!canTransition(actorRole, currentStatus, nextStatus, "booking")) {
       setActionMsg(t("bookings.notAllowed"));
       setTimeout(() => setActionMsg(""), 3000);
       return false;
@@ -509,7 +509,7 @@ export function BookingsPage() {
           divisionId: "DIV-001", // Fallback
         });
       } else if (
-        nextStatus === "Assigned to Professional" &&
+        nextStatus === "Assigned to Professionals" &&
         actorRole === "supervisor"
       ) {
         await supervisorAssignProfessional({

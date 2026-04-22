@@ -18,9 +18,18 @@ function getApiBaseUrl(): string {
 
 function resolveUrl(url: string): string {
   const baseUrl = getApiBaseUrl();
-  if (/^https?:\/\//i.test(url) || !baseUrl) {
+  
+  // If URL is already absolute, return as-is
+  if (/^https?:\/\//i.test(url)) {
     return url;
   }
+  
+  // If no base URL configured, return as-is (will use same-origin)
+  if (!baseUrl) {
+    return url;
+  }
+  
+  // Prepend base URL for both client and server
   return `${baseUrl}${url.startsWith("/") ? url : `/${url}`}`;
 }
 

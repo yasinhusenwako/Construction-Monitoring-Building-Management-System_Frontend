@@ -48,7 +48,7 @@ export function TeamOverviewPage() {
     return allTasks.filter(
       (m) =>
         m.assignedTo === userId &&
-        (m.status === "In Progress" || m.status === "Assigned to Professional"),
+        (m.status === "In Progress" || m.status === "Assigned to Professionals"),
     ).length;
   };
 

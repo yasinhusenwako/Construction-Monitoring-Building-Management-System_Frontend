@@ -145,7 +145,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
       "Under Review",
       "Assigned to Supervisor",
       "WorkOrder Created",
-      "Assigned to Professional",
+      "Assigned to Professionals",
       "In Progress",
       "Completed",
       "Reviewed",

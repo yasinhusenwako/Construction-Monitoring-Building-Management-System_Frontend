@@ -64,30 +64,54 @@ export function SupervisorDashboard() {
       }
     };
     refresh();
+
+    // Keep supervisor board in sync with professional updates.
+    const refreshInterval = setInterval(refresh, 15000);
+    return () => clearInterval(refreshInterval);
   }, []);
 
   // Get current user's division
   const userDivision = currentUser?.divisionId;
   const divisionName = currentUser?.department || "General";
 
+  const supervisorTrackedStatuses = [
+    "Assigned to Supervisor",
+    "WorkOrder Created",
+    "Assigned to Professionals",
+    "In Progress",
+    "Completed",
+    "Reviewed",
+  ];
+
   // My assigned tasks — primary key is supervisorId, divisionId is informational only
   const myTasks = allTasks.filter(
     (m) =>
       m.supervisorId === uid ||
-      // Fallback: division-scoped tasks that haven't had supervisorId stamped yet
+      // Fallback: division-scoped workflow items should remain visible to supervisor.
       (userDivision &&
         m.divisionId === userDivision &&
-        ["Assigned to Supervisor", "WorkOrder Created"].includes(m.status) &&
-        !m.supervisorId),
+        supervisorTrackedStatuses.includes(m.status)),
   );
   const pendingAssignment = myTasks.filter((m) =>
     ["Assigned to Supervisor", "WorkOrder Created"].includes(m.status),
   );
   const withProfessionals = myTasks.filter((m) =>
-    ["Assigned to Professional", "In Progress"].includes(m.status),
+    ["Assigned to Professionals", "In Progress"].includes(m.status),
   );
   const completedTasks = myTasks.filter((m) => m.status === "Completed");
   const reviewedTasks = myTasks.filter((m) => m.status === "Reviewed");
+  const approvedProfessionals = useMemo(
+    () =>
+      users.filter(
+        (u) =>
+          u.role === "professional" &&
+          String(u.status || "active").toLowerCase() === "active" &&
+          (!userDivision ||
+            u.divisionId === userDivision ||
+            !u.divisionId),
+      ),
+    [users, userDivision],
+  );
 
   const handleAssign = async (professionalId: string, instructions: string) => {
     const task = myTasks.find((m) => m.id === assignTarget);
@@ -111,7 +135,7 @@ export function SupervisorDashboard() {
           t.id === task.id
             ? {
                 ...t,
-                status: "Assigned to Professional",
+                status: "Assigned to Professionals",
                 assignedTo: professionalId,
                 updatedAt: new Date().toISOString(),
               }
@@ -166,7 +190,7 @@ export function SupervisorDashboard() {
         <AssignmentModal
           ticketId={assignTarget}
           ticketTitle={assignTargetTask.title}
-          professionals={users.filter((u) => u.role === "professional")}
+          professionals={approvedProfessionals}
           activeTasks={allTasks}
           onAssign={handleAssign}
           onClose={() => setAssignTarget(null)}
@@ -320,6 +344,46 @@ export function SupervisorDashboard() {
         ))}
       </div>
 
+      {/* Registered & Approved Professionals */}
+      <div className="bg-white rounded-xl border border-border p-5 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-[#0E2271] font-semibold">
+            {t("supervisor.professionals")}
+          </h3>
+          <span className="text-xs font-semibold text-muted-foreground bg-secondary px-2 py-1 rounded">
+            {approvedProfessionals.length} active
+          </span>
+        </div>
+        {approvedProfessionals.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t("supervisor.noProfessionalsDesc")}
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {approvedProfessionals.map((pro) => (
+              <div
+                key={pro.id}
+                className="border border-border rounded-lg px-3 py-2 flex items-center justify-between"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{pro.name}</p>
+                  <p className="text-xs text-muted-foreground">{pro.email}</p>
+                    {!pro.divisionId && (
+                      <p className="text-[11px] text-amber-700 mt-0.5">Division will be set on first assignment</p>
+                    )}
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-medium text-[#0E2271]">Profession</p>
+                  <p className="text-xs text-muted-foreground">
+                    {pro.department || "Not specified"}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Task Management */}
       <h2 className="text-[#0E2271]">{t("supervisor.taskManagement")}</h2>
 
@@ -390,15 +454,6 @@ export function SupervisorDashboard() {
                     >
                       <Eye size={12} /> {t("supervisor.viewDetails")}
                     </button>
-                    {m.status === "Assigned to Supervisor" && (
-                      <button
-                        onClick={() => setAssignTarget(m.id)}
-                        className="flex items-center gap-1 text-xs text-white px-3 py-1.5 rounded-lg bg-[#7C3AED]"
-                      >
-                        <UserCheck size={12} />{" "}
-                        {t("supervisor.assignProfessional")}
-                      </button>
-                    )}
                     {m.status === "Completed" && (
                       <button
                         onClick={() => setReportTarget(m.id)}

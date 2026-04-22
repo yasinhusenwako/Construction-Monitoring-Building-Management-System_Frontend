@@ -76,13 +76,17 @@ export async function executeWorkflowAction(params: {
   try {
     if (params.actorRole === "admin") {
       if (params.nextStatus === "Assigned to Supervisor") {
-        if (
-          !params.extraUpdates?.supervisorId ||
-          !params.extraUpdates?.divisionId
-        ) {
+        if (params.module !== "MAINTENANCE") {
+          return fail(
+            "unsupported",
+            "Supervisor assignment is only supported for maintenance.",
+          );
+        }
+
+        if (!params.extraUpdates?.divisionId) {
           return fail(
             "validation",
-            "Division and supervisor are required for this assignment.",
+            "Division is required for this assignment.",
           );
         }
 
@@ -108,7 +112,7 @@ export async function executeWorkflowAction(params: {
       // Admin assigns professional for PROJECT and BOOKING only
       // MAINTENANCE is handled by supervisor
       if (
-        params.nextStatus === "Assigned to Professional" &&
+        params.nextStatus === "Assigned to Professionals" &&
         params.module !== "MAINTENANCE"
       ) {
         if (!params.extraUpdates?.assignedTo) {
@@ -154,11 +158,19 @@ export async function executeWorkflowAction(params: {
         return { ok: true };
       }
 
-      if (params.nextStatus === "Assigned to Professional") {
+      if (params.nextStatus === "Assigned to Professionals") {
         if (!params.extraUpdates?.assignedTo) {
           return fail(
             "validation",
             "A professional must be selected before assigning this request.",
+          );
+        }
+
+        const instructions = params.extraUpdates?.notes?.trim();
+        if (!instructions) {
+          return fail(
+            "validation",
+            "Instructions are required before assigning to a professional.",
           );
         }
 
@@ -167,7 +179,7 @@ export async function executeWorkflowAction(params: {
           businessId: params.businessId,
           requestId: params.requestId,
           professionalId: params.extraUpdates.assignedTo,
-          instructions: params.extraUpdates.notes || "",
+          instructions,
         });
         return { ok: true };
       }
