@@ -262,7 +262,7 @@ export function MaintenancePage() {
             item.id === m.id
               ? {
                   ...item,
-                  status: "Assigned to Professional",
+                  status: "Assigned to Professionals",
                   assignedTo: selectedTech,
                   updatedAt: new Date().toISOString(),
                 }

@@ -145,7 +145,7 @@ export function MaintenanceListItem({
 
           {/* Professional Actions */}
           {role === "professional" &&
-            m.status === "Assigned to Professional" && (
+            m.status === "Assigned to Professionals" && (
               <button
                 onClick={() => onStartWork(m)}
                 className="text-xs bg-orange-600 text-white px-3 py-1 rounded font-bold uppercase"

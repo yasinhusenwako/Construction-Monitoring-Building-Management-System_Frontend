@@ -24,8 +24,10 @@ import {
   ThumbsDown,
   UserPlus,
   Briefcase,
+  Package,
 } from "lucide-react";
 import { fetchLiveProjects, fetchLiveUsers } from "@/lib/live-api";
+import { apiRequest } from "@/lib/api";
 import { executeWorkflowAction } from "@/lib/workflow-actions";
 import {
   getUserFacingStatus,
@@ -50,6 +52,10 @@ export function ProjectDetailPage() {
   const [selectedTech, setSelectedTech] = useState("");
   const [actionDone, setActionDone] = useState("");
   const [systemUsers, setSystemUsers] = useState<any[]>([]);
+  const [materialCost, setMaterialCost] = useState("");
+  const [laborCost, setLaborCost] = useState("");
+  const [partsUsed, setPartsUsed] = useState("");
+  const [costSaved, setCostSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -70,6 +76,10 @@ export function ProjectDetailPage() {
           canViewItem(role as WorkflowRole, found, currentUser?.id)
         ) {
           setProjectItem(found);
+          if (found.materialCost)
+            setMaterialCost(found.materialCost.toString());
+          if (found.laborCost) setLaborCost(found.laborCost.toString());
+          if (found.partsUsed) setPartsUsed(found.partsUsed);
         } else {
           setProjectItem(null);
         }
@@ -98,6 +108,19 @@ export function ProjectDetailPage() {
     );
 
   const project = projectItem;
+  const canShowProfessionalActions =
+    role === "professional" &&
+    (project.assignedTo === currentUser?.id || !project.assignedTo);
+  
+  // Debug: Log project cost data
+  console.log("=== Project Cost Data ===");
+  console.log("Role:", role);
+  console.log("Project ID:", project.id);
+  console.log("Material Cost:", project.materialCost, typeof project.materialCost);
+  console.log("Labor Cost:", project.laborCost, typeof project.laborCost);
+  console.log("Total Cost:", project.totalCost, typeof project.totalCost);
+  console.log("Parts Used:", project.partsUsed);
+  
   const copyId = () => {
     try {
       navigator.clipboard.writeText(project.id);
@@ -117,6 +140,10 @@ export function ProjectDetailPage() {
   const requester = systemUsers.find((u) => u.id === project.requestedBy);
   const assignee = systemUsers.find((u) => u.id === project.assignedTo);
   const professionals = systemUsers.filter((u) => u.role === "professional");
+  const projectProfessionals = professionals.filter(
+    (u) => u.divisionId === "OTHER",
+  );
+  const totalCost = parseInt(materialCost || "0") + parseInt(laborCost || "0");
 
   // Debug logging for assign professional visibility
   console.log("DEBUG ProjectDetail:", {
@@ -127,6 +154,11 @@ export function ProjectDetailPage() {
     systemUsersCount: systemUsers.length,
     professionalsCount: professionals.length,
     professionals: professionals.map((p) => ({ id: p.id, name: p.name })),
+    projectProfessionalsCount: projectProfessionals.length,
+    projectProfessionals: projectProfessionals.map((p) => ({
+      id: p.id,
+      name: p.name,
+    })),
   });
 
   const handleAction = async (
@@ -135,11 +167,63 @@ export function ProjectDetailPage() {
     message: string,
     extraUpdates?: Partial<Project>,
   ) => {
+    let currentStatus = project.status;
+
+    if (actorRole === "professional") {
+      try {
+        const liveProjects = await fetchLiveProjects(id);
+        const found = liveProjects.find((p) => p.id === id);
+        if (found) {
+          currentStatus = found.status;
+          if (found.status !== project.status) {
+            setProjectItem(found);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to refresh project status before action", err);
+      }
+
+      if (
+        action === "In Progress" &&
+        currentStatus !== "Assigned to Professionals"
+      ) {
+        setActionDone(
+          `Cannot start work. Current status: '${currentStatus}'. Expected: 'Assigned to Professionals'. Please refresh the page or contact admin.`,
+        );
+        setTimeout(() => setActionDone(""), 5000);
+        return;
+      }
+      
+      if (
+        action === "Completed" &&
+        currentStatus !== "In Progress"
+      ) {
+        setActionDone(
+          `Cannot mark complete. Current status: '${currentStatus}'. Expected: 'In Progress'. Please start work first.`,
+        );
+        setTimeout(() => setActionDone(""), 5000);
+        return;
+      }
+    }
+
+    if (role === "professional" && action === "Completed") {
+      try {
+        const updatedWithCost = await persistCostData();
+        setProjectItem(updatedWithCost);
+        setCostSaved(true);
+        setTimeout(() => setCostSaved(false), 3000);
+      } catch (error) {
+        console.error("Failed to save cost data before completion:", error);
+        alert("Please save valid cost data before marking task as completed.");
+        return;
+      }
+    }
+
     const result = await executeWorkflowAction({
       module: "PROJECT",
       businessId: project.id,
       requestId: project.dbId,
-      currentStatus: project.status,
+      currentStatus,
       nextStatus: action,
       actorRole,
       extraUpdates,
@@ -173,6 +257,55 @@ export function ProjectDetailPage() {
 
     setActionDone(message);
     setTimeout(() => setActionDone(""), 3000);
+  };
+
+  const persistCostData = async (): Promise<Project> => {
+    if (!project.dbId) throw new Error("Project request id is missing");
+
+    const materialCostValue = parseInt(materialCost || "0");
+    const laborCostValue = parseInt(laborCost || "0");
+    const totalCostValue = materialCostValue + laborCostValue;
+
+    console.log("=== Saving cost data ===");
+    console.log("Project DB ID:", project.dbId);
+    console.log("Material Cost:", materialCostValue);
+    console.log("Labor Cost:", laborCostValue);
+    console.log("Parts Used:", partsUsed);
+    console.log("Request URL:", `/api/professional/projects/${project.dbId}/cost`);
+
+    const response = await apiRequest(`/api/professional/projects/${project.dbId}/cost`, {
+      method: "PATCH",
+      body: {
+        materialCost: materialCostValue,
+        laborCost: laborCostValue,
+        partsUsed,
+      },
+    });
+
+    console.log("Cost save response:", response);
+
+    return {
+      ...project,
+      materialCost: materialCostValue,
+      laborCost: laborCostValue,
+      totalCost: totalCostValue,
+      partsUsed,
+      updatedAt: new Date().toISOString(),
+    };
+  };
+
+  const handleSaveCost = async () => {
+    if (!project.dbId) return;
+
+    try {
+      const updated = await persistCostData();
+      setProjectItem(updated);
+      setCostSaved(true);
+      setTimeout(() => setCostSaved(false), 3000);
+    } catch (error) {
+      console.error("Failed to save cost data:", error);
+      alert("Failed to save cost data. Please try again.");
+    }
   };
 
   return (
@@ -222,7 +355,7 @@ export function ProjectDetailPage() {
         <h3 className="text-sm font-semibold text-[#0E2271] mb-6">
           {t("projects.workflowProgress")}
         </h3>
-        <WorkflowVisualizer currentStatus={project.status} />
+        <WorkflowVisualizer currentStatus={project.status} module="project" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -415,6 +548,156 @@ export function ProjectDetailPage() {
                 </div>
               </>
             )}
+
+            {/* Cost Information Display - For Supervisor and Admin (Read-only) */}
+            {(role === "supervisor" || role === "admin") &&
+              project.totalCost &&
+              project.totalCost > 0 && (
+                <>
+                  <div className="h-px w-full bg-border" />
+                  <div className="p-6 bg-gradient-to-br from-amber-50/50 to-orange-50/30">
+                    <h3 className="text-sm font-bold text-[#0E2271] mb-5 flex items-center gap-2">
+                      <span className="bg-amber-100 p-1.5 rounded-md border border-amber-200">
+                        <DollarSign size={16} className="text-amber-600" />
+                      </span>
+                      {t("maintenance.costInformation")}
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      <div className="bg-white rounded-lg border border-amber-200 p-4 shadow-sm">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                          {t("maintenance.materialsCost")}
+                        </p>
+                        <p className="text-2xl font-black text-amber-600">
+                          ETB {(project.materialCost || 0).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="bg-white rounded-lg border border-amber-200 p-4 shadow-sm">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                          {t("maintenance.laborCostETB")}
+                        </p>
+                        <p className="text-2xl font-black text-amber-600">
+                          ETB {(project.laborCost || 0).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg p-4 shadow-md">
+                        <p className="text-xs font-bold text-white/90 uppercase tracking-wider mb-2">
+                          {t("maintenance.totalRepairCost")}
+                        </p>
+                        <p className="text-2xl font-black text-white">
+                          ETB {project.totalCost.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                    {project.partsUsed && (
+                      <div className="bg-white rounded-lg border border-amber-200 p-4 shadow-sm">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                          <Package size={14} />
+                          {t("maintenance.partsUsed")}
+                        </p>
+                        <p className="text-sm text-foreground font-medium">
+                          {project.partsUsed}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+            {/* Cost Tracking Panel — Professional Only */}
+            {role === "professional" &&
+              [
+                "Assigned to Professionals",
+                "In Progress",
+                "Completed",
+                "Approved",
+                "Rejected",
+                "Closed",
+              ].includes(project.status) && (
+                <>
+                  <div className="h-px w-full bg-border" />
+                  <div className="p-6 bg-slate-50/50">
+                    <h3 className="text-sm font-bold text-[#0E2271] mb-5 flex items-center gap-2">
+                      <span className="bg-amber-100 p-1.5 rounded-md border border-amber-200">
+                        <DollarSign size={16} className="text-amber-600" />
+                      </span>
+                      {t("maintenance.repairCostTracking")}
+                    </h3>
+                    {costSaved && (
+                      <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 text-sm text-green-700 flex items-center gap-2 shadow-sm animate-in fade-in">
+                        <CheckCircle size={16} />{" "}
+                        <span className="font-medium">
+                          {t("maintenance.costDataSaved")}
+                        </span>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-5 mb-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                          {t("maintenance.materialsCost")}
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-semibold">
+                            ETB
+                          </span>
+                          <input
+                            type="number"
+                            value={materialCost}
+                            onChange={(e) => setMaterialCost(e.target.value)}
+                            placeholder="0.00"
+                            className="w-full pl-12 pr-3 py-2.5 rounded-lg border border-border bg-white text-sm outline-none focus:border-[#CC1F1A] focus:ring-2 focus:ring-[#CC1F1A]/20 transition-all font-medium"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                          {t("maintenance.laborCostETB")}
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-semibold">
+                            ETB
+                          </span>
+                          <input
+                            type="number"
+                            value={laborCost}
+                            onChange={(e) => setLaborCost(e.target.value)}
+                            placeholder="0.00"
+                            className="w-full pl-12 pr-3 py-2.5 rounded-lg border border-border bg-white text-sm outline-none focus:border-[#CC1F1A] focus:ring-2 focus:ring-[#CC1F1A]/20 transition-all font-medium"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                        {t("maintenance.partsUsed")}
+                      </label>
+                      <input
+                        value={partsUsed}
+                        onChange={(e) => setPartsUsed(e.target.value)}
+                        placeholder="e.g. Cement x10, Steel Rod x5, Paint x12"
+                        className="w-full px-4 py-2.5 rounded-lg border border-border bg-white text-sm outline-none focus:border-[#CC1F1A] focus:ring-2 focus:ring-[#CC1F1A]/20 transition-all font-medium"
+                      />
+                    </div>
+                    {totalCost > 0 && (
+                      <div className="mt-5 bg-gradient-to-r from-amber-50 to-amber-100/50 border border-amber-200 rounded-xl px-5 py-4 flex items-center justify-between shadow-sm">
+                        <span className="text-sm font-bold text-amber-800 flex items-center gap-2">
+                          <DollarSign size={16} />{" "}
+                          {t("maintenance.totalRepairCost")}
+                        </span>
+                        <span className="font-black text-amber-600 text-xl tracking-tight">
+                          ETB {totalCost.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    <button
+                      onClick={handleSaveCost}
+                      className="mt-4 flex items-center justify-center gap-2 px-5 py-2.5 w-full sm:w-auto rounded-lg text-white text-sm font-bold shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+                      style={{ background: "#d97706" }}
+                    >
+                      <CheckCircle size={16} /> {t("maintenance.saveCostData")}
+                    </button>
+                  </div>
+                </>
+              )}
           </div>
 
           {/* Documents */}
@@ -537,50 +820,59 @@ export function ProjectDetailPage() {
                       </div>
                     )}
 
-                    {project.status === "Under Review" && (
-                      <>
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                            {t("requests.selectProfessional") ||
-                              "Select Professional"}
-                          </label>
-                          <select
-                            value={selectedTech}
-                            onChange={(e) => setSelectedTech(e.target.value)}
-                            className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
-                          >
-                            <option value="">
-                              {t("common.select") || "Select"}
-                            </option>
-                            {systemUsers
-                              .filter((u) => u.role === "professional")
-                              .map((pr) => (
-                                <option key={pr.id} value={pr.id}>
-                                  {pr.name}
-                                </option>
-                              ))}
-                          </select>
-                        </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
+                        {t("requests.selectProfessional") ||
+                          "Select Professional"}
+                      </label>
+                      <select
+                        value={selectedTech}
+                        onChange={(e) => setSelectedTech(e.target.value)}
+                        className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
+                      >
+                        <option value="">
+                          {t("common.select") || "Select"}
+                        </option>
+                        {projectProfessionals.map((pr) => (
+                          <option key={pr.id} value={pr.id}>
+                            {pr.name}
+                          </option>
+                        ))}
+                      </select>
+                      {projectProfessionals.length === 0 && (
+                        <p className="text-[10px] text-muted-foreground">
+                          No Project/Booking professionals found (Division: Other).
+                        </p>
+                      )}
+                      {project.status === "Submitted" && (
+                        <p className="text-[10px] text-muted-foreground">
+                          Start review first, then assign a professional.
+                        </p>
+                      )}
+                    </div>
 
-                        <button
-                          disabled={!selectedTech || busy}
-                          onClick={() => {
-                            setBusy(true);
-                            handleAction(
-                              "Assigned to Professional",
-                              "admin",
-                              "Assigned to Professional",
-                              {
-                                assignedTo: selectedTech,
-                              },
-                            ).finally(() => setBusy(false));
-                          }}
-                          className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#1A3580] hover:bg-[#0E2271] transition-all disabled:opacity-40"
-                        >
-                          {t("requests.assignDirect") || "Assign Direct"}
-                        </button>
-                      </>
-                    )}
+                    <button
+                      disabled={
+                        project.status !== "Under Review" ||
+                        !selectedTech ||
+                        busy
+                      }
+                      onClick={() => {
+                        setBusy(true);
+                        handleAction(
+                          "Assigned to Professionals",
+                          "admin",
+                          "Assigned to Professionals",
+                          {
+                            assignedTo: selectedTech,
+                          },
+                        ).finally(() => setBusy(false));
+                      }}
+                      className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#1A3580] hover:bg-[#0E2271] transition-all disabled:opacity-40"
+                    >
+                      {t("requests.assignToProfessional") ||
+                        "Assign to Professional"}
+                    </button>
                   </div>
                 )}
 
@@ -650,19 +942,41 @@ export function ProjectDetailPage() {
           )}
 
           {/* Professional Actions */}
-          {role === "professional" &&
-            project.assignedTo === currentUser?.id && (
+          {canShowProfessionalActions && (
               <div className="bg-white rounded-xl border border-border p-5 shadow-sm">
-                <h3 className="text-sm font-semibold text-[#0E2271] mb-4">
-                  {t("projects.professionalActions")}
+                <h3 className="text-sm font-semibold text-[#0E2271] mb-4 flex items-center justify-between">
+                  <span>{t("projects.professionalActions")}</span>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const liveProjects = await fetchLiveProjects(id);
+                        const found = liveProjects.find((p) => p.id === id);
+                        if (found) {
+                          setProjectItem(found);
+                          setActionDone("Status refreshed");
+                          setTimeout(() => setActionDone(""), 2000);
+                        }
+                      } catch (err) {
+                        console.error("Failed to refresh", err);
+                      }
+                    }}
+                    className="text-xs text-[#1A3580] hover:underline"
+                  >
+                    Refresh Status
+                  </button>
                 </h3>
+                {project.assignedTo && project.assignedTo !== currentUser?.id && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 text-sm text-amber-700">
+                    You are viewing this task, but it is assigned to another professional.
+                  </div>
+                )}
                 {actionDone && (
                   <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-3 text-sm text-green-700 flex items-center gap-2">
                     <CheckCircle size={14} /> {actionDone}
                   </div>
                 )}
                 <div className="space-y-2">
-                  {project.status === "Assigned to Professional" && (
+                  {project.status === "Assigned to Professionals" && (
                     <button
                       onClick={() =>
                         handleAction(
@@ -691,6 +1005,14 @@ export function ProjectDetailPage() {
                     >
                       {t("maintenance.markFixed")}
                     </button>
+                  )}
+                  {project.status !== "Assigned to Professionals" && project.status !== "In Progress" && (
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-600">
+                      Current status: <span className="font-semibold">{project.status}</span>
+                      {project.status === "Under Review" && (
+                        <p className="text-xs mt-1 text-slate-500">Waiting for admin to assign this project to you.</p>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

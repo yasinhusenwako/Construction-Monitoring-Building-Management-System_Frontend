@@ -34,7 +34,7 @@ const statusConfig: Record<string, { bg: string; text: string; dot: string; bord
       dot: "bg-sky-500",
       border: "border-sky-200/50",
     },
-    "Assigned to Professional": {
+    "Assigned to Professionals": {
       bg: "bg-indigo-50/50",
       text: "text-indigo-700",
       dot: "bg-indigo-500",
@@ -82,7 +82,7 @@ const statusTranslationKeys: Record<string, string> = {
   "Under Review": "status.underReview",
   "Assigned to Supervisor": "status.assignedToSupervisor",
   "WorkOrder Created": "status.workOrderCreated",
-  "Assigned to Professional": "status.assignedToProfessional",
+  "Assigned to Professionals": "status.assignedToProfessional",
   "In Progress": "status.inProgress",
   Completed: "status.completed",
   Reviewed: "status.reviewed",

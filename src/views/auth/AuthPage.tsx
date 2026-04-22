@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { divisions } from "@/types/models";
 import Image from "next/image";
 import { useLanguage } from "@/context/LanguageContext";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
@@ -60,6 +61,8 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
     email: "",
     phone: "",
     department: "",
+    divisionId: "",
+    profession: "",
     role: "user" as "user" | "admin" | "supervisor" | "professional",
     password: "",
     confirmPassword: "",
@@ -109,6 +112,12 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
         return "Password must be at least 8 characters.";
       if (form.password !== form.confirmPassword)
         return "Passwords do not match.";
+      if (form.role === "supervisor" && !form.divisionId.trim()) {
+        return "Division is required.";
+      }
+      if (form.role === "professional" && !form.profession.trim()) {
+        return "Profession is required.";
+      }
     }
     return "";
   };
@@ -132,7 +141,9 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
       password: form.password,
       role: form.role,
       department: form.department,
+      divisionId: form.divisionId,
       phone: form.phone,
+      profession: form.profession,
     });
     setLoading(false);
     if (result.success) {
@@ -142,6 +153,9 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
       setError(result.error || "Registration failed.");
     }
   };
+
+  const selectedDivisionName =
+    divisions.find((d) => d.id === form.divisionId)?.name || "Not selected";
 
   const toggleMode = () => {
     setError("");
@@ -560,10 +574,7 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
                               <input
                                 value={form.department}
                                 onChange={(e) =>
-                                  updateRegisterForm(
-                                    "department",
-                                    e.target.value,
-                                  )
+                                  updateRegisterForm("department", e.target.value)
                                 }
                                 placeholder={t("auth.department")}
                                 className="w-full bg-transparent outline-none text-sm font-semibold"
@@ -619,9 +630,39 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
                           </label>
                           <select
                             value={form.role}
-                            onChange={(e) =>
-                              updateRegisterForm("role", e.target.value)
-                            }
+                            onChange={(e) => {
+                              const nextRole = e.target.value;
+                              if (
+                                nextRole !== "supervisor" &&
+                                nextRole !== "professional"
+                              ) {
+                                setForm((f) => ({
+                                  ...f,
+                                  role: nextRole as
+                                    | "user"
+                                    | "admin"
+                                    | "supervisor"
+                                    | "professional",
+                                  divisionId: "",
+                                  profession: "",
+                                }));
+                                return;
+                              }
+                              setForm((f) => ({
+                                ...f,
+                                role: nextRole as
+                                  | "user"
+                                  | "admin"
+                                  | "supervisor"
+                                  | "professional",
+                                ...(nextRole === "supervisor"
+                                  ? { profession: "" }
+                                  : {}),
+                                ...(nextRole === "professional"
+                                  ? { divisionId: "" }
+                                  : {}),
+                              }));
+                            }}
                             className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold outline-none appearance-none cursor-pointer"
                           >
                             <option value="user">{t("role.user")}</option>
@@ -634,6 +675,56 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
                             <option value="admin">{t("role.admin")}</option>
                           </select>
                         </div>
+                        {form.role === "professional" && (
+                          <div className="space-y-1.5">
+                            <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                              Profession
+                            </label>
+                            <div className="relative flex items-center bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-300 transition-all">
+                              <Wrench
+                                size={16}
+                                className="text-slate-400 mr-3"
+                              />
+                              <input
+                                value={form.profession}
+                                onChange={(e) =>
+                                  updateRegisterForm("profession", e.target.value)
+                                }
+                                placeholder="e.g. Electrician, Plumber, Civil Engineer"
+                                className="w-full bg-transparent outline-none text-sm font-semibold"
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {form.role === "supervisor" && (
+                          <div className="space-y-1.5">
+                            <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                              {t("requests.selectDivision")}
+                            </label>
+                            <div className="relative flex items-center bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-300 transition-all">
+                              <Building
+                                size={16}
+                                className="text-slate-400 mr-3"
+                              />
+                              <select
+                                value={form.divisionId}
+                                onChange={(e) =>
+                                  updateRegisterForm("divisionId", e.target.value)
+                                }
+                                className="w-full bg-transparent outline-none text-sm font-semibold appearance-none cursor-pointer"
+                              >
+                                <option value="">
+                                  {t("requests.selectDivision")}
+                                </option>
+                                {divisions.map((division) => (
+                                  <option key={division.id} value={division.id}>
+                                    {division.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -643,7 +734,12 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
                           {[
                             ["Name", form.name],
                             ["Email", form.email],
+                            ["Department", form.department],
                             ["Role", form.role.toUpperCase()],
+                            ...(form.role === "professional"
+                              ? [["Profession", form.profession]]
+                              : []),
+                            ["Division", selectedDivisionName],
                           ].map(([l, v]) => (
                             <div
                               key={l}

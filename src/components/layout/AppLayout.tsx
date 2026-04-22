@@ -7,7 +7,12 @@ import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Notification } from "@/types/models";
-import { fetchLiveNotifications } from "@/lib/live-api";
+import {
+  fetchLiveMaintenance,
+  fetchLiveNotifications,
+  fetchLiveProjects,
+  markNotificationAsRead,
+} from "@/lib/live-api";
 import { ProtectedRoute } from "../auth/ProtectedRoute";
 import { ThemeToggle } from "../common/ThemeToggle";
 import { LanguageToggle } from "../common/LanguageToggle";
@@ -43,6 +48,9 @@ interface NavItem {
 }
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
+  const PROJECT_BADGE_SEEN_KEY = "insa_admin_seen_projects_actionable";
+  const MAINTENANCE_BADGE_SEEN_KEY =
+    "insa_admin_seen_maintenance_actionable";
   const { currentUser, logout } = useAuth();
   const { t } = useLanguage();
   const router = useRouter();
@@ -52,6 +60,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [projectActionableCount, setProjectActionableCount] = useState(0);
+  const [maintenanceActionableCount, setMaintenanceActionableCount] =
+    useState(0);
+  const [projectSeenCount, setProjectSeenCount] = useState(0);
+  const [maintenanceSeenCount, setMaintenanceSeenCount] = useState(0);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
@@ -76,9 +89,112 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (currentUser?.role !== "admin") {
+      setProjectActionableCount(0);
+      setMaintenanceActionableCount(0);
+      setProjectSeenCount(0);
+      setMaintenanceSeenCount(0);
+      return;
+    }
+
+    const storedProjectSeen = Number(
+      localStorage.getItem(PROJECT_BADGE_SEEN_KEY) || "0",
+    );
+    const storedMaintenanceSeen = Number(
+      localStorage.getItem(MAINTENANCE_BADGE_SEEN_KEY) || "0",
+    );
+    setProjectSeenCount(Number.isFinite(storedProjectSeen) ? storedProjectSeen : 0);
+    setMaintenanceSeenCount(
+      Number.isFinite(storedMaintenanceSeen) ? storedMaintenanceSeen : 0,
+    );
+
+    Promise.all([fetchLiveProjects(), fetchLiveMaintenance()])
+      .then(([projects, maintenance]) => {
+        const adminActionableStatuses = new Set([
+          "Submitted",
+          "Under Review",
+          "Completed",
+          "Reviewed",
+        ]);
+
+        const pendingProjects = projects.filter((p) =>
+          adminActionableStatuses.has(p.status),
+        ).length;
+        const pendingMaintenance = maintenance.filter((m) =>
+          adminActionableStatuses.has(m.status),
+        ).length;
+
+        setProjectActionableCount(pendingProjects);
+        setMaintenanceActionableCount(pendingMaintenance);
+      })
+      .catch(() => {
+        setProjectActionableCount(0);
+        setMaintenanceActionableCount(0);
+      });
+  }, [currentUser?.role]);
+
+  useEffect(() => {
+    if (currentUser?.role !== "admin") return;
+
+    if (pathname?.startsWith("/dashboard/projects")) {
+      localStorage.setItem(
+        PROJECT_BADGE_SEEN_KEY,
+        String(projectActionableCount),
+      );
+      setProjectSeenCount(projectActionableCount);
+    }
+
+    if (pathname?.startsWith("/dashboard/maintenance")) {
+      localStorage.setItem(
+        MAINTENANCE_BADGE_SEEN_KEY,
+        String(maintenanceActionableCount),
+      );
+      setMaintenanceSeenCount(maintenanceActionableCount);
+    }
+  }, [
+    currentUser?.role,
+    pathname,
+    projectActionableCount,
+    maintenanceActionableCount,
+  ]);
+
+  const projectBadge =
+    currentUser?.role === "admin"
+      ? Math.max(projectActionableCount - projectSeenCount, 0) || undefined
+      : undefined;
+  const maintenanceBadge =
+    currentUser?.role === "admin"
+      ? Math.max(maintenanceActionableCount - maintenanceSeenCount, 0) ||
+        undefined
+      : undefined;
+
   const handleLogout = () => {
     logout();
     router.push("/login");
+  };
+
+  const handleNotificationClick = async (notification: Notification) => {
+    // Mark as read if not already read
+    if (!notification.read) {
+      try {
+        await markNotificationAsRead(notification.id);
+        // Remove from local state immediately
+        setNotifications((prev) =>
+          prev.filter((n) => n.id !== notification.id)
+        );
+      } catch (error) {
+        console.error("Failed to mark notification as read:", error);
+      }
+    }
+    
+    // Close dropdown
+    setNotifOpen(false);
+    
+    // Navigate to the link if available
+    if (notification.link) {
+      router.push(notification.link);
+    }
   };
 
   const navItems: NavItem[] = [
@@ -108,7 +224,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       path: "/dashboard/projects",
       icon: <FolderOpen size={18} />,
       roles: ["admin", "user"],
-      badge: currentUser?.role === "admin" ? 3 : undefined,
+      badge: currentUser?.role === "admin" ? projectBadge : undefined,
     },
     {
       label:
@@ -129,7 +245,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       path: "/dashboard/maintenance",
       icon: <Wrench size={18} />,
       roles: ["admin", "user", "professional"],
-      badge: currentUser?.role === "admin" ? 2 : undefined,
+      badge: currentUser?.role === "admin" ? maintenanceBadge : undefined,
     },
     {
       label: t("nav.progressUpdates"),
@@ -385,6 +501,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       userNotifs.slice(0, 5).map((n) => (
                         <div
                           key={n.id}
+                          onClick={() => handleNotificationClick(n)}
                           className={`px-4 py-3 border-b border-border/50 hover:bg-secondary/50 dark:hover:bg-secondary/50 cursor-pointer ${!n.read ? "bg-blue-50/50 dark:bg-blue-900/20" : ""}`}
                         >
                           <div className="flex items-start gap-2">

@@ -264,7 +264,7 @@ export function DashboardPage() {
               label={t("dashboard.activeOperations")}
               value={
                 supervisorTasks.filter((m) =>
-                  ["Assigned to Professional", "In Progress"].includes(
+                  ["Assigned to Professionals", "In Progress"].includes(
                     m.status,
                   ),
                 ).length

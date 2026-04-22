@@ -5,7 +5,7 @@ export type WorkflowStatus =
   | "Under Review"
   | "Assigned to Supervisor"
   | "WorkOrder Created"
-  | "Assigned to Professional"
+  | "Assigned to Professionals"
   | "In Progress"
   | "Completed"
   | "Reviewed"
@@ -20,7 +20,7 @@ export const WORKFLOW_STATUSES: WorkflowStatus[] = [
   "Under Review",
   "Assigned to Supervisor",
   "WorkOrder Created",
-  "Assigned to Professional",
+  "Assigned to Professionals",
   "In Progress",
   "Completed",
   "Reviewed",
@@ -46,11 +46,11 @@ type WorkflowDefinition = {
 export const WORKFLOW_CONFIG: Record<WorkflowModule, WorkflowDefinition> = {
   maintenance: {
     transitions: {
-      Submitted: ["Under Review"],
+      Submitted: ["Under Review", "Assigned to Supervisor"],
       "Under Review": ["Assigned to Supervisor"],
-      "Assigned to Supervisor": ["WorkOrder Created"],
-      "WorkOrder Created": ["Assigned to Professional"],
-      "Assigned to Professional": ["In Progress"],
+      "Assigned to Supervisor": ["WorkOrder Created", "Assigned to Professionals"],
+      "WorkOrder Created": ["Assigned to Professionals"],
+      "Assigned to Professionals": ["In Progress"],
       "In Progress": ["Completed"],
       Completed: ["Reviewed"],
       Reviewed: ["Approved", "Rejected"],
@@ -61,9 +61,9 @@ export const WORKFLOW_CONFIG: Record<WorkflowModule, WorkflowDefinition> = {
     owner: {
       Submitted: "admin",
       "Under Review": "admin",
-      "Assigned to Supervisor": "admin",
+      "Assigned to Supervisor": "supervisor",
       "WorkOrder Created": "supervisor",
-      "Assigned to Professional": "supervisor",
+      "Assigned to Professionals": "supervisor",
       "In Progress": "professional",
       Completed: "professional",
       Reviewed: "supervisor",
@@ -75,19 +75,18 @@ export const WORKFLOW_CONFIG: Record<WorkflowModule, WorkflowDefinition> = {
   project: {
     transitions: {
       Submitted: ["Under Review"],
-      "Under Review": ["Assigned to Professional"],
-      "Assigned to Professional": ["In Progress"],
+      "Under Review": ["Assigned to Professionals"],
+      "Assigned to Professionals": ["In Progress"],
       "In Progress": ["Completed"],
       Completed: ["Approved", "Rejected"],
       Approved: ["Closed"],
       Rejected: ["Closed"],
       Closed: [],
-      // Not used in project: "Assigned to Supervisor", "WorkOrder Created", "Reviewed"
     },
     owner: {
       Submitted: "admin",
       "Under Review": "admin",
-      "Assigned to Professional": "admin",
+      "Assigned to Professionals": "admin",
       "In Progress": "professional",
       Completed: "professional",
       Approved: "admin",
@@ -98,19 +97,18 @@ export const WORKFLOW_CONFIG: Record<WorkflowModule, WorkflowDefinition> = {
   booking: {
     transitions: {
       Submitted: ["Under Review"],
-      "Under Review": ["Assigned to Professional"],
-      "Assigned to Professional": ["In Progress"],
+      "Under Review": ["Assigned to Professionals"],
+      "Assigned to Professionals": ["In Progress"],
       "In Progress": ["Completed"],
       Completed: ["Approved", "Rejected"],
       Approved: ["Closed"],
       Rejected: ["Closed"],
       Closed: [],
-      // Not used in booking: "Assigned to Supervisor", "WorkOrder Created", "Reviewed"
     },
     owner: {
       Submitted: "admin",
       "Under Review": "admin",
-      "Assigned to Professional": "admin",
+      "Assigned to Professionals": "admin",
       "In Progress": "professional",
       Completed: "professional",
       Approved: "admin",
@@ -125,7 +123,7 @@ export const WORKFLOW_OWNER: Record<WorkflowStatus, WorkflowRole> = {
   "Under Review": "admin",
   "Assigned to Supervisor": "admin",
   "WorkOrder Created": "supervisor",
-  "Assigned to Professional": "supervisor",
+  "Assigned to Professionals": "supervisor",
   "In Progress": "professional",
   Completed: "professional",
   Reviewed: "supervisor",
@@ -147,13 +145,30 @@ export function canTransition(
     );
     return false;
   }
-  const owner = config.owner[from];
+  const fromOwner = config.owner[from];
+  const toOwner = config.owner[to];
   const allowedTransitions = config.transitions[from] ?? [];
-  const isOwner = owner === role;
+  
+  // DEBUG: Log the exact values
+  console.log('[Workflow DEBUG]', {
+    module,
+    role,
+    from,
+    to,
+    fromOwner,
+    toOwner,
+    allowedTransitions,
+    'to in allowedTransitions': allowedTransitions.includes(to),
+    'exact match check': allowedTransitions.map(t => ({ status: t, matches: t === to, length: t.length, toLength: to.length }))
+  });
+  
+  // A transition can be triggered either by the current stage owner
+  // (handoff action) or the next stage owner (self-progress action).
+  const isOwner = fromOwner === role || toOwner === role;
   const isAllowed = allowedTransitions.includes(to);
   if (!isOwner || !isAllowed) {
     console.warn(
-      `[Workflow] Invalid transition: ${module} | ${role} cannot transition from '${from}' to '${to}'. Owner: ${owner}, Allowed: ${allowedTransitions.join(", ")}`,
+      `[Workflow] Invalid transition: ${module} | ${role} cannot transition from '${from}' to '${to}'. FromOwner: ${fromOwner}, ToOwner: ${toOwner}, Allowed: ${allowedTransitions.join(", ")}`,
     );
   }
   return isOwner && isAllowed;
@@ -166,8 +181,10 @@ export function getAllowedTransitions(
 ): WorkflowStatus[] {
   const config = WORKFLOW_CONFIG[module];
   if (!config) return [];
-  if (config.owner[from] !== role) return [];
-  return config.transitions[from] ?? [];
+  const candidates = config.transitions[from] ?? [];
+  return candidates.filter(
+    (to) => config.owner[from] === role || config.owner[to] === role,
+  );
 }
 
 export function getUserFacingStatus(

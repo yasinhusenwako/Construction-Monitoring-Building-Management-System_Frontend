@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { User, UserRole } from "@/types/models";
+import { divisions, User, UserRole } from "@/types/models";
 import { apiRequest } from "@/lib/api";
 import {
   clearStoredAuthSession,
@@ -21,6 +21,17 @@ interface BackendAuthResponse {
   divisionId: number | null;
 }
 
+interface BackendSessionProfile {
+  id: number;
+  name: string;
+  email: string;
+  role: BackendRole;
+  divisionId: number | null;
+  department?: string;
+  phone?: string;
+  profession?: string;
+}
+
 type SessionUser = User & {
   userId?: number;
   backendDivisionId?: number | null;
@@ -29,6 +40,7 @@ type SessionUser = User & {
 interface AuthContextType {
   currentUser: User | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
   login: (
     email: string,
     password: string,
@@ -49,8 +61,12 @@ interface RegisterData {
   password: string;
   role: UserRole;
   department: string;
+  divisionId: string;
   phone: string;
+  profession?: string;
 }
+
+const ALLOWED_DIVISIONS = new Set(divisions.map((d) => d.id));
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -90,6 +106,7 @@ function formatDivisionId(id: number | null | undefined): string | undefined {
 }
 
 function parseDivisionId(value: string): number | undefined {
+  if (!ALLOWED_DIVISIONS.has(value)) return undefined;
   const matched = value.match(/DIV-(\d+)/i);
   if (!matched) return undefined;
   return Number(matched[1]);
@@ -122,25 +139,59 @@ function toSessionUser(payload: BackendAuthResponse): SessionUser {
   };
 }
 
+function toSessionUserFromProfile(
+  payload: BackendSessionProfile,
+  fallback?: SessionUser,
+): SessionUser {
+  return {
+    id: formatUserId(payload.id),
+    userId: payload.id,
+    name: payload.name,
+    email: payload.email,
+    password: "",
+    role: mapRoleFromBackend(payload.role),
+    department: payload.department || fallback?.department || "",
+    divisionId: formatDivisionId(payload.divisionId),
+    backendDivisionId: payload.divisionId,
+    phone: payload.phone || fallback?.phone || "",
+    avatar: toAvatar(payload.name),
+    status: fallback?.status || "active",
+    createdAt: fallback?.createdAt || new Date().toISOString().slice(0, 10),
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [, setMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setMounted(true);
-    const { user: storedUser } = migrateLegacyAuthSession();
+    const bootstrapAuth = async () => {
+      const { user: storedUser } = migrateLegacyAuthSession();
+      let fallbackUser: SessionUser | undefined;
 
-    if (!storedUser) {
-      clearStoredAuthSession();
-      return;
-    }
+      if (storedUser) {
+        try {
+          fallbackUser = JSON.parse(storedUser) as SessionUser;
+        } catch {
+          fallbackUser = undefined;
+        }
+      }
 
-    try {
-      const parsed = JSON.parse(storedUser) as SessionUser;
-      setCurrentUser(parsed);
-    } catch {
-      clearStoredAuthSession();
-    }
+      try {
+        // Source of truth is backend cookie session; this prevents stale role mismatches.
+        const profile = await apiRequest<BackendSessionProfile>("/api/users/me");
+        const sessionUser = toSessionUserFromProfile(profile, fallbackUser);
+        setCurrentUser(sessionUser);
+        persistAuthSession(sessionUser);
+      } catch {
+        setCurrentUser(null);
+        clearStoredAuthSession();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    bootstrapAuth();
   }, []);
 
   const login = async (
@@ -168,9 +219,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = () => {
-    setCurrentUser(null);
-    clearStoredAuthSession();
+  const logout = async () => {
+    try {
+      // Call backend to clear the cookie
+      await apiRequest("/api/auth/logout", { method: "POST" });
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      setCurrentUser(null);
+      clearStoredAuthSession();
+    }
   };
 
   const register = async (
@@ -178,6 +236,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       const backendRole = mapRoleToBackend(data.role);
+      const parsedDivisionId = parseDivisionId(data.divisionId);
+      if (backendRole === "SUPERVISOR" && !parsedDivisionId) {
+        return {
+          success: false,
+          error: "Please select one of the three divisions.",
+        };
+      }
       const payload = await apiRequest<BackendAuthResponse>(
         "/api/auth/register",
         {
@@ -187,10 +252,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             email: data.email,
             password: data.password,
             role: backendRole,
-            divisionId:
-              backendRole === "SUPERVISOR" || backendRole === "PROFESSIONAL"
-                ? (parseDivisionId(data.department) ?? 1)
-                : undefined,
+            divisionId: backendRole === "SUPERVISOR" ? parsedDivisionId : undefined,
+            phone: data.phone,
+            department: data.department,
+            profession: backendRole === "PROFESSIONAL" ? data.profession : undefined,
           },
         },
       );
@@ -240,6 +305,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         currentUser,
         isAuthenticated: !!currentUser,
+        isLoading,
         login,
         logout,
         register,
@@ -247,7 +313,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateUser,
       }}
     >
-      {children}
+      {isLoading ? (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#CC1F1A]"></div>
+        </div>
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 }

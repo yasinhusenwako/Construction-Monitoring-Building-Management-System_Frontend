@@ -10,12 +10,13 @@ import {
   Archive,
   Clock,
 } from "lucide-react";
-import { WorkflowStatus } from '@/lib/workflow';
+import { WorkflowStatus, type WorkflowModule } from '@/lib/workflow';
 import "./WorkflowVisualizer.css";
 import { useLanguage } from '@/context/LanguageContext';
 
 interface WorkflowVisualizerProps {
   currentStatus: WorkflowStatus;
+  module?: WorkflowModule;
 }
 
 interface Step {
@@ -26,7 +27,7 @@ interface Step {
   statuses: WorkflowStatus[];
 }
 
-const steps: Step[] = [
+const maintenanceSteps: Step[] = [
   {
     id: 0,
     label: "submission",
@@ -34,7 +35,6 @@ const steps: Step[] = [
     icon: User,
     statuses: ["Submitted"],
   },
-
   {
     id: 1,
     label: "verification",
@@ -42,7 +42,6 @@ const steps: Step[] = [
     icon: ShieldCheck,
     statuses: ["Under Review"],
   },
-
   {
     id: 2,
     label: "routing",
@@ -50,15 +49,13 @@ const steps: Step[] = [
     icon: MapPin,
     statuses: ["Assigned to Supervisor", "WorkOrder Created"],
   },
-
   {
     id: 3,
     label: "execution",
     role: "professional",
     icon: Wrench,
-    statuses: ["Assigned to Professional", "In Progress"],
+    statuses: ["Assigned to Professionals", "In Progress"],
   },
-
   {
     id: 4,
     label: "inspection",
@@ -66,7 +63,6 @@ const steps: Step[] = [
     icon: ClipboardCheck,
     statuses: ["Completed"],
   },
-
   {
     id: 5,
     label: "approval",
@@ -74,7 +70,6 @@ const steps: Step[] = [
     icon: CheckCircle,
     statuses: ["Reviewed", "Approved", "Rejected"],
   },
-
   {
     id: 6,
     label: "closed",
@@ -84,10 +79,55 @@ const steps: Step[] = [
   },
 ];
 
+const directSteps: Step[] = [
+  {
+    id: 0,
+    label: "submission",
+    role: "user",
+    icon: User,
+    statuses: ["Submitted"],
+  },
+  {
+    id: 1,
+    label: "verification",
+    role: "admin",
+    icon: ShieldCheck,
+    statuses: ["Under Review"],
+  },
+  {
+    id: 2,
+    label: "execution",
+    role: "professional",
+    icon: Wrench,
+    statuses: ["Assigned to Professionals", "In Progress"],
+  },
+  {
+    id: 3,
+    label: "approval",
+    role: "admin",
+    icon: CheckCircle,
+    statuses: ["Completed", "Approved", "Rejected"],
+  },
+  {
+    id: 4,
+    label: "closed",
+    role: "system",
+    icon: Archive,
+    statuses: ["Closed"],
+  },
+];
+
+function resolveSteps(module?: WorkflowModule): Step[] {
+  if (module === "project" || module === "booking") return directSteps;
+  return maintenanceSteps;
+}
+
 export const WorkflowVisualizer: React.FC<WorkflowVisualizerProps> = ({
   currentStatus,
+  module,
 }) => {
   const { t } = useLanguage();
+  const steps = resolveSteps(module);
   const currentStepIndex = steps.findIndex((step) =>
     step.statuses.includes(currentStatus),
   );

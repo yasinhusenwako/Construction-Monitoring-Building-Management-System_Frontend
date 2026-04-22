@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { User, UserRole } from "@/types/models";
-import { fetchLiveUsers } from "@/lib/live-api";
+import { divisions, User, UserRole } from "@/types/models";
+import { fetchLiveUsers, deleteUser, updateLiveUser } from "@/lib/live-api";
 import { StatusBadge, RoleBadge } from "@/components/common/StatusBadge";
 import {
   Search,
@@ -12,8 +12,11 @@ import {
   UserPlus,
   X,
   CheckCircle,
+  Trash2,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
+
+const PROFESSIONAL_OTHER_DIVISION_ID = "OTHER";
 
 export function UsersPage() {
   const { t } = useLanguage();
@@ -53,6 +56,8 @@ export function UsersPage() {
     email: "",
     phone: "",
     department: "",
+    divisionId: "",
+    profession: "",
     role: "user" as UserRole,
     status: "active" as const,
   });
@@ -68,13 +73,33 @@ export function UsersPage() {
     return matchSearch && matchRole && matchStatus;
   });
 
+  const getDivisionName = (user: User) => {
+    if (user.divisionId === PROFESSIONAL_OTHER_DIVISION_ID) {
+      return "Other (Project/Booking)";
+    }
+    if (user.divisionId) {
+      return divisions.find((d) => d.id === user.divisionId)?.name || "";
+    }
+    return user.department || "";
+  };
+
   const openEdit = (user: User) => {
     setEditUser(user);
+    const knownDivisionId =
+      user.divisionId || divisions.find((d) => d.name === user.department)?.id;
+    const divisionId =
+      knownDivisionId ||
+      (user.role === "professional" &&
+      user.department === "Other (Project/Booking)"
+        ? PROFESSIONAL_OTHER_DIVISION_ID
+        : "");
     setForm({
       name: user.name,
       email: user.email,
       phone: user.phone,
       department: user.department,
+      divisionId,
+      profession: user.role === "professional" ? user.profession || "" : "",
       role: user.role as any,
       status: user.status as any,
     });
@@ -88,17 +113,62 @@ export function UsersPage() {
       email: "",
       phone: "",
       department: "",
+      divisionId: "",
+      profession: "",
       role: "user",
       status: "active",
     });
     setShowModal(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    const selectedDivision = divisions.find((d) => d.id === form.divisionId);
+    const needsDivision =
+      form.role === "supervisor" || form.role === "professional";
+    const needsProfession = form.role === "professional";
+    const isOtherDivision =
+      form.role === "professional" &&
+      form.divisionId === PROFESSIONAL_OTHER_DIVISION_ID;
+    const isKnownDivision = !!selectedDivision;
+    if (needsDivision && !isKnownDivision && !isOtherDivision) {
+      alert("Please select a division.");
+      return;
+    }
+    if (needsProfession && !form.profession.trim()) {
+      alert("Please enter profession.");
+      return;
+    }
+    const resolvedDepartment =
+      form.role === "admin" || form.role === "user"
+        ? ""
+        : form.role === "supervisor"
+          ? selectedDivision?.name || ""
+          : form.department.trim();
+    const resolvedDivisionId =
+      form.role === "supervisor" || form.role === "professional"
+        ? form.divisionId
+        : undefined;
+
     if (editUser) {
-      setUsers((prev) =>
-        prev.map((u) => (u.id === editUser.id ? { ...u, ...form } : u)),
-      );
+      try {
+        const saved = await updateLiveUser({
+          userId: editUser.id,
+          name: form.name,
+          email: form.email,
+          role: form.role,
+          phone: form.phone,
+          department: resolvedDepartment,
+          profession: form.role === "professional" ? form.profession : undefined,
+          divisionId: resolvedDivisionId,
+        });
+        setUsers((prev) =>
+          prev.map((u) => (u.id === editUser.id ? { ...u, ...saved } : u)),
+        );
+      } catch (err) {
+        console.error("Failed to update user", err);
+        alert(err instanceof Error ? err.message : "Failed to update user");
+        return;
+      }
       setActionMsg(t("users.userUpdated"));
     } else {
       const newUser: User = {
@@ -106,7 +176,9 @@ export function UsersPage() {
         name: form.name,
         email: form.email,
         phone: form.phone,
-        department: form.department,
+        department: resolvedDepartment,
+        divisionId: resolvedDivisionId,
+        profession: form.role === "professional" ? form.profession : undefined,
         role: form.role,
         status: form.status,
         password: "password123",
@@ -135,6 +207,20 @@ export function UsersPage() {
     );
     setActionMsg(t("users.userUpdated"));
     setTimeout(() => setActionMsg(""), 3000);
+  };
+
+  const handleDelete = async (userId: string) => {
+    if (!confirm(t("users.confirmDelete"))) return;
+    try {
+      await deleteUser(userId);
+      setUsers((prev) => prev.filter((u) => u.id !== userId));
+      setActionMsg(t("users.userDeleted"));
+      setTimeout(() => setActionMsg(""), 3000);
+    } catch (err) {
+      console.error("Failed to delete user", err);
+      setActionMsg(t("users.deleteFailed"));
+      setTimeout(() => setActionMsg(""), 3000);
+    }
   };
 
   return (
@@ -242,7 +328,16 @@ export function UsersPage() {
                   {t("users.id_col")}
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">
+                  Phone
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">
                   {t("users.department_col")}
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">
+                  Division
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">
+                  Profession
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase">
                   {t("users.role_col")}
@@ -296,7 +391,16 @@ export function UsersPage() {
                     {user.id}
                   </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">
-                    {user.department}
+                    {user.phone || "-"}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                    {user.department || "-"}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                    {getDivisionName(user) || "-"}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                    {user.role === "professional" ? (user.profession || "Not specified") : "-"}
                   </td>
                   <td className="px-4 py-3">
                     <RoleBadge role={user.role} />
@@ -323,6 +427,12 @@ export function UsersPage() {
                         {user.status === "active"
                           ? t("users.disable_btn")
                           : t("users.enable_btn")}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(user.id)}
+                        className="flex items-center gap-1 text-xs text-red-600 hover:underline font-medium"
+                      >
+                        <Trash2 size={12} /> {t("users.delete_btn")}
                       </button>
                     </div>
                   </td>
@@ -421,7 +531,22 @@ export function UsersPage() {
                   <select
                     value={form.role}
                     onChange={(e) =>
-                      setForm((f) => ({ ...f, role: e.target.value as any }))
+                      setForm((f) => {
+                        const nextRole = e.target.value as UserRole;
+                        if (
+                          nextRole !== "supervisor" &&
+                          nextRole !== "professional"
+                        ) {
+                          return {
+                            ...f,
+                            role: nextRole,
+                            divisionId: "",
+                            profession:
+                              nextRole === "professional" ? f.profession : "",
+                          };
+                        }
+                        return { ...f, role: nextRole };
+                      })
                     }
                     className="w-full px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none"
                   >
@@ -450,6 +575,73 @@ export function UsersPage() {
                   </select>
                 </div>
               </div>
+              {form.role === "supervisor" && (
+                <div>
+                  <label className="block text-xs font-medium text-[#0E2271] mb-1">
+                    {t("requests.selectDivision")}
+                  </label>
+                  <select
+                    value={form.divisionId}
+                    onChange={(e) => {
+                      const selected = divisions.find(
+                        (d) => d.id === e.target.value,
+                      );
+                      setForm((f) => ({
+                        ...f,
+                        divisionId: e.target.value,
+                        department: selected?.name || f.department,
+                      }));
+                    }}
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none"
+                  >
+                    <option value="">{t("requests.selectDivision")}</option>
+                    {divisions.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {form.role === "professional" && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-[#0E2271] mb-1">
+                      Profession
+                    </label>
+                    <input
+                      value={form.profession}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, profession: e.target.value }))
+                      }
+                      placeholder="e.g. Electrician, Plumber, Civil Engineer"
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none focus:border-[#1A3580]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-[#0E2271] mb-1">
+                      {t("requests.selectDivision")}
+                    </label>
+                    <select
+                      value={form.divisionId}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, divisionId: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none"
+                    >
+                      <option value="">{t("requests.selectDivision")}</option>
+                      {divisions.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                      <option value={PROFESSIONAL_OTHER_DIVISION_ID}>
+                        Other (Project/Booking)
+                      </option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 mt-6">

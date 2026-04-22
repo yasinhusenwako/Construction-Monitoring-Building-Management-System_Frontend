@@ -96,7 +96,7 @@ export function ProgressUpdatesPage() {
   }, [uid]);
 
   const activeTasks = allAssignedTasks.filter((m) =>
-    ["Assigned to Professional", "In Progress"].includes(m.status),
+    ["Assigned to Professionals", "In Progress"].includes(m.status),
   );
 
   const unreadNotifs = notifications.filter((n) => n.userId === uid && !n.read);
