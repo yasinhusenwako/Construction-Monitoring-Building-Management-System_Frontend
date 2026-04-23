@@ -6,6 +6,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { Booking } from "../../types/models";
 import { StatusBadge } from "../../components/common/StatusBadge";
+import { WorkflowVisualizer } from "../../components/common/WorkflowVisualizer";
 import {
   canViewItem,
   getUserFacingStatus,
@@ -209,6 +210,14 @@ export default function BookingDetailPage({ id }: { id: string }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-3">
+          <div className="bg-white rounded-xl border border-border p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-[#0E2271] mb-6">
+              {t("projects.workflowProgress") || "Workflow Progress"}
+            </h3>
+            <WorkflowVisualizer currentStatus={booking.status} module="booking" />
+          </div>
+        </div>
         <div className="lg:col-span-2 space-y-5">
           {/* Main Details Mega Card */}
           <div className="bg-white rounded-xl border border-border overflow-hidden shadow-sm">
@@ -290,46 +299,6 @@ export default function BookingDetailPage({ id }: { id: string }) {
               </div>
             </div>
 
-            <div className="h-px w-full bg-border" />
-
-            {/* Assignment Contacts */}
-            <div className="p-6">
-              <h3 className="text-sm font-bold text-[#0E2271] mb-5">
-                {t("projects.team") || "Assignment & Contacts"}
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="border border-border rounded-xl p-4 flex items-center gap-4 bg-white shadow-sm">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-[#1A3580] font-bold">
-                    {supervisorUser ? supervisorUser.name.charAt(0) : "?"}
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
-                      {t("requests.supervisor") || "Division Supervisor"}
-                    </p>
-                    <p className="font-bold text-[#0E2271]">
-                      {supervisorUser?.name ||
-                        t("maintenance.notAssigned") ||
-                        "Not Assigned"}
-                    </p>
-                  </div>
-                </div>
-                <div className="border border-border rounded-xl p-4 flex items-center gap-4 bg-white shadow-sm">
-                  <div className="w-10 h-10 rounded-full bg-[#1A4D2E]/10 flex items-center justify-center text-[#1A4D2E] font-bold">
-                    {assignee ? assignee.name.charAt(0) : "?"}
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
-                      {t("requests.professional") || "Professional"}
-                    </p>
-                    <p className="font-bold text-[#0E2271]">
-                      {assignee?.name ||
-                        t("maintenance.notAssigned") ||
-                        "Not Assigned"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
