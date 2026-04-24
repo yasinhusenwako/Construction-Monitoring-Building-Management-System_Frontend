@@ -1,9 +1,9 @@
 import BookingDetailPage from '@/views/bookings/BookingDetailPage';
 
 export const metadata = {
-  title: "Booking Details - CMBM",
+  title: "Booking Details - CSBM",
   description:
-    "View and manage booking details in the Construction Monitoring & Building Management System.",
+    "View and manage booking details in the Construction Supervision & Building Management System.",
 };
 
 export default async function Page({

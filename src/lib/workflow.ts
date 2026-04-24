@@ -211,7 +211,11 @@ export function canViewItem(
   if (!role) return false;
   if (role === "admin") return true;
   if (!userId) return false;
-  if (role === "user") return item.requestedBy === userId;
+  
+  // ANY role can view a request they created
+  if (item.requestedBy === userId) return true;
+
+  if (role === "user") return false; // already checked requestedBy
   if (role === "supervisor") return item.supervisorId === userId;
   return item.assignedTo === userId;
 }

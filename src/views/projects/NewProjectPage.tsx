@@ -669,10 +669,10 @@ export function NewProjectPage() {
     (c) => c.code === form.classification,
   );
   const inputClass = (field: string) =>
-    `w-full px-3 py-2.5 rounded-lg border text-sm outline-none transition-all ${
+    `w-full px-4 py-3 rounded-xl border bg-white/50 backdrop-blur-sm text-sm outline-none transition-all shadow-sm focus:bg-white focus:ring-2 focus:ring-[#1A3580]/20 ${
       errors[field]
-        ? "border-red-400 bg-red-50"
-        : "border-border bg-input-background focus:border-[#1A3580]"
+        ? "border-red-400 focus:border-red-500"
+        : "border-border focus:border-[#1A3580]"
     }`;
 
   // Auto-assignment info
@@ -739,7 +739,7 @@ export function NewProjectPage() {
     );
 
   return (
-    <div className="max-w-2xl mx-auto space-y-5">
+    <div className="max-w-3xl mx-auto space-y-6 modern-form">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
@@ -760,18 +760,18 @@ export function NewProjectPage() {
       </div>
 
       {/* Step Indicator */}
-      <div className="bg-white rounded-xl border border-border p-4 shadow-sm">
+      <div className="glass-card rounded-2xl p-5 shadow-modern">
         <div className="flex items-center">
           {steps.map((s, i) => (
             <div key={s} className="flex items-center flex-1">
               <div className="flex flex-col items-center">
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
+                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all shadow-sm ${
                     i < step
                       ? "bg-[#1A3580] border-[#1A3580] text-white"
                       : i === step
-                        ? "bg-[#F5B800] border-[#F5B800] text-gray-900"
-                        : "bg-gray-50 border-gray-200 text-gray-400"
+                        ? "bg-[#F5B800] border-[#F5B800] text-gray-900 step-indicator-dot active"
+                        : "bg-gray-50/80 border-gray-200 text-gray-400"
                   }`}
                 >
                   {i < step ? "✓" : i + 1}
@@ -793,7 +793,7 @@ export function NewProjectPage() {
       </div>
 
       {/* Form Body */}
-      <div className="bg-white rounded-xl border border-border p-6 shadow-sm">
+      <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative">
         {errors.submit && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2">
             {errors.submit}
@@ -821,10 +821,10 @@ export function NewProjectPage() {
                   key={cls.code}
                   type="button"
                   onClick={() => update("classification", cls.code)}
-                  className={`text-left border-2 rounded-xl p-4 transition-all ${
+                  className={`modern-card text-left border-2 rounded-2xl p-5 transition-all ${
                     form.classification === cls.code
-                      ? "border-[#1A3580] bg-[#EEF2FF]"
-                      : "border-border hover:border-[#1A3580]/40 hover:bg-secondary/50"
+                      ? "border-[#1A3580] bg-[#EEF2FF] selected"
+                      : "border-border hover:border-[#1A3580]/40 hover:bg-secondary/50 glass-effect"
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -880,7 +880,7 @@ export function NewProjectPage() {
             </div>
 
             {(form.classification === "A5" || form.classification === "A6") && (
-              <div className="space-y-3 border border-border rounded-xl p-4 bg-secondary/20">
+              <div className="space-y-4 border border-white/40 rounded-2xl p-5 bg-white/40 backdrop-blur-sm shadow-modern">
                 <p className="text-sm font-medium text-[#0E2271]">
                   Request Mode
                 </p>
@@ -888,10 +888,10 @@ export function NewProjectPage() {
                   <button
                     type="button"
                     onClick={() => update("requestMode", "new")}
-                    className={`py-2.5 px-3 rounded-lg text-sm font-medium border-2 transition-all text-left ${
+                    className={`py-3 px-4 rounded-xl text-sm font-medium border-2 transition-all text-left modern-card ${
                       form.requestMode === "new"
-                        ? "border-[#1A3580] bg-[#EEF2FF] text-[#1A3580]"
-                        : "border-border text-muted-foreground hover:border-gray-300"
+                        ? "border-[#1A3580] bg-[#EEF2FF] text-[#1A3580] selected"
+                        : "border-border text-muted-foreground hover:border-gray-300 bg-white/50"
                     }`}
                   >
                     New Project Request
@@ -902,10 +902,10 @@ export function NewProjectPage() {
                   <button
                     type="button"
                     onClick={() => update("requestMode", "existing")}
-                    className={`py-2.5 px-3 rounded-lg text-sm font-medium border-2 transition-all text-left ${
+                    className={`py-3 px-4 rounded-xl text-sm font-medium border-2 transition-all text-left modern-card ${
                       form.requestMode === "existing"
-                        ? "border-[#1A3580] bg-[#EEF2FF] text-[#1A3580]"
-                        : "border-border text-muted-foreground hover:border-gray-300"
+                        ? "border-[#1A3580] bg-[#EEF2FF] text-[#1A3580] selected"
+                        : "border-border text-muted-foreground hover:border-gray-300 bg-white/50"
                     }`}
                   >
                     Existing Project
@@ -1106,10 +1106,10 @@ export function NewProjectPage() {
                         key={cond}
                         type="button"
                         onClick={() => update("siteCondition", cond)}
-                        className={`py-2 px-3 rounded-lg text-xs font-medium border-2 transition-all text-left ${
+                        className={`py-2 px-3 rounded-xl text-xs font-medium border-2 transition-all text-left modern-card ${
                           form.siteCondition === cond
-                            ? "border-[#1A3580] bg-[#EEF2FF] text-[#1A3580]"
-                            : "border-border text-muted-foreground hover:border-gray-300"
+                            ? "border-[#1A3580] bg-[#EEF2FF] text-[#1A3580] selected"
+                            : "border-border text-muted-foreground hover:border-gray-300 bg-white/50"
                         }`}
                       >
                         {form.siteCondition === cond && "✓ "}
@@ -1255,10 +1255,10 @@ export function NewProjectPage() {
                         key={t}
                         type="button"
                         onClick={() => updateScope("buildingType", t)}
-                        className={`py-2 px-3 rounded-lg text-xs font-medium border-2 transition-all text-left ${
+                        className={`py-2 px-3 rounded-xl text-xs font-medium border-2 transition-all text-left modern-card ${
                           form.scope.buildingType === t
-                            ? "border-[#1A3580] bg-[#EEF2FF] text-[#1A3580]"
-                            : "border-border text-muted-foreground hover:border-gray-300"
+                            ? "border-[#1A3580] bg-[#EEF2FF] text-[#1A3580] selected"
+                            : "border-border text-muted-foreground hover:border-gray-300 bg-white/50"
                         }`}
                       >
                         {t}
@@ -1466,10 +1466,10 @@ export function NewProjectPage() {
                         key={t}
                         type="button"
                         onClick={() => updateScope("spaceType", t)}
-                        className={`py-2 rounded-lg text-xs font-medium border-2 transition-all ${
+                        className={`py-2.5 rounded-xl text-xs font-medium border-2 transition-all modern-card ${
                           form.scope.spaceType === t
-                            ? "border-[#1A3580] bg-[#EEF2FF] text-[#1A3580]"
-                            : "border-border text-muted-foreground hover:border-gray-300"
+                            ? "border-[#1A3580] bg-[#EEF2FF] text-[#1A3580] selected"
+                            : "border-border text-muted-foreground hover:border-gray-300 bg-white/50"
                         }`}
                       >
                         {t}
@@ -1561,10 +1561,10 @@ export function NewProjectPage() {
                         key={c}
                         type="button"
                         onClick={() => updateScope("projectContext", c)}
-                        className={`py-2 px-3 rounded-lg text-xs font-medium border-2 transition-all text-left ${
+                        className={`py-2.5 px-3 rounded-xl text-xs font-medium border-2 transition-all text-left modern-card ${
                           form.scope.projectContext === c
-                            ? "border-green-600 bg-green-50 text-green-800"
-                            : "border-border text-muted-foreground hover:border-gray-300"
+                            ? "border-[#1A3580] bg-[#EEF2FF] text-[#1A3580] selected"
+                            : "border-border text-muted-foreground hover:border-gray-300 bg-white/50"
                         }`}
                       >
                         {c}
@@ -1598,7 +1598,7 @@ export function NewProjectPage() {
                     value={form.scope.siteArea}
                     onChange={(e) => updateScope("siteArea", e.target.value)}
                     placeholder="e.g. 8000"
-                    className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none focus:border-[#1A3580]"
+                    className="w-full px-4 py-3 rounded-xl border bg-white/50 backdrop-blur-sm text-sm outline-none transition-all shadow-sm focus:bg-white focus:ring-2 focus:ring-[#1A3580]/20 border-border focus:border-[#1A3580]"
                   />
                 </div>
                 <div>
@@ -1628,7 +1628,7 @@ export function NewProjectPage() {
                           updateScope("otherA4Deliverable", e.target.value)
                         }
                         placeholder="Specify other deliverable"
-                        className="w-full px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none focus:border-[#1A3580]"
+                        className="w-full px-4 py-3 rounded-xl border bg-white/50 backdrop-blur-sm text-sm outline-none transition-all shadow-sm focus:bg-white focus:ring-2 focus:ring-[#1A3580]/20 border-border focus:border-[#1A3580]"
                       />
                       {errors.a4Deliverables && (
                         <p className="text-red-500 text-xs mt-1">
@@ -1658,10 +1658,10 @@ export function NewProjectPage() {
                         key={p}
                         type="button"
                         onClick={() => updateScope("boqPurpose", p)}
-                        className={`py-2 px-3 rounded-lg text-xs font-medium border-2 transition-all text-left ${
+                        className={`py-2.5 px-3 rounded-xl text-xs font-medium border-2 transition-all text-left modern-card ${
                           form.scope.boqPurpose === p
-                            ? "border-[#EA580C] bg-orange-50 text-[#EA580C]"
-                            : "border-border text-muted-foreground hover:border-gray-300"
+                            ? "border-[#EA580C] bg-orange-50 text-[#EA580C] selected"
+                            : "border-border text-muted-foreground hover:border-gray-300 bg-white/50"
                         }`}
                       >
                         {p}
@@ -1714,10 +1714,10 @@ export function NewProjectPage() {
                             toggleArray(form.scope.supervisionTypes, t),
                           )
                         }
-                        className={`w-full flex items-center gap-3 py-3 px-4 rounded-xl border-2 transition-all text-left ${
+                        className={`w-full flex items-center gap-3 py-3 px-4 rounded-xl border-2 transition-all text-left modern-card ${
                           form.scope.supervisionTypes.includes(t)
-                            ? "border-[#CC1F1A] bg-red-50 text-[#CC1F1A]"
-                            : "border-border text-foreground hover:border-gray-300"
+                            ? "border-[#CC1F1A] bg-red-50 text-[#CC1F1A] selected"
+                            : "border-border text-foreground hover:border-gray-300 bg-white/50"
                         }`}
                       >
                         <div
@@ -1779,10 +1779,10 @@ export function NewProjectPage() {
               }}
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
-              className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
+              className={`file-drop-zone border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer ${
                 dragOver
-                  ? "border-[#1A3580] bg-blue-50"
-                  : "border-border hover:border-[#1A3580]/50 hover:bg-secondary/50"
+                  ? "drag-over"
+                  : "border-border hover:border-[#1A3580]/50 hover:bg-secondary/50 bg-white/40 backdrop-blur-sm"
               }`}
               onClick={() => document.getElementById("file-input")?.click()}
             >
@@ -1967,7 +1967,7 @@ export function NewProjectPage() {
         {step > 0 && (
           <button
             onClick={() => setStep((s) => s - 1)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-lg border-2 border-[#1A3580] text-[#1A3580] text-sm font-semibold hover:bg-secondary transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 border-[#1A3580] text-[#1A3580] text-sm font-semibold hover:bg-[#1A3580] hover:text-white transition-all shadow-sm hover-lift"
           >
             <ArrowLeft size={16} /> {t("common.back")}
           </button>
@@ -1976,7 +1976,7 @@ export function NewProjectPage() {
         {step < steps.length - 1 ? (
           <button
             onClick={nextStep}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-white text-sm font-semibold transition-all"
+            className="flex items-center gap-2 px-6 py-3 rounded-xl text-white text-sm font-semibold transition-all shadow-premium hover-lift"
             style={{
               background: "linear-gradient(135deg, #0E2271, #1A3580)",
             }}
@@ -1987,7 +1987,7 @@ export function NewProjectPage() {
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-lg text-white text-sm font-semibold transition-all disabled:opacity-70"
+            className="flex items-center gap-2 px-6 py-3 rounded-xl text-white text-sm font-semibold transition-all shadow-premium hover-lift disabled:opacity-70 disabled:hover:transform-none"
             style={{
               background: "linear-gradient(135deg, #0E2271, #1A3580)",
             }}

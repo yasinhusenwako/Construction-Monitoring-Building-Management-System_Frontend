@@ -29,6 +29,7 @@ import {
 // Assets
 import logoImg from "../../assets/f90b53223fdaa6590fb74226dca7ff83be56c9f0.png";
 import heroImg from "../../assets/login-hero.png";
+import authBg from "../../assets/auth-bg.png";
 
 const REGISTER_STEPS = [
   "auth.stepPersonalInfo",
@@ -178,11 +179,20 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
         <motion.section
           layout
           transition={{ type: "spring", stiffness: 100, damping: 20 }}
-          className="hidden lg:flex lg:w-1/2 bg-[#1E3A8A] relative overflow-hidden flex-col p-12 text-white z-20 shadow-2xl"
+          className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col p-12 text-white z-20 shadow-2xl"
         >
-          {/* Decorative Background Elements */}
-          <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-blue-400/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-[-5%] left-[-5%] w-[300px] h-[300px] bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
+          {/* Background Image with Overlay */}
+          <div className="absolute inset-0 z-0">
+            <Image
+              src={authBg}
+              alt="Background"
+              fill
+              className="object-cover"
+              priority
+            />
+            <div className="absolute inset-0 bg-[#0E2271]/80 backdrop-blur-[2px]" />
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1E3A8A]/40 to-transparent" />
+          </div>
 
           <div className="relative z-10 flex flex-col h-full">
             {/* Logo Section */}
@@ -196,7 +206,7 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
               </div>
               <div>
                 <h2 className="text-2xl font-black tracking-tight leading-none uppercase">
-                  CMBMS
+                  INSA CSBMS
                 </h2>
                 <p className="text-[10px] text-blue-200 font-bold uppercase tracking-[0.2em] mt-1">
                   {t("auth.enterpriseSolution")}
@@ -238,28 +248,28 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
               </motion.div>
 
               <div className="grid grid-cols-1 gap-4 pt-4">
-                <div className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-sm">
-                  <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-300">
-                    <Building2 size={20} />
+                <div className="flex items-center gap-4 bg-white/10 border border-white/20 rounded-2xl p-5 backdrop-blur-md transition-all hover:bg-white/15">
+                  <div className="w-10 h-10 rounded-lg bg-blue-500/30 flex items-center justify-center text-blue-200">
+                    <Building2 size={22} />
                   </div>
                   <div>
                     <h4 className="text-sm font-bold">
                       {t("auth.projectOversight")}
                     </h4>
-                    <p className="text-[11px] text-blue-200">
+                    <p className="text-[11px] text-blue-100/70">
                       {t("auth.projectOversightDesc")}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-sm">
-                  <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center text-orange-400">
-                    <Calendar size={20} />
+                <div className="flex items-center gap-4 bg-white/10 border border-white/20 rounded-2xl p-5 backdrop-blur-md transition-all hover:bg-white/15">
+                  <div className="w-10 h-10 rounded-lg bg-orange-500/30 flex items-center justify-center text-orange-300">
+                    <Calendar size={22} />
                   </div>
                   <div>
                     <h4 className="text-sm font-bold">
                       {t("auth.spaceStrategy")}
                     </h4>
-                    <p className="text-[11px] text-blue-200">
+                    <p className="text-[11px] text-blue-100/70">
                       {t("auth.spaceStrategyDesc")}
                     </p>
                   </div>
@@ -267,16 +277,16 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
               </div>
             </div>
 
-            {/* Illustration Container */}
-            <div className="mt-auto pt-5 relative">
-              <div className="relative rounded-[2rem] overflow-hidden shadow-2xl border border-white/10 bg-[#0c1a3f]">
+            {/* Illustration Container - Adjusted for visibility */}
+            <div className="mt-auto pt-10 relative">
+              <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-white/20 bg-black/20 backdrop-blur-sm">
                 <Image
                   src={heroImg}
                   alt="Illustration"
-                  className="w-full h-auto object-cover opacity-90"
+                  className="w-full h-auto object-cover opacity-80 mix-blend-lighten"
                   priority
                 />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0e2271] to-transparent h-24" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0e2271]/80 to-transparent" />
               </div>
             </div>
           </div>
@@ -294,7 +304,7 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
                   className="w-full h-full object-contain"
                 />
               </div>
-              <span className="font-black text-[#1E3A8A]">CMBMS</span>
+              <span className="font-black text-[#1E3A8A]">INSA CSBMS</span>
             </div>
 
             <div className="flex items-center gap-4">

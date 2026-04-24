@@ -3,9 +3,14 @@ import { Providers } from "./providers";
 import "../styles/index.css";
 
 export const metadata: Metadata = {
-  title: "INSA Construction Monitoring and Building Management System",
+  title: "INSA Construction Supervision and Building Management System",
   description:
-    "Construction Monitoring and Building Management System for INSA Ethiopia.",
+    "Construction Supervision and Building Management System for INSA Ethiopia.",
+  icons: {
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+    apple: "/favicon.png",
+  },
 };
 
 export default function RootLayout({

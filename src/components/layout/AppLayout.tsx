@@ -247,12 +247,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       roles: ["admin", "user", "professional"],
       badge: currentUser?.role === "admin" ? maintenanceBadge : undefined,
     },
-    {
-      label: t("nav.progressUpdates"),
-      path: "/dashboard/updates",
-      icon: <Activity size={18} />,
-      roles: ["professional"],
-    },
+
     {
       label: t("nav.taskManagement"),
       path: "/dashboard/supervisor",
@@ -265,13 +260,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       icon: <Users size={18} />,
       roles: ["supervisor"],
     },
-    {
-      label: t("nav.notifications"),
-      path: "/dashboard/notifications",
-      icon: <Bell size={18} />,
-      roles: ["admin", "user", "supervisor", "professional"],
-      badge: unreadCount || undefined,
-    },
+
     {
       label:
         currentUser?.role === "admin"
@@ -451,7 +440,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-2 flex-1">
               <Building2 size={18} className="text-primary dark:text-primary" />
               <span className="text-primary dark:text-primary font-semibold text-sm hidden sm:block">
-                Construction Monitoring & BMS
+                Construction Supervision & BMS
               </span>
             </div>
 

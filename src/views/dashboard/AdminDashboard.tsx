@@ -339,7 +339,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
     const allData = [...projectData, ...bookingData, ...maintenanceData];
     exportToCSV(
       allData,
-      `INSA_CMBMS_Global_Report_${new Date().toISOString().split("T")[0]}`,
+      `INSA_CSBMS_Global_Report_${new Date().toISOString().split("T")[0]}`,
     );
   };
 

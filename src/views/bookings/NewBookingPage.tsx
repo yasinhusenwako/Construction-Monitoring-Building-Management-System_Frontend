@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { apiRequest } from "@/lib/api";
 import { fetchLiveBookings } from "@/lib/live-api";
+import { getSpaces } from "@/lib/spaces-storage";
 import { useLanguage } from "@/context/LanguageContext";
 import { DatePicker } from "@/components/common/DatePicker";
 import type { Booking, Space } from "@/types/models";
@@ -18,45 +19,6 @@ import {
   Building2,
   Calendar,
 } from "lucide-react";
-
-const spaces: Space[] = [
-  {
-    id: "SP-001",
-    name: "Executive Conference Hall",
-    capacity: 50,
-    type: "Conference Hall",
-    floor: "Floor 2",
-    building: "Block A",
-    available: true,
-  },
-  {
-    id: "SP-002",
-    name: "Tech Lab A",
-    capacity: 20,
-    type: "Lab",
-    floor: "Floor 3",
-    building: "Block B",
-    available: true,
-  },
-  {
-    id: "SP-003",
-    name: "Seminar Room 1",
-    capacity: 100,
-    type: "Conference Hall",
-    floor: "Ground Floor",
-    building: "Block C",
-    available: true,
-  },
-  {
-    id: "SP-004",
-    name: "Boardroom",
-    capacity: 12,
-    type: "Office",
-    floor: "Floor 1",
-    building: "Block A",
-    available: true,
-  },
-];
 
 // ─── B1: Office Space Allocation ─────────────────────────────────
 // Constants migrated inside component for translation support
@@ -133,6 +95,21 @@ export function NewBookingPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [liveBookings, setLiveBookings] = useState<Booking[]>([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState(true);
+  const [spaces, setSpaces] = useState<Space[]>([]);
+
+  // Load spaces from storage
+  useEffect(() => {
+    setSpaces(getSpaces());
+
+    // Listen for space updates
+    const handleSpacesUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent<Space[]>;
+      setSpaces(customEvent.detail);
+    };
+
+    window.addEventListener("spacesUpdated", handleSpacesUpdate);
+    return () => window.removeEventListener("spacesUpdated", handleSpacesUpdate);
+  }, []);
 
   useEffect(() => {
     const loadBookings = async () => {
@@ -355,6 +332,30 @@ export function NewBookingPage() {
     };
 
     try {
+      // Build structured amenities JSON to store ALL form intake data for full detail-page display
+      const structuredAmenities = isOfficeAllocation
+        ? JSON.stringify({
+            _bookingType: "B1",
+            department: b1Form.department,
+            reason: finalB1Reason,
+            officeType: b1Form.officeType,
+            contactName: b1Form.contactName,
+            contactPhone: b1Form.contactPhone,
+            specialReqs: finalB1Reqs,
+            notes: b1Form.notes,
+            seniorStaff: b1Form.seniorStaff,
+            supportStaff: b1Form.supportStaff,
+            preferredLocation: b1Form.preferredLocation,
+          })
+        : JSON.stringify({
+            _bookingType: "B2",
+            title: b2Form.title,
+            purpose: b2Form.purpose,
+            roomLayout: b2Form.layout,
+            amenities: b2Form.amenities,
+            endTime: b2Form.endTime,
+          });
+
       // Token is automatically sent via httpOnly cookie
       const response = await apiRequest<{ bookingId?: string }>(
         "/api/bookings",
@@ -371,9 +372,7 @@ export function NewBookingPage() {
             layout: isOfficeAllocation
               ? b1Form.preferredLocation || "Office"
               : selectedSpace?.name || b2Form.space || "Hall",
-            amenities: isOfficeAllocation
-              ? finalB1Reqs || "Office allocation"
-              : b2Form.amenities.join(", "),
+            amenities: structuredAmenities,
             divisionId: parsedDivisionId,
           },
         },
@@ -393,10 +392,10 @@ export function NewBookingPage() {
   };
 
   const inputClass = (field: string) =>
-    `w-full px-3 py-2.5 rounded-lg border text-sm outline-none transition-all ${
+    `w-full px-4 py-3 rounded-xl border bg-white/50 backdrop-blur-sm text-sm outline-none transition-all shadow-sm focus:bg-white focus:ring-2 focus:ring-green-600/20 ${
       errors[field]
-        ? "border-red-400 bg-red-50"
-        : "border-border bg-input-background focus:border-green-600"
+        ? "border-red-400 focus:border-red-500"
+        : "border-border focus:border-green-600"
     }`;
 
   if (submitted)
@@ -456,7 +455,7 @@ export function NewBookingPage() {
     );
 
   return (
-    <div className="max-w-2xl mx-auto space-y-5">
+    <div className="max-w-3xl mx-auto space-y-6 modern-form">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
@@ -484,18 +483,18 @@ export function NewBookingPage() {
 
       {/* Step Indicator */}
       {bookingType && (
-        <div className="bg-white rounded-xl border border-border p-4 shadow-sm">
+        <div className="glass-card rounded-2xl p-5 shadow-modern">
           <div className="flex items-center">
             {steps.map((s, i) => (
               <div key={s} className="flex items-center flex-1">
                 <div className="flex flex-col items-center">
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
+                    className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all shadow-sm ${
                       i < step
                         ? "bg-green-600 border-green-600 text-white"
                         : i === step
-                          ? "bg-[#F5B800] border-[#F5B800] text-gray-900"
-                          : "bg-gray-50 border-gray-200 text-gray-400"
+                          ? "bg-[#F5B800] border-[#F5B800] text-gray-900 step-indicator-dot active"
+                          : "bg-gray-50/80 border-gray-200 text-gray-400"
                     }`}
                   >
                     {i < step ? "✓" : i + 1}
@@ -517,7 +516,7 @@ export function NewBookingPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-border p-6 shadow-sm">
+      <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative">
         {/* ─── STEP 0: Classification ─────────────────── */}
         {step === 0 && (
           <div className="space-y-4">
@@ -537,10 +536,10 @@ export function NewBookingPage() {
                   setBookingType("B1");
                   setErrors({});
                 }}
-                className={`text-left border-2 rounded-xl p-5 transition-all ${
+                className={`modern-card text-left border-2 rounded-2xl p-5 transition-all ${
                   bookingType === "B1"
-                    ? "border-green-600 bg-green-50"
-                    : "border-border hover:border-green-300 hover:bg-green-50/50"
+                    ? "border-green-600 bg-green-50 selected"
+                    : "border-border hover:border-green-300 hover:bg-green-50/50 glass-effect"
                 }`}
               >
                 <div className="flex items-center justify-between mb-3">
@@ -579,10 +578,10 @@ export function NewBookingPage() {
                   setBookingType("B2");
                   setErrors({});
                 }}
-                className={`text-left border-2 rounded-xl p-5 transition-all ${
+                className={`modern-card text-left border-2 rounded-2xl p-5 transition-all ${
                   bookingType === "B2"
-                    ? "border-green-600 bg-green-50"
-                    : "border-border hover:border-green-300 hover:bg-green-50/50"
+                    ? "border-green-600 bg-green-50 selected"
+                    : "border-border hover:border-green-300 hover:bg-green-50/50 glass-effect"
                 }`}
               >
                 <div className="flex items-center justify-between mb-3">
@@ -686,10 +685,10 @@ export function NewBookingPage() {
                     key={r}
                     type="button"
                     onClick={() => updateB1("reason", r)}
-                    className={`py-2.5 rounded-lg text-xs font-medium border-2 transition-all ${
+                    className={`py-2.5 rounded-xl text-xs font-medium border-2 transition-all modern-card ${
                       b1Form.reason === r
-                        ? "border-green-600 bg-green-50 text-green-800"
-                        : "border-border text-muted-foreground hover:border-gray-300"
+                        ? "border-green-600 bg-green-50 text-green-800 selected"
+                        : "border-border text-muted-foreground hover:border-gray-300 bg-white/50"
                     }`}
                   >
                     {r}
@@ -722,10 +721,10 @@ export function NewBookingPage() {
                     key={tp}
                     type="button"
                     onClick={() => updateB1("officeType", tp)}
-                    className={`py-3 rounded-xl text-sm font-medium border-2 transition-all ${
+                    className={`py-3 rounded-xl text-sm font-medium border-2 transition-all modern-card ${
                       b1Form.officeType === tp
-                        ? "border-green-600 bg-green-50 text-green-800"
-                        : "border-border text-muted-foreground hover:border-gray-300"
+                        ? "border-green-600 bg-green-50 text-green-800 selected"
+                        : "border-border text-muted-foreground hover:border-gray-300 bg-white/50"
                     }`}
                   >
                     {tp === "Private Office" ? "🚪" : "🗃️"} {tp}
@@ -925,12 +924,12 @@ export function NewBookingPage() {
                       : updateB2("space", space.id)
                   }
                   disabled={!(space as any).available}
-                  className={`text-left border-2 rounded-xl p-4 transition-all ${
+                  className={`text-left border-2 rounded-2xl p-5 transition-all modern-card ${
                     !(space as any).available
-                      ? "opacity-50 cursor-not-allowed border-gray-200 bg-gray-50"
+                      ? "opacity-50 cursor-not-allowed border-gray-200 bg-gray-50/50"
                       : b2Form.space === space.id
-                        ? "border-green-500 bg-green-50"
-                        : "border-border hover:border-green-300 hover:bg-green-50/50"
+                        ? "border-green-500 bg-green-50 selected"
+                        : "border-border hover:border-green-300 hover:bg-green-50/50 glass-effect"
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -1128,10 +1127,10 @@ export function NewBookingPage() {
                     key={l}
                     type="button"
                     onClick={() => updateB2("layout", l)}
-                    className={`py-2 rounded-lg text-xs font-medium border-2 transition-all ${
+                    className={`py-3 rounded-xl text-xs font-medium border-2 transition-all modern-card ${
                       b2Form.layout === l
-                        ? "border-green-600 bg-green-50 text-green-800"
-                        : "border-border text-muted-foreground hover:border-gray-300"
+                        ? "border-green-600 bg-green-50 text-green-800 selected"
+                        : "border-border text-muted-foreground hover:border-gray-300 bg-white/50"
                     }`}
                   >
                     {l === "U-shape"
@@ -1219,7 +1218,7 @@ export function NewBookingPage() {
         {step > 0 && (
           <button
             onClick={() => setStep((s) => s - 1)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-lg border-2 border-green-600 text-green-700 text-sm font-semibold hover:bg-green-50"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 border-green-600 text-green-700 text-sm font-semibold hover:bg-green-600 hover:text-white transition-all shadow-sm hover-lift"
           >
             <ArrowLeft size={16} /> {t("action.back")}
           </button>
@@ -1237,7 +1236,7 @@ export function NewBookingPage() {
           return isLast ? (
             <button
               onClick={handleSubmit}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-lg text-white text-sm font-semibold"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl text-white text-sm font-semibold shadow-premium hover-lift"
               style={{
                 background: "linear-gradient(135deg, #1A4D2E, #16A34A)",
               }}
@@ -1248,7 +1247,7 @@ export function NewBookingPage() {
             <button
               onClick={nextStep}
               disabled={bookingType === "B2" && !canContinue}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-white text-sm font-semibold disabled:opacity-50"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl text-white text-sm font-semibold disabled:opacity-50 disabled:hover:transform-none shadow-premium hover-lift"
               style={{
                 background: "linear-gradient(135deg, #1A4D2E, #16A34A)",
               }}

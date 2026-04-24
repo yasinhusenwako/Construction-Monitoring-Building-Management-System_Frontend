@@ -170,7 +170,7 @@ export function MaintenancePage() {
     const token = sessionStorage.getItem("insa_token") ?? undefined;
     const requestModule = m.id.startsWith("PRJ-")
       ? "PROJECT"
-      : m.id.startsWith("BKG-")
+      : (m.id.startsWith("BKG-") || m.id.startsWith("ALLOC-"))
         ? "BOOKING"
         : "MAINTENANCE";
 
@@ -227,7 +227,7 @@ export function MaintenancePage() {
     const token = sessionStorage.getItem("insa_token") ?? undefined;
     const requestModule = m.id.startsWith("PRJ-")
       ? "PROJECT"
-      : m.id.startsWith("BKG-")
+      : (m.id.startsWith("BKG-") || m.id.startsWith("ALLOC-"))
         ? "BOOKING"
         : "MAINTENANCE";
 
@@ -506,6 +506,7 @@ export function MaintenancePage() {
                   setSelectedTech("");
                 }}
                 filteredProfessionals={getFilteredProfessionals(m)}
+                currentUserId={currentUser?.id}
               />
             );
           })

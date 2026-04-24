@@ -1,4 +1,4 @@
-# INSA BuildMS — Construction Monitoring & Building Management System
+# INSA BuildMS — Construction Supervision & Building Management System
 
 A comprehensive, modern, and scalable building management system for the Information Network Security Agency (INSA) of Ethiopia. Built with Next.js 15 (App Router), TypeScript, Tailwind CSS, and shadcn/ui.
 

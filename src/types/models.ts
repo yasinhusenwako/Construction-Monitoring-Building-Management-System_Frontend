@@ -91,6 +91,15 @@ export interface Booking {
   requirements: string;
   createdAt: string;
   updatedAt: string;
+  // Extended intake-form fields (populated from structured amenities JSON)
+  department?: string;       // B1: requesting department
+  contactPerson?: string;    // B1: contact name
+  contactPhone?: string;     // B1: contact phone
+  officeType?: string;       // B1: office type preference
+  notes?: string;            // B1: additional notes
+  seniorStaff?: string;      // B1: senior staff count
+  supportStaff?: string;     // B1: support staff count
+  roomLayout?: string;       // B2: room arrangement (U-shape/Theater etc.)
   materialCost?: number;
   laborCost?: number;
   totalCost?: number;
@@ -160,7 +169,7 @@ export interface Space {
 export const divisions: Division[] = [
   {
     id: "DIV-001",
-    name: "Electromechanical Maintenance Division",
+    name: "Power Supply Division",
     type: "power-supply",
     description: "Handles elevator, generators, UPS, AC, and water distillers",
     responsibilities: [
@@ -173,7 +182,7 @@ export const divisions: Division[] = [
     ],
     keywords: [
       "elevator", "lift", "generator", "ups", "ac",
-      "air conditioning", "hvac", "distiller", "power", "electromechanical",
+      "air conditioning", "hvac", "distiller", "power",
     ],
   },
   {

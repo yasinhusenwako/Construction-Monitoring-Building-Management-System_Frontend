@@ -388,7 +388,7 @@ export function DashboardPage() {
                 value={assignedTasks.length}
                 sub={t("dashboard.totalAssigned")}
                 color="#1A3580"
-                onClick={() => router.push("/dashboard/updates")}
+                onClick={() => router.push("/dashboard/maintenance")}
               />
               <StatCard
                 icon={<Activity size={20} />}
@@ -399,7 +399,7 @@ export function DashboardPage() {
                 }
                 sub={t("dashboard.currentlyWorking")}
                 color="#CC1F1A"
-                onClick={() => router.push("/dashboard/updates")}
+                onClick={() => router.push("/dashboard/maintenance")}
               />
               <StatCard
                 icon={<CheckCircle size={20} />}
@@ -417,7 +417,7 @@ export function DashboardPage() {
                 }
                 sub={t("dashboard.thisMonth")}
                 color="#16A34A"
-                onClick={() => router.push("/dashboard/updates")}
+                onClick={() => router.push("/dashboard/maintenance")}
               />
               <StatCard
                 icon={<Bell size={20} />}

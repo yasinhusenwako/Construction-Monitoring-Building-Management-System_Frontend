@@ -29,6 +29,11 @@ interface BackendProject {
   laborCost?: number;
   totalCost?: number;
   partsUsed?: string;
+  department?: string;
+  contactPerson?: string;
+  phone?: string;
+  siteCondition?: string;
+  scope?: any;
 }
 
 interface BackendBooking {
@@ -41,8 +46,8 @@ interface BackendBooking {
   assignedProfessionalId?: number | null;
   dateTime: string;
   capacity?: number;
-  layout?: string;
-  amenities?: string;
+  layout?: string;     // space name (B2) or preferred location (B1)
+  amenities?: string;  // may be structured JSON or plain text
   materialCost?: number;
   laborCost?: number;
   totalCost?: number;
@@ -52,7 +57,8 @@ interface BackendBooking {
 interface BackendMaintenance {
   id: number;
   maintenanceId: string;
-  category: string;
+  title?: string;      // user-typed request title
+  category: string;    // category (e.g. "Electrical Issue")
   description: string;
   status: BackendStatus;
   priority?: string;
@@ -61,6 +67,10 @@ interface BackendMaintenance {
   assignedProfessionalId?: number | null;
   divisionId?: number | null;
   location?: string;
+  building?: string;   // location compound part
+  floor?: string;      // floor selection
+  roomArea?: string;   // room/area description
+  block?: string;      // block selection
   createdAt?: string;
   materialCost?: number;
   laborCost?: number;
@@ -231,6 +241,17 @@ export async function fetchLiveProjects(
       laborCost: item.laborCost,
       totalCost: item.totalCost,
       partsUsed: item.partsUsed,
+      department: item.department,
+      contactPerson: item.contactPerson,
+      contactPhone: item.phone,
+      siteCondition: item.siteCondition,
+      scope: (function() {
+        if (typeof item.scope === 'string') {
+          try { return JSON.parse(item.scope); } catch (e) { return item.scope; }
+        }
+        return item.scope;
+      })(),
+      divisionId: item.divisionId ? `DIV-${String(item.divisionId).padStart(3, "0")}` : undefined,
     };
   });
 }
@@ -246,11 +267,58 @@ export async function fetchLiveBookings(
     const businessId = item.bookingId || `BKG-${item.id}`;
     cacheRequestDbId("BOOKING", businessId, item.id);
     const dt = item.dateTime ? new Date(item.dateTime) : new Date();
+
+    // Parse structured amenities JSON (stored by NewBookingPage for full field recovery)
+    let parsed: Record<string, any> = {};
+    const rawAmenities = item.amenities || "";
+    try {
+      if (rawAmenities.trim().startsWith("{")) {
+        parsed = JSON.parse(rawAmenities);
+      }
+    } catch { /* not JSON — legacy plain-text, keep as-is */ }
+
+    const bookingSubType: string = parsed._bookingType || "";
+    const isOffice = item.type?.toUpperCase() === "OFFICE";
+
+    // Derive title
+    let title = item.layout || "Booking";
+    if (bookingSubType === "B1") {
+      title = `Office Allocation - ${parsed.department || ""}`.trim().replace(/- $/, "");
+    } else if (bookingSubType === "B2") {
+      title = parsed.title || item.layout || "Hall Booking";
+    }
+
+    // Derive space (physical room/location)
+    const space = item.layout || "N/A";
+
+    // Derive purpose
+    let purpose = "N/A";
+    if (bookingSubType === "B1") {
+      purpose = parsed.reason || "Office Allocation";
+    } else if (bookingSubType === "B2") {
+      purpose = parsed.purpose || item.layout || "N/A";
+    } else {
+      purpose = isOffice ? "Office Allocation" : (item.layout || "N/A");
+    }
+
+    // Derive requirements (plain text for display)
+    let requirements = rawAmenities;
+    if (bookingSubType === "B1") {
+      requirements = parsed.specialReqs || "";
+    } else if (bookingSubType === "B2") {
+      const ams = parsed.amenities;
+      requirements = Array.isArray(ams) ? ams.join(", ") : (typeof ams === "string" ? ams : rawAmenities);
+    }
+
+    // End time (B2 stores it in parsed JSON; B1 defaults to same)
+    const startTime = dt.toISOString().slice(11, 16);
+    const endTime = parsed.endTime || startTime;
+
     return {
       id: businessId,
       dbId: item.id,
-      title: item.layout || "Booking",
-      space: item.layout || "N/A",
+      title,
+      space,
       type: parseBookingType(item.type),
       status: normalizeStatus(item.status) as Booking["status"],
       requestedBy: userId(item.requester),
@@ -261,11 +329,21 @@ export async function fetchLiveBookings(
         ? userId(item.assignedProfessionalId)
         : undefined,
       date: dt.toISOString().slice(0, 10),
-      startTime: dt.toISOString().slice(11, 16),
-      endTime: dt.toISOString().slice(11, 16),
+      startTime,
+      endTime,
       attendees: Number(item.capacity || 0),
-      purpose: item.layout || "N/A",
-      requirements: item.amenities || "",
+      purpose,
+      requirements,
+      // Extended B1 fields
+      department: parsed.department,
+      contactPerson: parsed.contactName,
+      contactPhone: parsed.contactPhone,
+      officeType: parsed.officeType,
+      notes: parsed.notes,
+      seniorStaff: parsed.seniorStaff,
+      supportStaff: parsed.supportStaff,
+      // Extended B2 fields
+      roomLayout: parsed.roomLayout,
       createdAt: toIsoDate(item.dateTime),
       updatedAt: toIsoDate(item.dateTime),
       materialCost: item.materialCost,
@@ -287,13 +365,18 @@ export async function fetchLiveMaintenance(
     const businessId = item.maintenanceId || `MNT-${item.id}`;
     cacheRequestDbId("MAINTENANCE", businessId, item.id);
     const loc = splitLocation(item.location);
+    // Prefer direct backend fields; fall back to parsed location string
+    const building = item.building || loc.building;
+    const floor    = item.floor    || loc.floor;
+    const roomArea = item.roomArea;
     return {
       id: businessId,
       dbId: item.id,
-      title: item.category || "Maintenance Request",
+      // Use the user-typed title if backend returns it; otherwise show category
+      title: item.title || item.category || "Maintenance Request",
       description: item.description || "",
       type: (item.category as Maintenance["type"]) || "General",
-      subType: item.category,
+      subType: item.category, // human-readable category from form
       status: normalizeStatus(item.status) as Maintenance["status"],
       priority: inferPriority(item.priority),
       requestedBy: userId(item.createdBy),
@@ -307,8 +390,9 @@ export async function fetchLiveMaintenance(
         ? `DIV-${String(item.divisionId).padStart(3, "0")}`
         : undefined,
       location: item.location || "N/A",
-      building: loc.building,
-      floor: loc.floor,
+      building,
+      floor,
+      roomArea,
       createdAt: toIsoDate(item.createdAt),
       updatedAt: toIsoDate(item.createdAt),
       notes: "",
@@ -836,5 +920,63 @@ export async function professionalUpdateTaskStatus(params: {
   await apiRequest(endpoint, {
     method: "PATCH",
     body: { status: params.status },
+  });
+}
+
+export async function updateProject(projectId: string, updates: any): Promise<void> {
+  const dbId = await resolveRequestDbId("PROJECT", projectId);
+  if (!dbId) throw new Error("Could not resolve project ID");
+  
+  await apiRequest(`/api/projects/${dbId}`, {
+    method: "PATCH",
+    body: {
+      projectId: updates.id,
+      title: updates.title,
+      description: updates.description,
+      classification: updates.classification,
+      location: updates.location,
+      budget: updates.budget,
+      startDate: updates.startDate,
+      endDate: updates.endDate,
+      department: updates.department,
+      contactPerson: updates.contactPerson,
+      phone: updates.contactPhone || updates.phone,
+      siteCondition: updates.siteCondition,
+      scope: updates.scope,
+      priority: updates.priority || "Medium",
+      status: updates.status || "Submitted",
+      divisionId: updates.divisionId ? (typeof updates.divisionId === 'string' ? Number(updates.divisionId.split("-")[1]) : updates.divisionId) : undefined,
+    },
+  });
+}
+
+export async function updateBooking(bookingId: string, updates: Partial<Booking>): Promise<void> {
+  const dbId = await resolveRequestDbId("BOOKING", bookingId);
+  if (!dbId) throw new Error("Could not resolve booking ID");
+  
+  await apiRequest(`/api/bookings/${dbId}`, {
+    method: "PATCH",
+    body: {
+      type: updates.type?.toUpperCase(),
+      dateTime: updates.date && updates.startTime ? `${updates.date}T${updates.startTime}:00` : undefined,
+      capacity: updates.attendees,
+      layout: updates.space,
+      amenities: updates.requirements,
+    },
+  });
+}
+
+export async function updateMaintenance(maintenanceId: string, updates: Partial<Maintenance>): Promise<void> {
+  const dbId = await resolveRequestDbId("MAINTENANCE", maintenanceId);
+  if (!dbId) throw new Error("Could not resolve maintenance ID");
+  
+  await apiRequest(`/api/maintenance/${dbId}`, {
+    method: "PATCH",
+    body: {
+      category: updates.category || updates.type,
+      description: updates.description,
+      priority: updates.priority,
+      location: updates.location,
+    },
   });
 }

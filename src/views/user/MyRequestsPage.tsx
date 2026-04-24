@@ -9,7 +9,7 @@ import {
   fetchLiveMaintenance,
   fetchLiveProjects,
 } from "@/lib/live-api";
-import { Search, Filter, FolderOpen, Calendar, Wrench, ExternalLink } from "lucide-react";
+import { Search, Filter, FolderOpen, Calendar, Wrench, ExternalLink, Pencil } from "lucide-react";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { getUserFacingStatus } from "@/lib/workflow";
 
@@ -46,6 +46,7 @@ export function MyRequestsPage() {
             status: p.status,
             date: p.createdAt,
             path: `/dashboard/projects/${p.id}`,
+            editPath: `/dashboard/projects/edit/${p.id}`,
           }));
 
         const myBookings = bookings
@@ -57,6 +58,7 @@ export function MyRequestsPage() {
             status: b.status,
             date: b.createdAt,
             path: `/dashboard/bookings/${b.id}`,
+            editPath: `/dashboard/bookings/edit/${b.id}`,
           }));
 
         const myMaintenance = maintenance
@@ -68,6 +70,7 @@ export function MyRequestsPage() {
             status: m.status,
             date: m.createdAt,
             path: `/dashboard/maintenance/${m.id}`,
+            editPath: `/dashboard/maintenance/edit/${m.id}`,
             priority: m.priority,
           }));
 
@@ -238,12 +241,22 @@ export function MyRequestsPage() {
                       />
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => router.push(req.path)}
-                        className="p-2 hover:bg-blue-50 rounded-lg text-blue-600 transition-colors inline-flex items-center gap-1 font-medium"
-                      >
-                        View <ExternalLink size={14} />
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => router.push(req.path)}
+                          className="p-2 hover:bg-blue-50 rounded-lg text-blue-600 transition-colors inline-flex items-center gap-1 font-medium"
+                        >
+                          {t('action.view')} <ExternalLink size={14} />
+                        </button>
+                        {req.status === "Submitted" && (
+                          <button
+                            onClick={() => router.push(req.editPath)}
+                            className="p-2 hover:bg-green-50 rounded-lg text-green-600 transition-colors inline-flex items-center gap-1 font-medium"
+                          >
+                            <Pencil size={14} /> {t('action.edit')}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))

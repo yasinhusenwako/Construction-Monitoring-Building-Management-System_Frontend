@@ -309,7 +309,7 @@ export function ProjectDetailPage() {
   };
 
   return (
-    <div className="space-y-5 max-w-5xl">
+    <div className="space-y-6 max-w-5xl modern-form">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-start gap-3">
@@ -351,7 +351,7 @@ export function ProjectDetailPage() {
       </div>
 
       {/* Workflow Progress */}
-      <div className="bg-white rounded-xl border border-border p-5 shadow-sm">
+      <div className="glass-card rounded-2xl p-6 shadow-modern">
         <h3 className="text-sm font-semibold text-[#0E2271] mb-6">
           {t("projects.workflowProgress")}
         </h3>
@@ -360,9 +360,9 @@ export function ProjectDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Main Details */}
-        <div className="lg:col-span-2 space-y-5">
+        <div className="lg:col-span-2 space-y-6">
           {/* Combined Card for Description, Details, Contact, and Scope */}
-          <div className="bg-white rounded-xl border border-border p-5 shadow-sm space-y-8">
+          <div className="glass-card rounded-2xl p-6 shadow-modern space-y-8">
             {/* Description Section */}
             <div>
               <h3 className="text-sm font-semibold text-[#0E2271] mb-3">
@@ -411,7 +411,7 @@ export function ProjectDetailPage() {
                     ? [
                         {
                           icon: <Info size={14} />,
-                          label: t("common.other"),
+                          label: "Site Condition",
                           value: project.siteCondition,
                         },
                       ]
@@ -499,52 +499,87 @@ export function ProjectDetailPage() {
 
             {/* Scope Details Section (Dynamic fields from form) */}
             {Boolean(
-              project.scope && Object.keys(project.scope).length > 0,
+              project.scope && Object.keys(project.scope as any).length > 0,
             ) && (
               <>
                 <div className="h-px bg-border w-full" />
                 <div>
                   <h3 className="text-sm font-semibold text-[#0E2271] mb-4">
-                    Scope & Form Details
+                    {project.classification
+                      ? `${project.classification} — Scope & Form Details`
+                      : "Scope & Form Details"}
                   </h3>
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-5">
-                    {Object.entries(project.scope as any).map(
+                  {(() => {
+                    // Human-readable label map for all scope fields
+                    const labelMap: Record<string, string> = {
+                      buildingType: "Building Type",
+                      floorArea: "Floor Area (m²)",
+                      disciplines: "Design Disciplines",
+                      interventionType: "Intervention Types",
+                      a2DesignScope: "Design Scope",
+                      a2Deliverables: "Deliverables",
+                      spaceType: "Space Type",
+                      userCapacity: "User Capacity",
+                      a3Deliverables: "Interior Deliverables",
+                      projectContext: "Project Context",
+                      siteArea: "Site Area (m²)",
+                      a4Deliverables: "Landscape Deliverables",
+                      boqPurpose: "BOQ Purpose",
+                      linkedProjectId: "Linked Project ID",
+                      supervisionTypes: "Supervision Types",
+                    };
+
+                    const entries = Object.entries(project.scope as Record<string, unknown>).filter(
                       ([key, value]) => {
-                        if (
-                          !value ||
-                          (Array.isArray(value) && value.length === 0)
-                        )
-                          return null;
-
-                        // Make the key readable camelCase -> Title Case
-                        const formattedKey = key
-                          .replace(/([A-Z])/g, " $1")
-                          .replace(/^./, (str) => str.toUpperCase());
-                        const displayValue = Array.isArray(value)
-                          ? value.join(", ")
-                          : String(value);
-
-                        return (
-                          <div key={key} className="flex items-start gap-3">
-                            <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-                              <Info
-                                size={14}
-                                className="text-muted-foreground"
-                              />
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">
-                                {formattedKey}
-                              </p>
-                              <p className="text-sm font-medium text-foreground">
-                                {displayValue}
-                              </p>
-                            </div>
-                          </div>
-                        );
+                        // Hide the "other*" helper fields — their values are already
+                        // merged into the main field before form submission
+                        if (/^other[A-Z]/.test(key)) return false;
+                        if (!value) return false;
+                        if (Array.isArray(value) && value.length === 0) return false;
+                        return true;
                       },
-                    )}
-                  </div>
+                    );
+
+                    if (entries.length === 0) return null;
+
+                    return (
+                      <div className="space-y-4">
+                        {entries.map(([key, value]) => {
+                          const label = labelMap[key] || key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase());
+                          const isArray = Array.isArray(value);
+
+                          return (
+                            <div key={key} className="flex items-start gap-3">
+                              <div className="w-8 h-8 rounded-full bg-[#EEF2FF] flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <Info size={14} className="text-[#1A3580]" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">
+                                  {label}
+                                </p>
+                                {isArray ? (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {(value as string[]).map((item) => (
+                                      <span
+                                        key={item}
+                                        className="text-xs bg-[#EEF2FF] text-[#1A3580] border border-[#1A3580]/20 px-2 py-0.5 rounded-full font-medium"
+                                      >
+                                        {item}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm font-medium text-foreground">
+                                    {String(value)}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               </>
             )}
@@ -644,7 +679,7 @@ export function ProjectDetailPage() {
                             value={materialCost}
                             onChange={(e) => setMaterialCost(e.target.value)}
                             placeholder="0.00"
-                            className="w-full pl-12 pr-3 py-2.5 rounded-lg border border-border bg-white text-sm outline-none focus:border-[#CC1F1A] focus:ring-2 focus:ring-[#CC1F1A]/20 transition-all font-medium"
+                            className="w-full pl-12 pr-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none focus:border-[#CC1F1A] focus:ring-2 focus:ring-[#CC1F1A]/20 transition-all shadow-sm font-medium"
                           />
                         </div>
                       </div>
@@ -674,7 +709,7 @@ export function ProjectDetailPage() {
                         value={partsUsed}
                         onChange={(e) => setPartsUsed(e.target.value)}
                         placeholder="e.g. Cement x10, Steel Rod x5, Paint x12"
-                        className="w-full px-4 py-2.5 rounded-lg border border-border bg-white text-sm outline-none focus:border-[#CC1F1A] focus:ring-2 focus:ring-[#CC1F1A]/20 transition-all font-medium"
+                        className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none focus:border-[#CC1F1A] focus:ring-2 focus:ring-[#CC1F1A]/20 transition-all shadow-sm font-medium"
                       />
                     </div>
                     {totalCost > 0 && (
@@ -690,7 +725,7 @@ export function ProjectDetailPage() {
                     )}
                     <button
                       onClick={handleSaveCost}
-                      className="mt-4 flex items-center justify-center gap-2 px-5 py-2.5 w-full sm:w-auto rounded-lg text-white text-sm font-bold shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+                      className="mt-4 flex items-center justify-center gap-2 px-6 py-3 w-full sm:w-auto rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all"
                       style={{ background: "#d97706" }}
                     >
                       <CheckCircle size={16} /> {t("maintenance.saveCostData")}
@@ -701,7 +736,7 @@ export function ProjectDetailPage() {
           </div>
 
           {/* Documents */}
-          <div className="bg-white rounded-xl border border-border p-5 shadow-sm">
+          <div className="glass-card rounded-2xl p-6 shadow-modern">
             <h3 className="text-sm font-semibold text-[#0E2271] mb-3">
               {t("projects.documents")}
             </h3>
@@ -734,7 +769,7 @@ export function ProjectDetailPage() {
           </div>
 
           {/* Timeline */}
-          <div className="bg-white rounded-xl border border-border p-5 shadow-sm">
+          <div className="glass-card rounded-2xl p-6 shadow-modern">
             <h3 className="text-sm font-semibold text-[#0E2271] mb-4">
               {t("projects.activityTimeline")}
             </h3>
@@ -778,8 +813,7 @@ export function ProjectDetailPage() {
         <div className="space-y-5">
           {/* Admin Actions */}
           {role === "admin" && (
-            <div className="bg-gradient-to-br from-[#ffffff] to-[#f4f7fc] rounded-xl border border-border p-5 shadow-md relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-1 h-full bg-[#0E2271]"></div>
+            <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative border-l-4 border-l-[#0E2271]">
               <h3 className="text-sm font-bold text-[#0E2271] mb-5 flex items-center gap-2">
                 <CheckCircle size={16} className="text-[#CC1F1A]" />
                 {t("projects.adminActions")}
@@ -812,7 +846,7 @@ export function ProjectDetailPage() {
                               t("requests.under_review"),
                             )
                           }
-                          className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
+                          className="w-full py-3 rounded-xl text-white text-sm font-bold transition-all shadow-premium hover-lift flex items-center justify-center gap-2"
                           style={{ background: "#7C3AED" }}
                         >
                           <User size={16} /> {t("projects.startReview")}
@@ -828,7 +862,7 @@ export function ProjectDetailPage() {
                       <select
                         value={selectedTech}
                         onChange={(e) => setSelectedTech(e.target.value)}
-                        className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
+                        className="w-full text-sm px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm outline-none focus:border-[#1A3580] shadow-sm transition-all"
                       >
                         <option value="">
                           {t("common.select") || "Select"}
@@ -868,7 +902,7 @@ export function ProjectDetailPage() {
                           },
                         ).finally(() => setBusy(false));
                       }}
-                      className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#1A3580] hover:bg-[#0E2271] transition-all disabled:opacity-40"
+                      className="w-full py-3 rounded-xl text-white text-sm font-bold bg-[#1A3580] shadow-premium hover-lift transition-all disabled:opacity-40 disabled:hover:transform-none"
                     >
                       {t("requests.assignToProfessional") ||
                         "Assign to Professional"}
@@ -886,7 +920,7 @@ export function ProjectDetailPage() {
                       onClick={() =>
                         handleAction("Approved", "admin", "Approved")
                       }
-                      className="w-full py-2.5 rounded-lg text-white text-sm font-bold bg-green-600 hover:bg-green-700 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                      className="w-full py-3 rounded-xl text-white text-sm font-bold bg-green-600 shadow-premium hover-lift transition-all flex items-center justify-center gap-2"
                     >
                       <ThumbsUp size={16} /> {t("projects.approveProject")}
                     </button>
@@ -894,7 +928,7 @@ export function ProjectDetailPage() {
                       onClick={() =>
                         handleAction("Rejected", "admin", "Rejected")
                       }
-                      className="w-full py-2.5 rounded-lg text-[#CC1F1A] text-sm font-bold border-2 border-[#CC1F1A] hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+                      className="w-full py-3 rounded-xl text-[#CC1F1A] text-sm font-bold border-2 border-[#CC1F1A] hover:bg-red-50 hover-lift transition-all flex items-center justify-center gap-2"
                     >
                       <ThumbsDown size={16} /> {t("projects.rejectProject")}
                     </button>
@@ -907,7 +941,7 @@ export function ProjectDetailPage() {
                       onClick={() =>
                         handleAction("Closed", "admin", t("requests.closed"))
                       }
-                      className="w-full py-2.5 rounded-lg text-white text-sm font-bold bg-slate-700 hover:bg-slate-800 transition-all shadow-sm flex items-center justify-center gap-2"
+                      className="w-full py-3 rounded-xl text-white text-sm font-bold bg-slate-700 shadow-premium hover-lift transition-all flex items-center justify-center gap-2"
                     >
                       <CheckCircle size={16} /> {t("projects.closeRequest")}
                     </button>
@@ -915,7 +949,7 @@ export function ProjectDetailPage() {
                 )}
 
                 {/* Note Field */}
-                <div className="p-4 bg-white rounded-lg border border-border shadow-sm mt-2">
+                <div className="glass-effect rounded-xl p-5 shadow-sm mt-3">
                   <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
                     {t("projects.addNote")}
                   </label>
@@ -924,7 +958,7 @@ export function ProjectDetailPage() {
                     onChange={(e) => setAdminNote(e.target.value)}
                     rows={3}
                     placeholder={t("projects.addCommentOrReason")}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none resize-none focus:ring-2 focus:ring-[#1A3580]/20 focus:border-[#1A3580] transition-all"
+                    className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none resize-none focus:ring-2 focus:ring-[#1A3580]/20 focus:border-[#1A3580] transition-all shadow-sm"
                   />
                   <button
                     onClick={() => {
@@ -932,7 +966,7 @@ export function ProjectDetailPage() {
                       setTimeout(() => setActionDone(""), 3000);
                       setAdminNote("");
                     }}
-                    className="w-full py-2 rounded-lg text-sm font-semibold border-2 border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50 mt-3 transition-all flex items-center justify-center gap-2"
+                    className="w-full py-3 rounded-xl text-sm font-bold border-2 border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50 mt-3 hover-lift transition-all flex items-center justify-center gap-2"
                   >
                     <MessageSquare size={14} /> {t("projects.sendToRequester")}
                   </button>
@@ -943,7 +977,7 @@ export function ProjectDetailPage() {
 
           {/* Professional Actions */}
           {canShowProfessionalActions && (
-              <div className="bg-white rounded-xl border border-border p-5 shadow-sm">
+              <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative border-l-4 border-l-[#EA580C]">
                 <h3 className="text-sm font-semibold text-[#0E2271] mb-4 flex items-center justify-between">
                   <span>{t("projects.professionalActions")}</span>
                   <button
@@ -985,7 +1019,7 @@ export function ProjectDetailPage() {
                           t("requests.in_progress"),
                         )
                       }
-                      className="w-full py-2 rounded-lg text-white text-sm font-semibold"
+                      className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all"
                       style={{ background: "#EA580C" }}
                     >
                       {t("maintenance.startWork")}
@@ -1000,7 +1034,7 @@ export function ProjectDetailPage() {
                           t("requests.completed"),
                         )
                       }
-                      className="w-full py-2 rounded-lg text-white text-sm font-semibold"
+                      className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all"
                       style={{ background: "#0D9488" }}
                     >
                       {t("maintenance.markFixed")}
@@ -1019,7 +1053,7 @@ export function ProjectDetailPage() {
             )}
 
           {/* Quick Info */}
-          <div className="bg-white rounded-xl border border-border p-4 shadow-sm">
+          <div className="glass-card rounded-2xl p-6 shadow-modern">
             <h3 className="text-sm font-semibold text-[#0E2271] mb-3">
               {t("projects.quickInfo")}
             </h3>

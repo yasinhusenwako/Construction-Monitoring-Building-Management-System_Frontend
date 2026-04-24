@@ -337,7 +337,7 @@ export function MaintenanceDetailPage() {
   };
 
   return (
-    <div className="space-y-5 max-w-5xl">
+    <div className="space-y-6 max-w-5xl modern-form">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-start gap-3">
           <button
@@ -366,8 +366,9 @@ export function MaintenanceDetailPage() {
                 size="md"
               />
               <PriorityBadge priority={maint.priority} />
-              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                {maint.type}
+              {/* Show human-readable category (subType) from the form */}
+              <span className="text-xs bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded-full font-medium">
+                {maint.subType || maint.type}
               </span>
             </div>
             <h1 className="text-[#0E2271]">{maint.title}</h1>
@@ -376,7 +377,7 @@ export function MaintenanceDetailPage() {
       </div>
 
       {/* Workflow Progress */}
-      <div className="bg-white rounded-xl border border-border p-5 shadow-sm">
+      <div className="glass-card rounded-2xl p-6 shadow-modern">
         <h3 className="text-sm font-semibold text-[#0E2271] mb-6">
           {t("maintenance.maintenanceWorkflow")}
         </h3>
@@ -384,9 +385,9 @@ export function MaintenanceDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 space-y-5">
+        <div className="lg:col-span-2 space-y-6">
           {/* Main Details Mega Card */}
-          <div className="bg-white rounded-xl border border-border overflow-hidden shadow-sm">
+          <div className="glass-card rounded-2xl overflow-hidden shadow-modern">
             {/* Description */}
             <div className="p-6">
               <h3 className="text-sm font-bold text-[#0E2271] mb-3">
@@ -424,7 +425,7 @@ export function MaintenanceDetailPage() {
                         {
                           icon: <MapPin size={16} />,
                           label:
-                            t("maintenance.placeholder.building") || "Building",
+                            t("maintenance.placeholder.building") || "Building / Site",
                           value: maint.building,
                         },
                       ]
@@ -432,7 +433,7 @@ export function MaintenanceDetailPage() {
                   {
                     icon: <MapPin size={16} />,
                     label: t("maintenance.floor_label"),
-                    value: maint.floor,
+                    value: maint.floor && maint.floor !== "N/A" ? maint.floor : null,
                   },
                   ...(maint.roomArea
                     ? [
@@ -440,6 +441,15 @@ export function MaintenanceDetailPage() {
                           icon: <MapPin size={16} />,
                           label: t("bookings.spaceKey") || "Room / Area",
                           value: maint.roomArea,
+                        },
+                      ]
+                    : []),
+                  ...(maint.subType && maint.subType !== maint.type
+                    ? [
+                        {
+                          icon: <FileText size={16} />,
+                          label: t("form.category") || "Issue Category",
+                          value: maint.subType,
                         },
                       ]
                     : []),
@@ -463,7 +473,9 @@ export function MaintenanceDetailPage() {
                     label: t("maintenance.resolved_label"),
                     value: maint.resolvedAt || t("maintenance.pending_label"),
                   },
-                ].map((item, idx) => (
+                ]
+                  .filter((item) => item.value)
+                  .map((item, idx) => (
                   <div key={idx} className="flex items-start gap-3">
                     <span className="text-[#CC1F1A] mt-0.5 flex-shrink-0 bg-red-50 p-1.5 rounded-md border border-red-100">
                       {item.icon}
@@ -669,7 +681,7 @@ export function MaintenanceDetailPage() {
                             value={materialCost}
                             onChange={(e) => setMaterialCost(e.target.value)}
                             placeholder="0.00"
-                            className="w-full pl-12 pr-3 py-2.5 rounded-lg border border-border bg-white text-sm outline-none focus:border-[#CC1F1A] focus:ring-2 focus:ring-[#CC1F1A]/20 transition-all font-medium"
+                            className="w-full pl-12 pr-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none focus:border-[#CC1F1A] focus:ring-2 focus:ring-[#CC1F1A]/20 transition-all shadow-sm font-medium"
                           />
                         </div>
                       </div>
@@ -686,7 +698,7 @@ export function MaintenanceDetailPage() {
                             value={laborCost}
                             onChange={(e) => setLaborCost(e.target.value)}
                             placeholder="0.00"
-                            className="w-full pl-12 pr-3 py-2.5 rounded-lg border border-border bg-white text-sm outline-none focus:border-[#CC1F1A] focus:ring-2 focus:ring-[#CC1F1A]/20 transition-all font-medium"
+                            className="w-full pl-12 pr-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none focus:border-[#CC1F1A] focus:ring-2 focus:ring-[#CC1F1A]/20 transition-all shadow-sm font-medium"
                           />
                         </div>
                       </div>
@@ -699,7 +711,7 @@ export function MaintenanceDetailPage() {
                         value={partsUsed}
                         onChange={(e) => setPartsUsed(e.target.value)}
                         placeholder="e.g. Capacitor x2, Fan Belt x1, Filter x3"
-                        className="w-full px-4 py-2.5 rounded-lg border border-border bg-white text-sm outline-none focus:border-[#CC1F1A] focus:ring-2 focus:ring-[#CC1F1A]/20 transition-all font-medium"
+                        className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none focus:border-[#CC1F1A] focus:ring-2 focus:ring-[#CC1F1A]/20 transition-all shadow-sm font-medium"
                       />
                     </div>
                     {totalCost > 0 && (
@@ -715,7 +727,7 @@ export function MaintenanceDetailPage() {
                     )}
                     <button
                       onClick={handleSaveCost}
-                      className="mt-4 flex items-center justify-center gap-2 px-5 py-2.5 w-full sm:w-auto rounded-lg text-white text-sm font-bold shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+                      className="mt-4 flex items-center justify-center gap-2 px-6 py-3 w-full sm:w-auto rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all"
                       style={{ background: "#d97706" }}
                     >
                       <CheckCircle size={16} /> {t("maintenance.saveCostData")}
@@ -787,8 +799,7 @@ export function MaintenanceDetailPage() {
         <div className="space-y-5">
           {/* Admin Actions */}
           {role === "admin" && (
-            <div className="bg-gradient-to-br from-[#ffffff] to-[#f4f7fc] rounded-xl border border-border p-5 shadow-md relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-1 h-full bg-[#0E2271]"></div>
+            <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative border-l-4 border-l-[#0E2271]">
               <h3 className="text-sm font-bold text-[#0E2271] mb-5 flex items-center gap-2">
                 <CheckCircle size={16} className="text-[#CC1F1A]" />
                 {t("maintenance.adminActions_label")}
@@ -816,7 +827,7 @@ export function MaintenanceDetailPage() {
                             t("requests.under_review"),
                           )
                         }
-                        className="w-full py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
+                        className="w-full py-3 rounded-xl text-white text-sm font-bold transition-all shadow-premium hover-lift flex items-center justify-center gap-2"
                         style={{ background: "#7C3AED" }}
                       >
                         <User size={16} /> {t("maintenance.startReview")}
@@ -862,7 +873,7 @@ export function MaintenanceDetailPage() {
                             onChange={(e) => {
                               setSelectedDivisionId(e.target.value);
                             }}
-                            className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
+                            className="w-full text-sm px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm outline-none focus:border-[#1A3580] shadow-sm transition-all"
                           >
                             <option value="">
                               {t("requests.selectDivision")}
@@ -888,7 +899,7 @@ export function MaintenanceDetailPage() {
                               },
                             ).finally(() => setBusy(false));
                           }}
-                          className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#1A3580] hover:bg-[#0E2271] transition-all disabled:opacity-40"
+                          className="w-full py-3 rounded-xl text-white text-sm font-bold bg-[#1A3580] shadow-premium hover-lift transition-all disabled:opacity-40 disabled:hover:transform-none"
                         >
                           {t("maintenance.assignSupervisor") ||
                             "Process Assignment"}
@@ -904,7 +915,7 @@ export function MaintenanceDetailPage() {
                           <select
                             value={selectedTech}
                             onChange={(e) => setSelectedTech(e.target.value)}
-                            className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
+                            className="w-full text-sm px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm outline-none focus:border-[#1A3580] shadow-sm transition-all"
                           >
                             <option value="">
                               {t("common.select") || "Select"}
@@ -932,7 +943,7 @@ export function MaintenanceDetailPage() {
                               },
                             ).finally(() => setBusy(false));
                           }}
-                          className="w-full py-2 rounded-lg text-white text-xs font-semibold bg-[#1A3580] hover:bg-[#0E2271] transition-all disabled:opacity-40"
+                          className="w-full py-3 rounded-xl text-white text-sm font-bold bg-[#1A3580] shadow-premium hover-lift transition-all disabled:opacity-40 disabled:hover:transform-none"
                         >
                           {t("requests.assignDirect") || "Assign Direct"}
                         </button>
@@ -953,7 +964,7 @@ export function MaintenanceDetailPage() {
                           t("requests.approved"),
                         )
                       }
-                      className="w-full py-2.5 rounded-lg text-white text-sm font-bold bg-green-600 hover:bg-green-700 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                      className="w-full py-3 rounded-xl text-white text-sm font-bold bg-green-600 shadow-premium hover-lift transition-all flex items-center justify-center gap-2"
                     >
                       <CheckCircle size={16} />{" "}
                       {t("maintenance.approveCompletion")}
@@ -966,7 +977,7 @@ export function MaintenanceDetailPage() {
                           t("requests.rejected"),
                         )
                       }
-                      className="w-full py-2.5 rounded-lg text-[#CC1F1A] text-sm font-bold border-2 border-[#CC1F1A] hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+                      className="w-full py-3 rounded-xl text-[#CC1F1A] text-sm font-bold border-2 border-[#CC1F1A] hover:bg-red-50 hover-lift transition-all flex items-center justify-center gap-2"
                     >
                       <ArrowLeft size={16} /> {t("maintenance.rejectToDiv")}
                     </button>
@@ -978,7 +989,7 @@ export function MaintenanceDetailPage() {
                       onClick={() =>
                         handleAction("Closed", "admin", t("status.closed"))
                       }
-                      className="w-full py-2.5 rounded-lg text-white text-sm font-bold bg-slate-700 hover:bg-slate-800 transition-all shadow-sm flex items-center justify-center gap-2"
+                      className="w-full py-3 rounded-xl text-white text-sm font-bold bg-slate-700 shadow-premium hover-lift transition-all flex items-center justify-center gap-2"
                     >
                       <CheckCircle size={16} />{" "}
                       {t("maintenance.verifyAndClose")}
@@ -996,7 +1007,7 @@ export function MaintenanceDetailPage() {
                     onChange={(e) => setAdminNote(e.target.value)}
                     rows={3}
                     placeholder={t("projects.addCommentOrReason")}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none resize-none focus:ring-2 focus:ring-[#1A3580]/20 focus:border-[#1A3580] transition-all"
+                    className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none resize-none focus:ring-2 focus:ring-[#1A3580]/20 focus:border-[#1A3580] transition-all shadow-sm"
                   />
                   <button
                     onClick={() => {
@@ -1021,8 +1032,7 @@ export function MaintenanceDetailPage() {
 
           {/* Supervisor Actions */}
           {role === "supervisor" && maint.supervisorId === currentUser?.id && (
-            <div className="bg-gradient-to-br from-[#ffffff] to-[#fff5f5] rounded-xl border border-border p-5 shadow-md relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-1 h-full bg-[#CC1F1A]"></div>
+            <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative border-l-4 border-l-[#CC1F1A]">
               <h3 className="text-sm font-bold text-[#CC1F1A] mb-5 flex items-center gap-2">
                 <CheckCircle size={16} />
                 {t("maintenance.supervisorActions")}
@@ -1047,7 +1057,7 @@ export function MaintenanceDetailPage() {
                     <select
                       value={selectedTech}
                       onChange={(e) => setSelectedTech(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all"
+                      className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all shadow-sm"
                     >
                       <option value="">Select professional...</option>
                       {systemUsers
@@ -1080,7 +1090,7 @@ export function MaintenanceDetailPage() {
                         );
                       }}
                       disabled={!selectedTech}
-                      className="w-full py-2.5 rounded-lg text-sm font-bold bg-[#CC1F1A] text-white hover:bg-[#aa1814] disabled:bg-red-200 disabled:text-red-400 disabled:cursor-not-allowed transition-all shadow-sm flex items-center justify-center gap-2"
+                      className="w-full py-3 rounded-xl text-sm font-bold bg-[#CC1F1A] text-white shadow-premium hover-lift transition-all disabled:bg-red-200 disabled:text-red-400 disabled:hover:transform-none flex items-center justify-center gap-2"
                     >
                       <UserPlus size={16} />{" "}
                       {t("maintenance.assignProfessional")}
@@ -1098,7 +1108,7 @@ export function MaintenanceDetailPage() {
                         setSelectedTaskType(e.target.value);
                         setSelectedTech(""); // Reset professional selection when profession changes
                       }}
-                      className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all"
+                      className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all shadow-sm"
                     >
                       <option value="">Select profession type...</option>
                       <option value="Electrician">Electrician</option>
@@ -1119,7 +1129,7 @@ export function MaintenanceDetailPage() {
                         <select
                           value={selectedTech}
                           onChange={(e) => setSelectedTech(e.target.value)}
-                          className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all"
+                          className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all shadow-sm"
                         >
                           <option value="">Select professional...</option>
                           {systemUsers
@@ -1162,7 +1172,7 @@ export function MaintenanceDetailPage() {
                         );
                       }}
                       disabled={!selectedTech || !selectedTaskType}
-                      className="w-full py-2.5 rounded-lg text-sm font-bold bg-[#CC1F1A] text-white hover:bg-[#aa1814] disabled:bg-red-200 disabled:text-red-400 disabled:cursor-not-allowed transition-all shadow-sm flex items-center justify-center gap-2"
+                      className="w-full py-3 rounded-xl text-sm font-bold bg-[#CC1F1A] text-white shadow-premium hover-lift transition-all disabled:bg-red-200 disabled:text-red-400 disabled:hover:transform-none flex items-center justify-center gap-2"
                     >
                       <UserPlus size={16} />{" "}
                       {t("maintenance.assignProfessional")}
@@ -1183,7 +1193,7 @@ export function MaintenanceDetailPage() {
                           t("requests.reviewed"),
                         )
                       }
-                      className="w-full py-2.5 rounded-lg text-white text-sm font-bold hover:shadow-md transition-all flex items-center justify-center gap-2"
+                      className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all flex items-center justify-center gap-2"
                       style={{ background: "#0891B2" }}
                     >
                       <CheckCircle size={16} /> {t("maintenance.submitToAdmin")}
@@ -1192,7 +1202,7 @@ export function MaintenanceDetailPage() {
                 )}
 
                 {/* Note Field */}
-                <div className="p-4 bg-white rounded-lg border border-border shadow-sm mt-2">
+                <div className="glass-effect rounded-xl p-5 shadow-sm mt-3">
                   <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
                     {t("maintenance.supervisorActions")} Note
                   </label>
@@ -1201,7 +1211,7 @@ export function MaintenanceDetailPage() {
                     onChange={(e) => setTechNote(e.target.value)}
                     rows={3}
                     placeholder={t("projects.addCommentOrReason")}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none resize-none focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all"
+                    className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none resize-none focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all shadow-sm"
                   />
                   <button
                     onClick={() => {
@@ -1215,7 +1225,7 @@ export function MaintenanceDetailPage() {
                       );
                       setTechNote("");
                     }}
-                    className="w-full py-2 rounded-lg text-sm font-semibold border-2 border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50 mt-3 transition-all flex items-center justify-center gap-2"
+                    className="w-full py-3 rounded-xl text-sm font-bold border-2 border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50 mt-3 hover-lift transition-all flex items-center justify-center gap-2"
                   >
                     <MessageSquare size={14} /> {t("maintenance.saveNote")}
                   </button>
@@ -1226,8 +1236,7 @@ export function MaintenanceDetailPage() {
 
           {/* Professional Actions */}
           {role === "professional" && maint.assignedTo === currentUser?.id && (
-            <div className="bg-gradient-to-br from-[#ffffff] to-[#fffbf0] rounded-xl border border-border p-5 shadow-md relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-1 h-full bg-[#EA580C]"></div>
+            <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative border-l-4 border-l-[#EA580C]">
               <h3 className="text-sm font-bold text-[#EA580C] mb-5 flex items-center gap-2">
                 <CheckCircle size={16} />
                 {t("maintenance.updateStatus")}
@@ -1255,7 +1264,7 @@ export function MaintenanceDetailPage() {
                           t("requests.in_progress"),
                         )
                       }
-                      className="w-full py-2.5 rounded-lg text-white text-sm font-bold hover:shadow-md transition-all flex items-center justify-center gap-2"
+                      className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all flex items-center justify-center gap-2"
                       style={{ background: "#EA580C" }}
                     >
                       <Clock size={16} /> {t("maintenance.startRepair")}
@@ -1275,7 +1284,7 @@ export function MaintenanceDetailPage() {
                           t("requests.completed"),
                         )
                       }
-                      className="w-full py-2.5 rounded-lg text-white text-sm font-bold hover:shadow-md transition-all flex items-center justify-center gap-2"
+                      className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all flex items-center justify-center gap-2"
                       style={{ background: "#0D9488" }}
                     >
                       <CheckCircle size={16} /> Mark as Completed
@@ -1284,7 +1293,7 @@ export function MaintenanceDetailPage() {
                 )}
 
                 {/* Note Field */}
-                <div className="p-4 bg-white rounded-lg border border-border shadow-sm mt-2">
+                <div className="glass-effect rounded-xl p-5 shadow-sm mt-3">
                   <label className="block text-xs font-semibold text-[#EA580C] mb-2 uppercase tracking-wide">
                     {t("maintenance.technicianNote")}
                   </label>
@@ -1293,7 +1302,7 @@ export function MaintenanceDetailPage() {
                     onChange={(e) => setTechNote(e.target.value)}
                     rows={3}
                     placeholder="Add work notes, findings, or parts used..."
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none resize-none focus:ring-2 focus:ring-[#EA580C]/20 focus:border-[#EA580C] transition-all"
+                    className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none resize-none focus:ring-2 focus:ring-[#EA580C]/20 focus:border-[#EA580C] transition-all shadow-sm"
                   />
                   <button
                     onClick={() => {
@@ -1307,7 +1316,7 @@ export function MaintenanceDetailPage() {
                       );
                       setTechNote("");
                     }}
-                    className="w-full py-2 rounded-lg text-sm font-semibold border-2 border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50 mt-3 transition-all flex items-center justify-center gap-2"
+                    className="w-full py-3 rounded-xl text-sm font-bold border-2 border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50 mt-3 hover-lift transition-all flex items-center justify-center gap-2"
                   >
                     <MessageSquare size={14} /> {t("maintenance.saveNote")}
                   </button>
@@ -1317,7 +1326,7 @@ export function MaintenanceDetailPage() {
           )}
 
           {/* Quick Info */}
-          <div className="bg-white rounded-xl border border-border p-4 shadow-sm">
+          <div className="glass-card rounded-2xl p-6 shadow-modern">
             <h3 className="text-sm font-semibold text-[#0E2271] mb-3">
               {t("maintenance.ticketInfo")}
             </h3>

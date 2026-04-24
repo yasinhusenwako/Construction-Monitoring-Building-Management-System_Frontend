@@ -53,7 +53,7 @@ export function ForgotPasswordPage() {
             className="w-10 h-10 object-contain"
           />
           <div>
-            <p className="font-bold text-[#0E2271]">INSA CMBMS</p>
+            <p className="font-bold text-[#0E2271]">INSA CSBMS</p>
             <p className="text-xs text-muted-foreground">Password Recovery</p>
           </div>
         </div>

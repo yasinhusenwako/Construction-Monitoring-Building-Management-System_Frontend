@@ -36,7 +36,7 @@ const mapMaintenanceType = (category: string): Maintenance["type"] => {
 const mapDivisionId = (type: Maintenance["type"]): string => {
   switch (type) {
     case "HVAC":
-      return "DIV-001"; // Power Supply / Electromechanical
+      return "DIV-001"; // Power Supply Division
     case "Electrical":
     case "Plumbing":
     case "Structural":
@@ -371,10 +371,10 @@ export function NewMaintenancePage() {
   };
 
   const inputClass = (field: string) =>
-    `w-full px-3 py-2.5 rounded-lg border text-sm outline-none transition-all ${
+    `w-full px-4 py-3 rounded-xl border bg-white/50 backdrop-blur-sm text-sm outline-none transition-all shadow-sm focus:bg-white focus:ring-2 focus:ring-[#CC1F1A]/20 ${
       errors[field]
-        ? "border-red-400 bg-red-50"
-        : "border-border bg-input-background focus:border-[#cc1F1A]"
+        ? "border-red-400 focus:border-red-500"
+        : "border-border focus:border-[#CC1F1A]"
     }`;
 
   if (submitted) {
@@ -419,7 +419,7 @@ export function NewMaintenancePage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-5">
+    <div className="max-w-3xl mx-auto space-y-6 modern-form">
       <div className="flex items-center gap-3">
         <button
           onClick={() => router.push("/dashboard/maintenance")}
@@ -440,18 +440,18 @@ export function NewMaintenancePage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-border p-4 shadow-sm">
+      <div className="glass-card rounded-2xl p-5 shadow-modern">
         <div className="flex items-center">
           {steps.map((s, i) => (
             <div key={s} className="flex items-center flex-1">
               <div className="flex flex-col items-center">
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
+                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all shadow-sm ${
                     i < step
                       ? "bg-[#CC1F1A] border-[#CC1F1A] text-white"
                       : i === step
-                        ? "bg-[#F5B800] border-[#F5B800] text-gray-900"
-                        : "bg-gray-50 border-gray-200 text-gray-400"
+                        ? "bg-[#F5B800] border-[#F5B800] text-gray-900 step-indicator-dot active"
+                        : "bg-gray-50/80 border-gray-200 text-gray-400"
                   }`}
                 >
                   {i < step ? "✓" : i + 1}
@@ -476,7 +476,7 @@ export function NewMaintenancePage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-border p-6 shadow-sm">
+      <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative">
         {errors.submit && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2">
             {errors.submit}
@@ -561,10 +561,10 @@ export function NewMaintenancePage() {
                     key={p.value}
                     type="button"
                     onClick={() => update("priority", p.value)}
-                    className={`border-2 rounded-xl p-3 text-left transition-all ${
+                    className={`modern-card border-2 rounded-2xl p-4 text-left transition-all ${
                       form.priority === p.value
-                        ? `${p.border} ${p.bg}`
-                        : "border-border hover:border-gray-300"
+                        ? `${p.border} ${p.bg} selected`
+                        : "border-border hover:border-gray-300 glass-effect"
                     }`}
                   >
                     <p
@@ -678,10 +678,10 @@ export function NewMaintenancePage() {
                 setDragOver(false);
                 addFiles(Array.from(e.dataTransfer.files));
               }}
-              className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
+              className={`file-drop-zone border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer ${
                 dragOver
-                  ? "border-[#CC1F1A] bg-red-50"
-                  : "border-border hover:border-[#CC1F1A]/50 hover:bg-secondary/50"
+                  ? "drag-over"
+                  : "border-border hover:border-[#CC1F1A]/50 hover:bg-secondary/50 bg-white/40 backdrop-blur-sm"
               }`}
               onClick={() => document.getElementById("mnt-upload")?.click()}
             >
@@ -808,7 +808,7 @@ export function NewMaintenancePage() {
         {step > 0 && (
           <button
             onClick={() => setStep((s) => s - 1)}
-            className="px-5 py-2.5 rounded-lg border-2 border-border text-sm font-semibold text-muted-foreground hover:bg-secondary"
+            className="px-6 py-3 rounded-xl border-2 border-border text-sm font-semibold text-muted-foreground hover:bg-secondary hover-lift"
           >
             ← {t("action.back")}
           </button>
@@ -817,16 +817,16 @@ export function NewMaintenancePage() {
         {step < steps.length - 1 ? (
           <button
             onClick={nextStep}
-            className="px-6 py-2.5 rounded-lg text-white text-sm font-semibold transition-all bg-gradient-to-br from-[#7A0E0E] to-[#CC1F1A]"
+            className="px-8 py-3 rounded-xl text-white text-sm font-semibold transition-all bg-gradient-to-br from-[#7A0E0E] to-[#CC1F1A] shadow-premium hover-lift"
           >
             {t("action.next")}{" "}
-            <ChevronRight size={14} className="inline-block ml-1" />
+            <ChevronRight size={16} className="inline-block ml-1" />
           </button>
         ) : (
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="px-6 py-2.5 rounded-lg text-white text-sm font-semibold disabled:opacity-50 transition-all bg-gradient-to-br from-[#7A0E0E] to-[#CC1F1A]"
+            className="px-8 py-3 rounded-xl text-white text-sm font-semibold disabled:opacity-50 disabled:hover:transform-none transition-all bg-gradient-to-br from-[#7A0E0E] to-[#CC1F1A] shadow-premium hover-lift"
           >
             {loading ? t("message.loading") : t("action.submit")}
           </button>

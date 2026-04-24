@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { CheckCircle, Copy, ExternalLink, MapPin, User } from "lucide-react";
+import { CheckCircle, Copy, ExternalLink, MapPin, User, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   PriorityBadge,
@@ -32,6 +32,7 @@ export function MaintenanceListItem({
   onConfirmAssign,
   onCancelAssign,
   filteredProfessionals,
+  currentUserId,
 }: {
   m: Maintenance;
   role?: string;
@@ -53,6 +54,7 @@ export function MaintenanceListItem({
   onConfirmAssign: (m: Maintenance) => void;
   onCancelAssign: () => void;
   filteredProfessionals: UserType[];
+  currentUserId?: string;
 }) {
   const { t } = useLanguage();
   const router = useRouter();
@@ -103,25 +105,15 @@ export function MaintenanceListItem({
           </div>
         </div>
         <div className="flex flex-col gap-2 items-end">
-          {/* Admin: Start Review */}
-          {role === "admin" && m.status === "Submitted" && (
-            <button
-              onClick={() => onStartReview(m)}
-              className="text-xs bg-[#7C3AED] text-white px-3 py-1 rounded font-bold uppercase tracking-wider"
-            >
-              {t("maintenance.startReview")}
-            </button>
+          {role === "user" && m.status === "Submitted" && m.requestedBy === currentUserId && (
+             <button
+               onClick={() => router.push(`/dashboard/maintenance/edit/${m.id}`)}
+               className="text-xs border border-green-600 text-green-600 px-3 py-1 rounded font-bold uppercase hover:bg-green-50 flex items-center gap-1"
+             >
+               <Pencil size={12} /> {t("action.edit")}
+             </button>
           )}
 
-          {/* Admin: Assign Supervisor */}
-          {role === "admin" && m.status === "Under Review" && (
-            <button
-              onClick={() => onAssign(m.id)}
-              className="text-xs border border-[#1A3580] text-[#1A3580] px-2 py-1 rounded hover:bg-blue-50"
-            >
-              {t("maintenance.assignSupervisor")}
-            </button>
-          )}
 
           {/* Supervisor: Create WorkOrder */}
           {role === "supervisor" && m.status === "Assigned to Supervisor" && (
@@ -143,25 +135,7 @@ export function MaintenanceListItem({
             </button>
           )}
 
-          {/* Professional Actions */}
-          {role === "professional" &&
-            m.status === "Assigned to Professionals" && (
-              <button
-                onClick={() => onStartWork(m)}
-                className="text-xs bg-orange-600 text-white px-3 py-1 rounded font-bold uppercase"
-              >
-                {t("maintenance.startWork")}
-              </button>
-            )}
 
-          {role === "professional" && m.status === "In Progress" && (
-            <button
-              onClick={() => onCompleteWork(m)}
-              className="text-xs bg-cyan-600 text-white px-3 py-1 rounded font-bold uppercase"
-            >
-              {t("maintenance.completeSubmit")}
-            </button>
-          )}
 
           {/* Supervisor Review */}
           {role === "supervisor" && m.status === "Completed" && (
@@ -175,40 +149,13 @@ export function MaintenanceListItem({
             </div>
           )}
 
-          {/* Admin Final Review */}
-          {role === "admin" && m.status === "Reviewed" && (
-            <div className="flex gap-1">
-              <button
-                onClick={() => onFinalApprove(m)}
-                className="text-xs bg-emerald-600 text-white px-2 py-1 rounded font-bold uppercase"
-              >
-                {t("status.approved")}
-              </button>
 
-              <button
-                onClick={() => onReject(m)}
-                className="text-xs bg-red-600 text-white px-2 py-1 rounded font-bold uppercase"
-              >
-                {t("status.rejected")}
-              </button>
-            </div>
-          )}
-
-          {/* Admin Close */}
-          {role === "admin" && ["Approved", "Rejected"].includes(m.status) && (
-            <button
-              onClick={() => onClose(m)}
-              className="text-xs bg-gray-600 text-white px-3 py-1 rounded font-bold uppercase"
-            >
-              {t("status.closed")}
-            </button>
-          )}
 
           <button
             onClick={() => {
               const path = m.id.startsWith("PRJ-")
                 ? `/dashboard/projects/${m.id}`
-                : m.id.startsWith("BKG-")
+                : (m.id.startsWith("BKG-") || m.id.startsWith("ALLOC-"))
                   ? `/dashboard/bookings/${m.id}`
                   : `/dashboard/maintenance/${m.id}`;
               router.push(path);

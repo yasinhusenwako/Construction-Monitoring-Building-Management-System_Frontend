@@ -100,6 +100,7 @@ export async function apiRequest<T>(
   let lastError: Error | undefined;
   for (let attempt = 0; attempt <= retryCount; attempt++) {
     try {
+      console.log(`[API DEBUG] ${rest.method || "GET"} ${url}`, JSON.stringify(body, null, 2));
       const response = await fetch(resolveUrl(url), {
         ...rest,
         headers: resolvedHeaders,
@@ -112,18 +113,16 @@ export async function apiRequest<T>(
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => "");
+        console.error(`[API ERROR] ${response.status} ${url}`, errorText);
         let message = errorText || `Request failed (${response.status})`;
-
+        // ... (keep rest)
         try {
           const parsed = JSON.parse(errorText);
           if (parsed && typeof parsed === "object" && "message" in parsed) {
             const parsedMessage = (parsed as { message?: string }).message;
             if (parsedMessage) message = parsedMessage;
           }
-        } catch {
-          // keep text message
-        }
-
+        } catch { }
         throw new Error(message);
       }
 

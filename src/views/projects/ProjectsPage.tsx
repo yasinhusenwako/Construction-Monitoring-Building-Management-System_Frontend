@@ -284,6 +284,16 @@ export function ProjectsPage() {
                         >
                           <ExternalLink size={12} /> {t("action.view")}
                         </button>
+                        {role === "user" && project.status === "Submitted" && project.requestedBy === currentUser?.id && (
+                          <button
+                            onClick={() =>
+                              router.push(`/dashboard/projects/edit/${project.id}`)
+                            }
+                            className="flex items-center gap-1 text-xs text-green-600 hover:underline font-medium ml-2"
+                          >
+                            <SlidersHorizontal size={12} /> {t("action.edit")}
+                          </button>
+                        )}
                         {role === "admin" && project.status === "Submitted" && (
                           <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
                             {t("projects.review")}

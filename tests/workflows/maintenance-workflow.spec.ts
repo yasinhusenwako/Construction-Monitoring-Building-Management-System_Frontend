@@ -1,10 +1,10 @@
 import { test, expect, Page } from '@playwright/test';
 
 const CREDENTIALS: Record<string, { email: string; password: string }> = {
-  admin: { email: 'admin@cmbms.com', password: 'password123' },
-  user: { email: 'user@cmbms.com', password: 'password123' },
-  supervisor: { email: 'supervisor@cmbms.com', password: 'password123' },
-  professional: { email: 'professional@cmbms.com', password: 'password123' },
+  admin: { email: 'admin@csbms.com', password: 'password123' },
+  user: { email: 'user@csbms.com', password: 'password123' },
+  supervisor: { email: 'supervisor@csbms.com', password: 'password123' },
+  professional: { email: 'professional@csbms.com', password: 'password123' },
 };
 
 async function loginAs(page: Page, role: string) {

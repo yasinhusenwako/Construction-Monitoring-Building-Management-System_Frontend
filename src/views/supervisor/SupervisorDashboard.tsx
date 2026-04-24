@@ -118,7 +118,7 @@ export function SupervisorDashboard() {
     if (!task) return;
     const requestModule = task.id.startsWith("PRJ-")
       ? "PROJECT"
-      : task.id.startsWith("BKG-")
+      : (task.id.startsWith("BKG-") || task.id.startsWith("ALLOC-"))
         ? "BOOKING"
         : "MAINTENANCE";
 
@@ -156,7 +156,7 @@ export function SupervisorDashboard() {
     if (!task) return;
     const requestModule = id.startsWith("PRJ-")
       ? "PROJECT"
-      : id.startsWith("BKG-")
+      : (id.startsWith("BKG-") || id.startsWith("ALLOC-"))
         ? "BOOKING"
         : "MAINTENANCE";
 
@@ -445,7 +445,7 @@ export function SupervisorDashboard() {
                       onClick={() => {
                         const path = m.id.startsWith("PRJ-")
                           ? `/dashboard/projects/${m.id}`
-                          : m.id.startsWith("BKG-")
+                          : (m.id.startsWith("BKG-") || m.id.startsWith("ALLOC-"))
                             ? `/dashboard/bookings/${m.id}`
                             : `/dashboard/maintenance/${m.id}`;
                         router.push(path);

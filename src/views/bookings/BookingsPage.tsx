@@ -22,36 +22,7 @@ import {
   WorkflowRole,
   WorkflowStatus,
 } from "@/lib/workflow";
-
-const initialSpaces = [
-  {
-    id: "SP-001",
-    name: "Executive Conference Hall",
-    capacity: 50,
-    type: "Conference Hall",
-    floor: "Floor 1",
-    building: "Main Block",
-    available: true,
-  },
-  {
-    id: "SP-002",
-    name: "Tech Lab A",
-    capacity: 20,
-    type: "Lab",
-    floor: "Floor 2",
-    building: "IT Wing",
-    available: false,
-  },
-  {
-    id: "SP-003",
-    name: "Seminar Room 1",
-    capacity: 100,
-    type: "Conference Hall",
-    floor: "Ground Floor",
-    building: "Education Center",
-    available: true,
-  },
-];
+import { getSpaces, saveSpaces } from "@/lib/spaces-storage";
 import {
   Plus,
   Calendar,
@@ -188,7 +159,7 @@ function SpaceModal({
             <input
               value={form.name}
               onChange={(e) => set("name", e.target.value)}
-              placeholder="e.g. Executive Conference Hall B"
+              placeholder="e.g. A2-Block Hall"
               className={inputCls("name")}
             />
             {errors.name && (
@@ -441,9 +412,7 @@ export function BookingsPage() {
   }, []);
 
   // ─── Spaces state ────────────────────────────────────────────────────────────
-  const [spaceList, setSpaceList] = useState<Space[]>(
-    initialSpaces as unknown as Space[],
-  );
+  const [spaceList, setSpaceList] = useState<Space[]>([]);
   const [spaceModal, setSpaceModal] = useState<"add" | "edit" | null>(null);
   const [editTarget, setEditTarget] = useState<Space | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Space | null>(null);
@@ -451,6 +420,21 @@ export function BookingsPage() {
     "All",
   );
   const [spaceSearch, setSpaceSearch] = useState("");
+
+  // Load spaces from storage on mount
+  useEffect(() => {
+    setSpaceList(getSpaces());
+
+    // Listen for space updates from other components
+    const handleSpacesUpdate = (event: CustomEvent<Space[]>) => {
+      setSpaceList(event.detail);
+    };
+
+    window.addEventListener("spacesUpdated", handleSpacesUpdate as EventListener);
+    return () => {
+      window.removeEventListener("spacesUpdated", handleSpacesUpdate as EventListener);
+    };
+  }, []);
 
   // ─── Bookings ─────────────────────────────────────────────────────────────
   const filtered = bookings.filter((b) => {
@@ -576,10 +560,14 @@ export function BookingsPage() {
   // ─── Space CRUD handlers ──────────────────────────────────────────────────
   const handleSaveSpace = (s: Space) => {
     if (spaceModal === "edit") {
-      setSpaceList((list) => list.map((sp) => (sp.id === s.id ? s : sp)));
+      const updatedSpaces = spaceList.map((sp) => (sp.id === s.id ? s : sp));
+      setSpaceList(updatedSpaces);
+      saveSpaces(updatedSpaces); // Persist to localStorage
       setActionMsg(t("bookings.spaceUpdated"));
     } else {
-      setSpaceList((list) => [...list, s]);
+      const updatedSpaces = [...spaceList, s];
+      setSpaceList(updatedSpaces);
+      saveSpaces(updatedSpaces); // Persist to localStorage
       setActionMsg(t("bookings.spaceAdded"));
     }
 
@@ -590,7 +578,9 @@ export function BookingsPage() {
 
   const handleDeleteSpace = () => {
     if (!deleteTarget) return;
-    setSpaceList((list) => list.filter((s) => s.id !== deleteTarget.id));
+    const updatedSpaces = spaceList.filter((s) => s.id !== deleteTarget.id);
+    setSpaceList(updatedSpaces);
+    saveSpaces(updatedSpaces); // Persist to localStorage
     setActionMsg(t("bookings.spaceDeleted"));
 
     setDeleteTarget(null);
@@ -840,8 +830,18 @@ export function BookingsPage() {
                       }
                       className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 hover:shadow-md transition-all mt-2"
                     >
-                      {t("projects.review") || "Review Booking"}
+                      {t("action.view") || "View"}
                     </button>
+                    {role === "user" && booking.status === "Submitted" && booking.requestedBy === currentUser?.id && (
+                      <button
+                        onClick={() =>
+                          router.push(`/dashboard/bookings/edit/${booking.id}`)
+                        }
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-green-600 text-green-600 text-xs font-semibold hover:bg-green-50 transition-all"
+                      >
+                        <Pencil size={12} /> {t("action.edit")}
+                      </button>
+                    )}
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2 line-clamp-1">
