@@ -23,10 +23,14 @@ import {
   MessageSquare,
   UserPlus,
   Users as UsersIcon,
+  Info,
+  Calendar,
 } from "lucide-react";
 import { fetchLiveMaintenance, fetchLiveUsers } from "@/lib/live-api";
 import { apiRequest } from "@/lib/api";
 import { executeWorkflowAction } from "@/lib/workflow-actions";
+import { FileViewer } from "@/components/common/FileViewer";
+import { convertDocumentsToFiles } from "@/lib/file-upload";
 
 import {
   getUserFacingStatus,
@@ -106,6 +110,7 @@ export function MaintenanceDetailPage() {
   const [selectedTaskType, setSelectedTaskType] = useState("");
   const [assignMode, setAssignMode] = useState<"team" | "professional">("team");
   const [busy, setBusy] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
 
   useEffect(() => {
     const refresh = async () => {
@@ -131,6 +136,17 @@ export function MaintenanceDetailPage() {
           // Auto-set assign mode based on role for maintenance
           if (role === "admin") setAssignMode("team");
           else if (role === "supervisor") setAssignMode("professional");
+          
+          // Fetch uploaded files from backend
+          if (found.dbId) {
+            try {
+              const files = await apiRequest<any[]>(`/api/files/request/MAINTENANCE/${found.dbId}`);
+              setUploadedFiles(files || []);
+            } catch (error) {
+              console.error("Failed to fetch files:", error);
+              setUploadedFiles([]);
+            }
+          }
         } else {
           setMaintenanceItem(null);
         }
@@ -497,37 +513,24 @@ export function MaintenanceDetailPage() {
 
             {/* Attachments */}
             <div className="p-6">
-              <h3 className="text-sm font-bold text-[#0E2271] mb-4">
-                {t("maintenance.attachments_label")}
-              </h3>
-              {maint.attachments.length === 0 ? (
-                <p className="text-muted-foreground text-sm italic">
-                  {t("maintenance.noAttachments")}
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {maint.attachments.map((att, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-3 bg-secondary/30 border border-border rounded-lg px-4 py-3 hover:bg-secondary/60 transition-colors"
-                    >
-                      <FileText size={18} className="text-[#CC1F1A]" />
-                      <span className="text-sm flex-1 font-medium truncate">
-                        {att}
-                      </span>
-                      <a
-                        href={`/${att}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        download
-                        className="text-xs font-bold text-[#1A3580] hover:underline bg-[#1A3580]/10 px-2 py-1 rounded"
-                      >
-                        {t("action.download")}
-                      </a>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <FileViewer
+                files={uploadedFiles.length > 0 
+                  ? uploadedFiles.map(f => ({
+                      id: f.id.toString(),
+                      name: f.fileName,
+                      url: `/api/files/download/${f.id}`,
+                      size: undefined,
+                      type: undefined,
+                      uploadedAt: f.uploadedAt,
+                    }))
+                  : (maint.files || convertDocumentsToFiles(maint.attachments))
+                }
+                title={t("maintenance.attachments_label")}
+                showDownload={true}
+                showPreview={true}
+                emptyMessage={t("maintenance.noAttachments")}
+              />
+              
               {/* Professional can upload proof */}
               {role === "professional" && maint.status === "In Progress" && (
                 <div className="mt-5 border border-dashed border-slate-300 rounded-xl p-5 bg-slate-50">
@@ -1327,39 +1330,71 @@ export function MaintenanceDetailPage() {
 
           {/* Quick Info */}
           <div className="glass-card rounded-2xl p-6 shadow-modern">
-            <h3 className="text-sm font-semibold text-[#0E2271] mb-3">
+            <h3 className="text-sm font-semibold text-[#0E2271] mb-4 flex items-center gap-2">
+              <Info size={16} className="text-[#CC1F1A]" />
               {t("maintenance.ticketInfo")}
             </h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <FileText size={14} />
                   {t("maintenance.ticketID")}
                 </span>
                 <span className="font-mono font-semibold text-[#CC1F1A]">
                   {maint.id}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  {t("maintenance.timelineEvents_label")}
+              <div className="h-px bg-border"></div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Calendar size={14} />
+                  {t("maintenance.created_label")}
                 </span>
-                <span className="font-medium">{maint.timeline.length}</span>
+                <span className="font-medium text-xs">
+                  {new Date(maint.createdAt).toLocaleDateString()}
+                </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Clock size={14} />
+                  {t("maintenance.lastUpdated")}
+                </span>
+                <span className="font-medium text-xs">
+                  {new Date(maint.updatedAt).toLocaleDateString()}
+                </span>
+              </div>
+              <div className="h-px bg-border"></div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <FileText size={14} />
                   {t("maintenance.attachmentsCount")}
                 </span>
-                <span className="font-medium">{maint.attachments.length}</span>
+                <span className="font-semibold text-[#CC1F1A]">
+                  {uploadedFiles.length > 0 ? uploadedFiles.length : maint.attachments.length}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Clock size={14} />
+                  {t("maintenance.timelineEvents_label")}
+                </span>
+                <span className="font-semibold text-[#CC1F1A]">
+                  {maint.timeline.length}
+                </span>
               </div>
               {totalCost > 0 && (
-                <div className="flex justify-between pt-2 border-t border-border">
-                  <span className="text-muted-foreground flex items-center gap-1">
-                    <DollarSign size={12} /> {t("maintenance.totalCost")}
-                  </span>
-                  <span className="font-semibold text-[#F5B800]">
-                    ETB {totalCost.toLocaleString()}
-                  </span>
-                </div>
+                <>
+                  <div className="h-px bg-border"></div>
+                  <div className="flex justify-between items-center pt-1">
+                    <span className="text-muted-foreground flex items-center gap-1.5">
+                      <DollarSign size={14} />
+                      {t("maintenance.totalCost")}
+                    </span>
+                    <span className="font-bold text-[#F5B800]">
+                      ETB {totalCost.toLocaleString()}
+                    </span>
+                  </div>
+                </>
               )}
             </div>
           </div>

@@ -105,13 +105,34 @@ export function MaintenanceListItem({
           </div>
         </div>
         <div className="flex flex-col gap-2 items-end">
+          {/* Edit button - Show for users on their own Submitted requests */}
           {role === "user" && m.status === "Submitted" && m.requestedBy === currentUserId && (
              <button
                onClick={() => router.push(`/dashboard/maintenance/edit/${m.id}`)}
-               className="text-xs border border-green-600 text-green-600 px-3 py-1 rounded font-bold uppercase hover:bg-green-50 flex items-center gap-1"
+               className="text-xs border-2 border-green-600 text-green-600 px-3 py-1.5 rounded-lg font-semibold hover:bg-green-50 flex items-center gap-1.5 transition-all"
              >
-               <Pencil size={12} /> {t("action.edit")}
+               <Pencil size={13} /> {t("action.edit")}
              </button>
+          )}
+
+          {/* Admin: Start Review */}
+          {role === "admin" && m.status === "Submitted" && (
+            <button
+              onClick={() => onStartReview(m)}
+              className="text-xs bg-[#7C3AED] text-white px-3 py-1 rounded font-bold uppercase tracking-wider"
+            >
+              {t("maintenance.startReview")}
+            </button>
+          )}
+
+          {/* Admin: Assign to Supervisor */}
+          {role === "admin" && m.status === "Under Review" && (
+            <button
+              onClick={() => onAssign(m.id)}
+              className="text-xs bg-[#1A3580] text-white px-3 py-1 rounded font-bold uppercase tracking-wider"
+            >
+              {t("maintenance.assignSupervisor")}
+            </button>
           )}
 
 

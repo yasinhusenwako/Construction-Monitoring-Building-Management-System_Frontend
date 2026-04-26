@@ -1,4 +1,9 @@
 import { apiRequest } from "@/lib/api";
+import {
+  mapStatusFromBackend,
+  mapRoleFromBackend,
+  BackendRole,
+} from "@/lib/mappings";
 import type {
   Booking,
   Maintenance,
@@ -8,16 +13,15 @@ import type {
 } from "@/types/models";
 
 type BackendStatus = string;
-type BackendRole = "ADMIN" | "USER" | "SUPERVISOR" | "PROFESSIONAL";
 
 interface BackendProject {
   id: number;
   projectId: string;
   title: string;
-  description: string;
-  classification: string;
+  description?: string;
+  classification?: string;
   status: BackendStatus;
-  createdBy: number;
+  requestedBy: number;
   assignedSupervisorId?: number | null;
   assignedProfessionalId?: number | null;
   location?: string;
@@ -34,6 +38,9 @@ interface BackendProject {
   phone?: string;
   siteCondition?: string;
   scope?: any;
+  divisionId?: number | null;
+  createdBy: number;
+  linkedProjectId?: string; // For A5/A6 existing project references
 }
 
 interface BackendBooking {
@@ -143,39 +150,6 @@ function toIsoDate(raw?: string): string {
   return raw;
 }
 
-function normalizeStatus(status: string): string {
-  if (!status) return "Submitted";
-  const rawStatus = status.trim().toUpperCase().replace(/\s+/g, "_");
-  switch (rawStatus) {
-    case "SUBMITTED":
-      return "Submitted";
-    case "UNDER_REVIEW":
-      return "Under Review";
-    case "ASSIGNED_TO_SUPERVISOR":
-      return "Assigned to Supervisor";
-    case "WORKORDER_CREATED":
-    case "WORK_ORDER_CREATED":
-      return "WorkOrder Created";
-    case "ASSIGNED_TO_PROFESSIONAL":
-    case "ASSIGNED_TO_PROFESSIONALS":
-      return "Assigned to Professionals";
-    case "IN_PROGRESS":
-      return "In Progress";
-    case "COMPLETED":
-      return "Completed";
-    case "REVIEWED":
-      return "Reviewed";
-    case "APPROVED":
-      return "Approved";
-    case "REJECTED":
-      return "Rejected";
-    case "CLOSED":
-      return "Closed";
-    default:
-      return status;
-  }
-}
-
 function parseBookingType(raw: string): Booking["type"] {
   const upper = raw.toUpperCase();
   if (upper === "OFFICE") return "Office";
@@ -211,49 +185,81 @@ export async function fetchLiveProjects(
     ? `/api/projects?projectId=${filterProjectId}`
     : "/api/projects";
   const list = await apiRequest<BackendProject[]>(url);
-  return list.map((item) => {
-    const businessId = item.projectId || `PRJ-${item.id}`;
-    cacheRequestDbId("PROJECT", businessId, item.id);
-    return {
-      id: businessId,
-      dbId: item.id,
-      title: item.title,
-      description: item.description || "",
-      category: "Capital Project",
-      classification: item.classification || "General",
-      status: normalizeStatus(item.status) as Project["status"],
-      requestedBy: userId(item.createdBy),
-      supervisorId: item.assignedSupervisorId
-        ? userId(item.assignedSupervisorId)
-        : undefined,
-      assignedTo: item.assignedProfessionalId
-        ? userId(item.assignedProfessionalId)
-        : undefined,
-      location: item.location || "N/A",
-      budget: Number(item.budget || 0),
-      startDate: item.startDate || "",
-      endDate: item.endDate || "",
-      createdAt: toIsoDate(item.createdAt),
-      updatedAt: toIsoDate(item.createdAt),
-      documents: [],
-      timeline: [],
-      materialCost: item.materialCost,
-      laborCost: item.laborCost,
-      totalCost: item.totalCost,
-      partsUsed: item.partsUsed,
-      department: item.department,
-      contactPerson: item.contactPerson,
-      contactPhone: item.phone,
-      siteCondition: item.siteCondition,
-      scope: (function() {
-        if (typeof item.scope === 'string') {
-          try { return JSON.parse(item.scope); } catch (e) { return item.scope; }
-        }
-        return item.scope;
-      })(),
-      divisionId: item.divisionId ? `DIV-${String(item.divisionId).padStart(3, "0")}` : undefined,
-    };
-  });
+  
+  // Fetch timeline for each project
+  const projectsWithTimeline = await Promise.all(
+    list.map(async (item) => {
+      const businessId = item.projectId || `PRJ-${item.id}`;
+      cacheRequestDbId("PROJECT", businessId, item.id);
+      
+      // Extract linkedProjectId from scope if it exists
+      let linkedProjectId = item.linkedProjectId;
+      if (!linkedProjectId && item.scope) {
+        const scope = typeof item.scope === 'string' ? 
+          (() => { try { return JSON.parse(item.scope); } catch { return {}; } })() : 
+          item.scope;
+        linkedProjectId = scope.linkedProjectId;
+      }
+      
+      // Fetch timeline from history endpoint
+      let timeline: any[] = [];
+      try {
+        const history = await apiRequest<any[]>(`/api/history/PROJECT/${item.id}`);
+        timeline = history.map((h) => ({
+          id: `EV-${h.id}`,
+          action: h.action || h.status || "Status Updated",
+          actor: h.actorName || "System",
+          timestamp: h.createdAt,
+          note: h.note || "",
+        }));
+      } catch (error) {
+        console.error(`Failed to fetch timeline for ${businessId}:`, error);
+      }
+      
+      return {
+        id: businessId,
+        dbId: item.id,
+        title: item.title,
+        description: item.description || "",
+        category: "Capital Project",
+        classification: item.classification || "General",
+        status: mapStatusFromBackend(item.status) as Project["status"],
+        requestedBy: userId(item.createdBy),
+        supervisorId: item.assignedSupervisorId
+          ? userId(item.assignedSupervisorId)
+          : undefined,
+        assignedTo: item.assignedProfessionalId
+          ? userId(item.assignedProfessionalId)
+          : undefined,
+        location: item.location || "N/A",
+        budget: Number(item.budget || 0),
+        startDate: item.startDate || "",
+        endDate: item.endDate || "",
+        createdAt: toIsoDate(item.createdAt),
+        updatedAt: toIsoDate(item.createdAt),
+        documents: [],
+        timeline,
+        materialCost: item.materialCost,
+        laborCost: item.laborCost,
+        totalCost: item.totalCost,
+        partsUsed: item.partsUsed,
+        department: item.department,
+        contactPerson: item.contactPerson,
+        contactPhone: item.phone,
+        siteCondition: item.siteCondition,
+        linkedProjectId,
+        scope: (function() {
+          if (typeof item.scope === 'string') {
+            try { return JSON.parse(item.scope); } catch (e) { return item.scope; }
+          }
+          return item.scope;
+        })(),
+        divisionId: item.divisionId ? `DIV-${String(item.divisionId).padStart(3, "0")}` : undefined,
+      };
+    })
+  );
+  
+  return projectsWithTimeline;
 }
 
 export async function fetchLiveBookings(
@@ -320,7 +326,7 @@ export async function fetchLiveBookings(
       title,
       space,
       type: parseBookingType(item.type),
-      status: normalizeStatus(item.status) as Booking["status"],
+      status: mapStatusFromBackend(item.status) as Booking["status"],
       requestedBy: userId(item.requester),
       supervisorId: item.assignedSupervisorId
         ? userId(item.assignedSupervisorId)
@@ -361,49 +367,69 @@ export async function fetchLiveMaintenance(
     ? `/api/maintenance?maintenanceId=${filterMaintenanceId}`
     : "/api/maintenance";
   const list = await apiRequest<BackendMaintenance[]>(url);
-  return list.map((item) => {
-    const businessId = item.maintenanceId || `MNT-${item.id}`;
-    cacheRequestDbId("MAINTENANCE", businessId, item.id);
-    const loc = splitLocation(item.location);
-    // Prefer direct backend fields; fall back to parsed location string
-    const building = item.building || loc.building;
-    const floor    = item.floor    || loc.floor;
-    const roomArea = item.roomArea;
-    return {
-      id: businessId,
-      dbId: item.id,
-      // Use the user-typed title if backend returns it; otherwise show category
-      title: item.title || item.category || "Maintenance Request",
-      description: item.description || "",
-      type: (item.category as Maintenance["type"]) || "General",
-      subType: item.category, // human-readable category from form
-      status: normalizeStatus(item.status) as Maintenance["status"],
-      priority: inferPriority(item.priority),
-      requestedBy: userId(item.createdBy),
-      assignedTo: item.assignedProfessionalId
-        ? userId(item.assignedProfessionalId)
-        : undefined,
-      supervisorId: item.assignedSupervisorId
-        ? userId(item.assignedSupervisorId)
-        : undefined,
-      divisionId: item.divisionId
-        ? `DIV-${String(item.divisionId).padStart(3, "0")}`
-        : undefined,
-      location: item.location || "N/A",
-      building,
-      floor,
-      roomArea,
-      createdAt: toIsoDate(item.createdAt),
-      updatedAt: toIsoDate(item.createdAt),
-      notes: "",
-      attachments: [],
-      timeline: [],
-      materialCost: item.materialCost,
-      laborCost: item.laborCost,
-      totalCost: item.totalCost,
-      partsUsed: item.partsUsed,
-    };
-  });
+  
+  // Fetch timeline for each maintenance request
+  const maintenanceWithTimeline = await Promise.all(
+    list.map(async (item) => {
+      const businessId = item.maintenanceId || `MNT-${item.id}`;
+      cacheRequestDbId("MAINTENANCE", businessId, item.id);
+      const loc = splitLocation(item.location);
+      const building = item.building || loc.building;
+      const floor    = item.floor    || loc.floor;
+      const roomArea = item.roomArea;
+      
+      // Fetch timeline from history endpoint
+      let timeline: any[] = [];
+      try {
+        const history = await apiRequest<any[]>(`/api/history/MAINTENANCE/${item.id}`);
+        timeline = history.map((h) => ({
+          id: `EV-${h.id}`,
+          action: h.action || h.status || "Status Updated",
+          actor: h.actorName || "System",
+          timestamp: h.createdAt,
+          note: h.note || "",
+        }));
+      } catch (error) {
+        console.error(`Failed to fetch timeline for ${businessId}:`, error);
+      }
+      
+      return {
+        id: businessId,
+        dbId: item.id,
+        title: item.title || item.category || "Maintenance Request",
+        description: item.description || "",
+        type: (item.category as Maintenance["type"]) || "General",
+        subType: item.category,
+        status: mapStatusFromBackend(item.status) as Maintenance["status"],
+        priority: inferPriority(item.priority),
+        requestedBy: userId(item.createdBy),
+        assignedTo: item.assignedProfessionalId
+          ? userId(item.assignedProfessionalId)
+          : undefined,
+        supervisorId: item.assignedSupervisorId
+          ? userId(item.assignedSupervisorId)
+          : undefined,
+        divisionId: item.divisionId
+          ? `DIV-${String(item.divisionId).padStart(3, "0")}`
+          : undefined,
+        location: item.location || "N/A",
+        building,
+        floor,
+        roomArea,
+        createdAt: toIsoDate(item.createdAt),
+        updatedAt: toIsoDate(item.createdAt),
+        notes: "",
+        attachments: [],
+        timeline,
+        materialCost: item.materialCost,
+        laborCost: item.laborCost,
+        totalCost: item.totalCost,
+        partsUsed: item.partsUsed,
+      };
+    })
+  );
+  
+  return maintenanceWithTimeline;
 }
 
 export async function fetchLiveNotifications(): Promise<Notification[]> {
@@ -461,9 +487,10 @@ export async function fetchLiveUsers(): Promise<
       status?: string;
       department?: string;
       phone?: string;
-      divisionId?: number | null;
-      profession?: string | null;
-      createdAt?: string;
+       divisionId?: number | null;
+       profession?: string | null;
+       createdBy: number;
+       createdAt?: string;
     }>
   >("/api/users");
   return list.map((item) => {
@@ -474,14 +501,7 @@ export async function fetchLiveUsers(): Promise<
       .join("")
       .toUpperCase()
       .slice(0, 2);
-    const frontendRole: UserRole =
-      item.role === "ADMIN"
-        ? "admin"
-        : item.role === "SUPERVISOR"
-          ? "supervisor"
-          : item.role === "PROFESSIONAL"
-            ? "professional"
-            : "user";
+    const frontendRole = mapRoleFromBackend(item.role);
     return {
       id: userId(item.id),
       name: rawName,
@@ -973,10 +993,74 @@ export async function updateMaintenance(maintenanceId: string, updates: Partial<
   await apiRequest(`/api/maintenance/${dbId}`, {
     method: "PATCH",
     body: {
-      category: updates.category || updates.type,
+      category: (updates as any).category || updates.type,
       description: updates.description,
       priority: updates.priority,
       location: updates.location,
     },
+  });
+}
+
+// ─── Preventive Maintenance Schedules ───────────────────────────────────────
+
+export interface PreventiveSchedule {
+  id: number;
+  scheduleId: string;
+  system: string;
+  frequency: string;
+  lastDone: string;
+  nextDue: string;
+  status: string;
+  assignee: string;
+  assignedProfessionalId: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function fetchPreventiveSchedules(): Promise<PreventiveSchedule[]> {
+  return apiRequest<PreventiveSchedule[]>("/api/preventive-schedules");
+}
+
+export async function createPreventiveSchedule(data: {
+  system: string;
+  frequency: string;
+  lastDone: string;
+  nextDue: string;
+  assignedProfessionalId: number;
+  notes?: string;
+}): Promise<PreventiveSchedule> {
+  return apiRequest<PreventiveSchedule>("/api/preventive-schedules", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export async function updatePreventiveSchedule(
+  id: number,
+  data: Partial<{
+    system: string;
+    frequency: string;
+    lastDone: string;
+    nextDue: string;
+    assignedProfessionalId: number;
+    notes: string;
+  }>
+): Promise<PreventiveSchedule> {
+  return apiRequest<PreventiveSchedule>(`/api/preventive-schedules/${id}`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export async function deletePreventiveSchedule(id: number): Promise<void> {
+  await apiRequest(`/api/preventive-schedules/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function markScheduleCompleted(id: number): Promise<PreventiveSchedule> {
+  return apiRequest<PreventiveSchedule>(`/api/preventive-schedules/${id}/complete`, {
+    method: "POST",
   });
 }

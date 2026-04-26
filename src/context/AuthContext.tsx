@@ -4,13 +4,16 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { divisions, User, UserRole } from "@/types/models";
 import { apiRequest } from "@/lib/api";
 import {
+  mapRoleFromBackend,
+  mapRoleToBackend,
+  BackendRole,
+} from "@/lib/mappings";
+import {
   clearStoredAuthSession,
   migrateLegacyAuthSession,
   persistAuthSession,
   updateStoredAuthUser,
 } from "@/lib/auth-storage";
-
-type BackendRole = "ADMIN" | "USER" | "SUPERVISOR" | "PROFESSIONAL";
 
 interface BackendAuthResponse {
   token: string;
@@ -69,32 +72,6 @@ interface RegisterData {
 const ALLOWED_DIVISIONS = new Set(divisions.map((d) => d.id));
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-function mapRoleFromBackend(role: BackendRole): UserRole {
-  switch (role) {
-    case "ADMIN":
-      return "admin";
-    case "SUPERVISOR":
-      return "supervisor";
-    case "PROFESSIONAL":
-      return "professional";
-    default:
-      return "user";
-  }
-}
-
-function mapRoleToBackend(role: UserRole): BackendRole {
-  switch (role) {
-    case "admin":
-      return "ADMIN";
-    case "supervisor":
-      return "SUPERVISOR";
-    case "professional":
-      return "PROFESSIONAL";
-    default:
-      return "USER";
-  }
-}
 
 function formatUserId(id: number): string {
   return `USR-${String(id).padStart(3, "0")}`;

@@ -251,7 +251,7 @@ export function MyRequestsPage() {
                         {req.status === "Submitted" && (
                           <button
                             onClick={() => router.push(req.editPath)}
-                            className="p-2 hover:bg-green-50 rounded-lg text-green-600 transition-colors inline-flex items-center gap-1 font-medium"
+                            className="px-3 py-2 border-2 border-green-600 rounded-lg text-green-600 transition-all hover:bg-green-50 inline-flex items-center gap-1.5 font-semibold text-sm"
                           >
                             <Pencil size={14} /> {t('action.edit')}
                           </button>

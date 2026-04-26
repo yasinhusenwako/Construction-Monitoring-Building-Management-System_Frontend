@@ -6,6 +6,9 @@ import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { Project } from "../../types/models";
 import { StatusBadge } from "../../components/common/StatusBadge";
+import { FileViewer } from "@/components/common/FileViewer";
+import { convertDocumentsToFiles } from "@/lib/file-upload";
+import { getClassificationLabel, getClassificationCode, formatProjectTitle } from "@/lib/classification-utils";
 import {
   ArrowLeft,
   Copy,
@@ -47,6 +50,7 @@ export function ProjectDetailPage() {
   const role = currentUser?.role;
 
   const [projectItem, setProjectItem] = useState<Project | null>(null);
+  const [linkedProject, setLinkedProject] = useState<Project | null>(null);
   const [copied, setCopied] = useState(false);
   const [adminNote, setAdminNote] = useState("");
   const [selectedTech, setSelectedTech] = useState("");
@@ -58,6 +62,7 @@ export function ProjectDetailPage() {
   const [costSaved, setCostSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
 
   useEffect(() => {
     const refresh = async () => {
@@ -80,12 +85,39 @@ export function ProjectDetailPage() {
             setMaterialCost(found.materialCost.toString());
           if (found.laborCost) setLaborCost(found.laborCost.toString());
           if (found.partsUsed) setPartsUsed(found.partsUsed);
+          
+          // Fetch uploaded files from backend
+          if (found.dbId) {
+            try {
+              const files = await apiRequest<any[]>(`/api/files/request/PROJECT/${found.dbId}`);
+              setUploadedFiles(files || []);
+            } catch (error) {
+              console.error("Failed to fetch files:", error);
+              setUploadedFiles([]);
+            }
+          }
+          
+          // Fetch linked project if this is A5/A6 with linkedProjectId
+          if (found.linkedProjectId) {
+            try {
+              const linkedProjects = await fetchLiveProjects(found.linkedProjectId);
+              const linked = linkedProjects.find((p) => p.id === found.linkedProjectId);
+              setLinkedProject(linked || null);
+            } catch (error) {
+              console.error("Failed to fetch linked project:", error);
+              setLinkedProject(null);
+            }
+          } else {
+            setLinkedProject(null);
+          }
         } else {
           setProjectItem(null);
+          setLinkedProject(null);
         }
       } catch (error) {
         console.error("Failed to fetch project detail:", error);
         setProjectItem(null);
+        setLinkedProject(null);
       } finally {
         setLoading(false);
       }
@@ -342,14 +374,18 @@ export function ProjectDetailPage() {
                 size="md"
               />
             </div>
-            <h1 className="text-[#0E2271]">{project.title}</h1>
+            <h1 className="text-[#0E2271]">{formatProjectTitle(project)}</h1>
             <p className="text-muted-foreground text-sm">
-              {project.classification.replace(/^A\d+\s*-\s*/, "")}
+              {getClassificationLabel(project.classification)}
             </p>
+            {project.linkedProjectId && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Linked to: <span className="font-mono font-semibold text-[#1A3580]">{project.linkedProjectId}</span>
+              </p>
+            )}
           </div>
         </div>
       </div>
-
       {/* Workflow Progress */}
       <div className="glass-card rounded-2xl p-6 shadow-modern">
         <h3 className="text-sm font-semibold text-[#0E2271] mb-6">
@@ -361,6 +397,71 @@ export function ProjectDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Main Details */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Linked Project Info for A5/A6 */}
+          {linkedProject && (project.linkedProjectId) && (
+            <div className="glass-card rounded-2xl p-6 shadow-modern border-2 border-[#1A3580]/20">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-[#1A3580]/10 flex items-center justify-center flex-shrink-0">
+                  <Layers size={18} className="text-[#1A3580]" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-[#0E2271] mb-1">
+                    Linked Existing Project
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    This {getClassificationCode(project.classification) === "A5" ? "BOQ preparation" : "supervision"} request is for the following existing project:
+                  </p>
+                </div>
+              </div>
+              
+              <div className="bg-secondary/30 rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-sm font-bold text-[#1A3580]">
+                    {linkedProject.id}
+                  </span>
+                  <button
+                    onClick={() => router.push(`/dashboard/projects/${linkedProject.id}`)}
+                    className="text-xs text-[#1A3580] hover:underline"
+                  >
+                    View Project →
+                  </button>
+                </div>
+                
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {linkedProject.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {getClassificationLabel(linkedProject.classification)}
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/50">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Location</p>
+                    <p className="text-sm font-medium text-foreground">{linkedProject.location}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Budget</p>
+                    <p className="text-sm font-medium text-foreground">
+                      ETB {linkedProject.budget.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Status</p>
+                    <div className="mt-1">
+                      <StatusBadge status={linkedProject.status} size="sm" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Start Date</p>
+                    <p className="text-sm font-medium text-foreground">{linkedProject.startDate}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* Combined Card for Description, Details, Contact, and Scope */}
           <div className="glass-card rounded-2xl p-6 shadow-modern space-y-8">
             {/* Description Section */}
@@ -506,7 +607,7 @@ export function ProjectDetailPage() {
                 <div>
                   <h3 className="text-sm font-semibold text-[#0E2271] mb-4">
                     {project.classification
-                      ? `${project.classification} — Scope & Form Details`
+                      ? `${getClassificationLabel(project.classification)} — Scope & Form Details`
                       : "Scope & Form Details"}
                   </h3>
                   {(() => {
@@ -737,70 +838,69 @@ export function ProjectDetailPage() {
 
           {/* Documents */}
           <div className="glass-card rounded-2xl p-6 shadow-modern">
-            <h3 className="text-sm font-semibold text-[#0E2271] mb-3">
-              {t("projects.documents")}
-            </h3>
-            {project.documents.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                {t("projects.noDocumentsAttached")}
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {project.documents.map((doc, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-3 bg-secondary/50 rounded-lg px-4 py-2.5"
-                  >
-                    <FileText size={16} className="text-[#1A3580]" />
-                    <span className="text-sm flex-1">{doc}</span>
-                    <a
-                      href={`/${doc}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      download
-                      className="text-xs text-[#1A3580] hover:underline cursor-pointer"
-                    >
-                      {t("projects.download")}
-                    </a>
-                  </div>
-                ))}
-              </div>
-            )}
+            <FileViewer
+              files={uploadedFiles.length > 0 
+                ? uploadedFiles.map(f => ({
+                    id: f.id.toString(),
+                    name: f.fileName,
+                    url: `/api/files/download/${f.id}`,
+                    size: undefined,
+                    type: undefined,
+                    uploadedAt: f.uploadedAt,
+                  }))
+                : convertDocumentsToFiles(project.documents)
+              }
+              title={t("projects.documents")}
+              showDownload={true}
+              showPreview={true}
+              emptyMessage={t("projects.noDocumentsAttached")}
+            />
           </div>
 
           {/* Timeline */}
           <div className="glass-card rounded-2xl p-6 shadow-modern">
-            <h3 className="text-sm font-semibold text-[#0E2271] mb-4">
+            <h3 className="text-sm font-bold text-[#0E2271] mb-6 flex items-center gap-2">
+              <span className="bg-indigo-50 p-1.5 rounded-md border border-indigo-100">
+                <Clock size={16} className="text-indigo-600" />
+              </span>
               {t("projects.activityTimeline")}
             </h3>
-            <div className="space-y-4">
+            <div className="space-y-6">
               {project.timeline.map((event, i) => (
-                <div key={event.id} className="flex gap-3">
+                <div key={event.id} className="flex gap-4 group">
                   <div className="flex flex-col items-center">
-                    <div className="w-8 h-8 rounded-full bg-[#EEF2FF] border-2 border-[#1A3580] flex items-center justify-center flex-shrink-0">
-                      <Clock size={12} className="text-[#1A3580]" />
+                    <div className="w-9 h-9 rounded-full bg-white border-[3px] border-[#1A3580]/20 flex items-center justify-center flex-shrink-0 group-hover:border-[#1A3580] transition-colors shadow-sm">
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#1A3580]"></div>
                     </div>
                     {i < project.timeline.length - 1 && (
-                      <div className="w-0.5 h-full bg-border mt-1" />
+                      <div className="w-0.5 flex-1 bg-border mt-2 mb-2 group-hover:bg-[#1A3580]/30 transition-colors" />
                     )}
                   </div>
-                  <div className="pb-4 flex-1">
-                    <div className="flex items-center gap-2">
-                      <StatusBadge status={event.action} />
-                      <span className="text-xs text-muted-foreground">
-                        {event.timestamp}
+                  <div className="pb-2 flex-1 pt-1.5">
+                    <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+                      <div className="flex items-center gap-3">
+                        <StatusBadge status={event.action} />
+                        <span className="text-sm text-foreground font-medium">
+                          {event.action}
+                        </span>
+                      </div>
+                      <span className="text-xs font-semibold text-muted-foreground bg-secondary px-2.5 py-1 rounded-md">
+                        {new Date(event.timestamp).toLocaleString()}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-sm text-muted-foreground mt-1.5">
                       by{" "}
-                      <span className="font-medium text-foreground">
+                      <span className="font-bold text-[#0E2271]">
                         {event.actor}
                       </span>
                     </p>
                     {event.note && (
-                      <p className="text-sm text-foreground mt-1 bg-secondary/50 rounded px-3 py-2">
-                        {event.note}
-                      </p>
+                      <div className="mt-3 bg-secondary/50 border border-border rounded-lg p-3 relative">
+                        <div className="absolute -top-1.5 left-4 w-3 h-3 bg-secondary/50 border-t border-l border-border transform rotate-45"></div>
+                        <p className="text-sm text-foreground">
+                          {event.note}
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1054,36 +1154,83 @@ export function ProjectDetailPage() {
 
           {/* Quick Info */}
           <div className="glass-card rounded-2xl p-6 shadow-modern">
-            <h3 className="text-sm font-semibold text-[#0E2271] mb-3">
+            <h3 className="text-sm font-semibold text-[#0E2271] mb-4 flex items-center gap-2">
+              <Info size={16} className="text-[#1A3580]" />
               {t("projects.quickInfo")}
             </h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <FileText size={14} />
+                  {t("projects.projectID")}
+                </span>
+                <span className="font-mono font-semibold text-[#1A3580]">
+                  {project.id}
+                </span>
+              </div>
+              <div className="h-px bg-border"></div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Calendar size={14} />
                   {t("projects.created")}
                 </span>
-                <span className="font-medium">{project.createdAt}</span>
+                <span className="font-medium text-xs">
+                  {new Date(project.createdAt).toLocaleDateString()}
+                </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Clock size={14} />
                   {t("projects.lastUpdated")}
                 </span>
-                <span className="font-medium">{project.updatedAt}</span>
+                <span className="font-medium text-xs">
+                  {new Date(project.updatedAt).toLocaleDateString()}
+                </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
+              <div className="h-px bg-border"></div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <FileText size={14} />
                   {t("form.attachments")}
                 </span>
-                <span className="font-medium">
-                  {project.documents.length} {t("projects.filesCount")}
+                <span className="font-semibold text-[#1A3580]">
+                  {uploadedFiles.length > 0 ? uploadedFiles.length : project.documents.length}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Clock size={14} />
                   {t("projects.timelineEventsCount")}
                 </span>
-                <span className="font-medium">{project.timeline.length}</span>
+                <span className="font-semibold text-[#1A3580]">
+                  {project.timeline.length}
+                </span>
               </div>
+              {project.budget && (
+                <>
+                  <div className="h-px bg-border"></div>
+                  <div className="flex justify-between items-center pt-1">
+                    <span className="text-muted-foreground flex items-center gap-1.5">
+                      <DollarSign size={14} />
+                      {t("projects.budget")}
+                    </span>
+                    <span className="font-bold text-[#F5B800]">
+                      ETB {Number(project.budget).toLocaleString()}
+                    </span>
+                  </div>
+                </>
+              )}
+              {project.totalCost && project.totalCost > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground flex items-center gap-1.5">
+                    <Package size={14} />
+                    {t("projects.totalCost")}
+                  </span>
+                  <span className="font-bold text-[#F5B800]">
+                    ETB {Number(project.totalCost).toLocaleString()}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>

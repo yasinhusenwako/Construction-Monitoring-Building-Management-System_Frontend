@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle,
@@ -11,6 +11,7 @@ import {
 import { DatePicker } from "@/components/common/DatePicker";
 import { useLanguage } from "@/context/LanguageContext";
 import { fetchLiveProjects, updateProject } from "@/lib/live-api";
+import { formatClassificationForStorage, getClassificationCode } from "@/lib/classification-utils";
 import type { Project } from "@/types/models";
 
 interface DynamicScope {
@@ -192,9 +193,9 @@ export function EditProjectPage({ projectId }: { projectId: string }) {
     t("projects.supervision.qualityAudit"), t("common.other")
   ];
 
-  const locations = ["Wolo Sefer", "Operation", "Store", "Gofa", "Sululta", t("common.other")];
-  const blocks = ["A1", "A2", "B", "C", "D", "F", t("common.other")];
-  const floors = ["B3", "B2", "B1", "G", "Floor 1", "Floor 2", "Floor 3", "Floor 4", "Floor 5", "Floor 6", "Floor 7", "Floor 8", "Floor 9", "Floor 10", "Floor 11", "Floor 12", "Floor 13", "Floor 14", "Floor 15", "Floor 16", t("common.other")];
+  const locations = useMemo(() => ["Wolo Sefer", "Operation", "Store", "Gofa", "Sululta", t("common.other")], [t]);
+  const blocks = useMemo(() => ["A1", "A2", "B", "C", "D", "F", t("common.other")], [t]);
+  const floors = useMemo(() => ["B3", "B2", "B1", "G", "Floor 1", "Floor 2", "Floor 3", "Floor 4", "Floor 5", "Floor 6", "Floor 7", "Floor 8", "Floor 9", "Floor 10", "Floor 11", "Floor 12", "Floor 13", "Floor 14", "Floor 15", "Floor 16", t("common.other")], [t]);
 
   useEffect(() => {
     const loadProject = async () => {
@@ -206,8 +207,11 @@ export function EditProjectPage({ projectId }: { projectId: string }) {
           
           const locParts = (p.location || "").split(",").map(s => s.trim());
           
+          // Extract just the code from classification for form editing
+          const classificationCode = getClassificationCode(p.classification) || "A1";
+          
           setForm({
-            classification: p.classification || "A1",
+            classification: classificationCode,
             title: p.title,
             location: locations.includes(locParts[0]) ? locParts[0] : (locParts[0] ? "Other" : ""),
             otherLocation: !locations.includes(locParts[0]) ? locParts[0] : "",
@@ -232,7 +236,7 @@ export function EditProjectPage({ projectId }: { projectId: string }) {
       }
     };
     loadProject();
-  }, [projectId]);
+  }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const update = (k: string, v: any) => {
     setForm(f => ({ ...f, [k]: v }));
@@ -280,9 +284,13 @@ export function EditProjectPage({ projectId }: { projectId: string }) {
       const actualLocation = form.location === "Other" ? form.otherLocation : form.location;
       const locString = [actualLocation, form.block, form.floor].filter(Boolean).join(", ");
       
+      // Format classification for storage
+      const formattedClassification = formatClassificationForStorage(form.classification);
+      
       const payload = {
         ...form,
         id: projectId,
+        classification: formattedClassification,
         location: locString,
         budget: Number(form.budget),
         description: form.functionalDescription,
@@ -291,7 +299,7 @@ export function EditProjectPage({ projectId }: { projectId: string }) {
           form.siteCondition === t("common.other")
             ? form.otherSiteCondition
             : form.siteCondition,
-        priority: project?.priority || "Medium",
+         priority: (project as any)?.priority || "Medium",
         status: project?.status || "Submitted",
         divisionId: project?.divisionId,
         createdBy: project?.requestedBy ? Number(project.requestedBy.split("-")[1]) : undefined,

@@ -12,6 +12,7 @@ import {
   WorkflowRole,
 } from '@/lib/workflow';
 import { fetchLiveProjects } from "@/lib/live-api";
+import { getClassificationInfo, getClassificationLabel, formatProjectTitle } from "@/lib/classification-utils";
 import { StatusBadge } from '@/components/common/StatusBadge';
 import {
   Plus,
@@ -80,12 +81,10 @@ export function ProjectsPage() {
   };
 
   const getStreamBadge = (classification: string) => {
-    const label = classification.replace(/^A\d+\s*-\s*/, "");
-    const color = classification.startsWith("A1")
-      ? "#1A3580"
-      : classification.startsWith("A2")
-        ? "#7C3AED"
-        : "#EA580C";
+    const info = getClassificationInfo(classification);
+    const label = info?.label || getClassificationLabel(classification);
+    const color = info?.color || "#64748B";
+    
     return (
       <span
         className="px-2 py-0.5 rounded text-xs font-medium"
@@ -251,7 +250,7 @@ export function ProjectsPage() {
                     </td>
                     <td className="px-4 py-3 max-w-xs">
                       <p className="text-sm font-medium text-foreground truncate">
-                        {project.title}
+                        {formatProjectTitle(project)}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {project.location}
@@ -289,9 +288,9 @@ export function ProjectsPage() {
                             onClick={() =>
                               router.push(`/dashboard/projects/edit/${project.id}`)
                             }
-                            className="flex items-center gap-1 text-xs text-green-600 hover:underline font-medium ml-2"
+                            className="flex items-center gap-1.5 text-xs border-2 border-green-600 text-green-600 px-3 py-1.5 rounded-lg font-semibold hover:bg-green-50 transition-all ml-2"
                           >
-                            <SlidersHorizontal size={12} /> {t("action.edit")}
+                            <SlidersHorizontal size={13} /> {t("action.edit")}
                           </button>
                         )}
                         {role === "admin" && project.status === "Submitted" && (

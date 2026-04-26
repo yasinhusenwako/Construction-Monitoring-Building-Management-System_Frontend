@@ -11,8 +11,10 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { DatePicker } from "@/components/common/DatePicker";
+import { FileUpload, UploadedFile } from "@/components/common/FileUpload";
 import { apiRequest } from "@/lib/api";
 import { useLanguage } from "@/context/LanguageContext";
+import { formatClassificationForStorage } from "@/lib/classification-utils";
 import type { Project } from "@/types/models";
 
 interface DynamicScope {
@@ -69,7 +71,7 @@ interface FormData {
   startDate: string;
   endDate: string;
   scope: DynamicScope;
-  files: File[];
+  files: UploadedFile[];
 }
 
 const defaultScope: DynamicScope = {
@@ -498,31 +500,6 @@ export function NewProjectPage() {
     setStep((s) => s + 1);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    const newFiles = Array.from(e.dataTransfer.files).filter(
-      (f) => f.size < 10 * 1024 * 1024,
-    );
-    setForm((f) => ({
-      ...f,
-      files: [...f.files, ...newFiles],
-    }));
-  };
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setForm((f) => ({
-        ...f,
-        files: [...f.files, ...Array.from(e.target.files!)],
-      }));
-    }
-  };
-  const removeFile = (i: number) =>
-    setForm((f) => ({
-      ...f,
-      files: f.files.filter((_, idx) => idx !== i),
-    }));
-
   const handleSubmit = async () => {
     setLoading(true);
     const year = new Date().getFullYear();
@@ -532,6 +509,9 @@ export function NewProjectPage() {
     const parsedUser = storedUser ? JSON.parse(storedUser) : null;
     const divisionId =
       Number(String(parsedUser?.divisionId ?? "").replace(/[^\d]/g, "")) || 1;
+
+    // Format classification as "Code - Label" for storage
+    const formattedClassification = formatClassificationForStorage(form.classification);
 
     try {
       const locParts: string[] = [];
@@ -552,7 +532,7 @@ export function NewProjectPage() {
       const requestBody = isExistingMode
         ? {
             projectId: id,
-            title: `${form.classification} request for ${form.existingProjectId}`,
+            title: `${formattedClassification} request for ${form.existingProjectId}`,
             location: "Linked Existing Project",
             department: "Linked Existing Project",
             contactPerson: "Linked Existing Project",
@@ -562,7 +542,7 @@ export function NewProjectPage() {
             budget: 1,
             startDate: new Date().toISOString().slice(0, 10),
             endDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
-            classification: form.classification,
+            classification: formattedClassification,
             priority: "Medium",
             status: "Submitted",
             divisionId,
@@ -593,7 +573,7 @@ export function NewProjectPage() {
             budget: budgetValue,
             startDate: form.startDate,
             endDate: form.endDate,
-            classification: form.classification,
+            classification: formattedClassification,
             priority: "Medium",
             status: "Submitted",
             divisionId,
@@ -650,6 +630,36 @@ export function NewProjectPage() {
         body: requestBody,
       });
       const projectId = created.projectId || id;
+      
+      // Upload files if any
+      if (form.files.length > 0) {
+        try {
+          const formData = new FormData();
+          form.files.forEach((uploadedFile) => {
+            if (uploadedFile.file) {
+              formData.append("files", uploadedFile.file);
+            }
+          });
+          formData.append("entityType", "project");
+          formData.append("entityId", projectId);
+          
+          console.log(`[File Upload] Uploading ${form.files.length} file(s) for ${projectId}`);
+          
+          await apiRequest("/api/files/upload", {
+            method: "POST",
+            body: formData as any,
+            showErrorToast: false, // Don't show toast for file upload errors
+          });
+          
+          console.log("[File Upload] Files uploaded successfully");
+        } catch (fileError) {
+          console.warn("File upload failed (non-critical):", fileError);
+          // Don't fail the whole request if file upload fails
+          // The project request was created successfully
+          // Files can be uploaded later if needed
+        }
+      }
+      
       setSubmittedId(projectId);
       setSubmitted(true);
     } catch (error) {
@@ -1772,69 +1782,16 @@ export function NewProjectPage() {
                 " Required: drawings and specifications for BOQ preparation."}
             </p>
 
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
-              className={`file-drop-zone border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer ${
-                dragOver
-                  ? "drag-over"
-                  : "border-border hover:border-[#1A3580]/50 hover:bg-secondary/50 bg-white/40 backdrop-blur-sm"
-              }`}
-              onClick={() => document.getElementById("file-input")?.click()}
-            >
-              <Upload
-                size={32}
-                className="mx-auto text-muted-foreground mb-3"
-              />
-              <p className="text-sm font-medium text-foreground">
-                Drag & drop files here
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                or click to browse · PDF, DOC, XLSX, PNG, JPG · Max 10MB
-              </p>
-              <input
-                id="file-input"
-                type="file"
-                multiple
-                accept=".pdf,.doc,.docx,.xlsx,.png,.jpg,.jpeg"
-                onChange={handleFileInput}
-                className="hidden"
-              />
-            </div>
-
-            {form.files.length > 0 && (
-              <div className="space-y-2">
-                {form.files.map((file, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-3 bg-secondary/50 rounded-lg px-4 py-3"
-                  >
-                    <FileText
-                      size={16}
-                      className="text-[#1A3580] flex-shrink-0"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {file.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {(file.size / 1024).toFixed(0)} KB
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => removeFile(i)}
-                      className="text-muted-foreground hover:text-red-500 transition-colors flex-shrink-0"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+            <FileUpload
+              files={form.files}
+              onFilesChange={(files) => setForm((f) => ({ ...f, files }))}
+              maxFiles={10}
+              maxSizeMB={10}
+              acceptedTypes={[".pdf", ".doc", ".docx", ".xlsx", ".xls", ".png", ".jpg", ".jpeg", "image/*"]}
+              label={t("projects.uploadDocuments") || "Upload Documents"}
+              description={t("projects.dragDropFiles") || "Drag and drop files here, or click to browse"}
+            />
+            
             {form.files.length === 0 && (
               <p className="text-center text-muted-foreground text-sm py-2">
                 {form.classification === "A5"

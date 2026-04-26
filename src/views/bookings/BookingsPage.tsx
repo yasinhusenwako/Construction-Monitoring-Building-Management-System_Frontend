@@ -837,9 +837,9 @@ export function BookingsPage() {
                         onClick={() =>
                           router.push(`/dashboard/bookings/edit/${booking.id}`)
                         }
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-green-600 text-green-600 text-xs font-semibold hover:bg-green-50 transition-all"
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-green-600 text-green-600 text-xs font-semibold hover:bg-green-50 transition-all"
                       >
-                        <Pencil size={12} /> {t("action.edit")}
+                        <Pencil size={13} /> {t("action.edit")}
                       </button>
                     )}
                   </div>

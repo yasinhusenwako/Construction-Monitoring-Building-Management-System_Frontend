@@ -279,6 +279,27 @@ The frontend is fully integrated with a Spring Boot backend:
 - **Type Conversions:** Automatic conversion between Spring Boot and Frontend types
 - **Status Normalization:** UPPERCASE_SNAKE_CASE → Title Case
 - **ID Mapping:** Business IDs (PRJ-001) ↔ Database IDs (numbers)
+- **File Upload:** `POST /api/files/upload` - Multipart file upload for attachments (requires backend implementation)
+
+### File Upload Feature
+
+The frontend includes a complete file upload system:
+
+- **Component:** `FileUpload` - Drag & drop file upload with previews
+- **Viewer:** `FileViewer` - Display and download attachments
+- **API Route:** `/api/files/upload` - Proxies to backend at `http://127.0.0.1:8080/api/files/upload`
+- **Supported Files:** Images, PDFs, Word, Excel documents (max 10MB per file)
+- **Features:** Image previews, file size validation, drag & drop, multiple file support
+
+**Backend Requirements:**
+The backend should implement `POST /api/files/upload` endpoint that:
+- Accepts `multipart/form-data` with `files[]` array
+- Accepts `entityType` (e.g., "maintenance", "project", "booking")
+- Accepts `entityId` (the business ID like "MNT-1234")
+- Returns uploaded file metadata (URLs, IDs, etc.)
+- Stores files and associates them with the entity
+
+Currently, file names are stored in the `attachments` array even if upload fails, allowing the system to work without file storage.
 
 See `BACKEND_INTEGRATION_STATUS.md` for complete integration details.
 
@@ -287,6 +308,37 @@ See `BACKEND_INTEGRATION_STATUS.md` for complete integration details.
 - `BACKEND_INTEGRATION_STATUS.md` - Complete backend integration documentation
 - `IMPLEMENTATION_CHECKLIST.md` - Implementation checklist and priority matrix
 - `SYSTEM_ANALYSIS_AND_RECOMMENDATIONS.md` - System analysis and recommendations
+- `CONTRIBUTING.md` - Guidelines for contributing to the project
+
+## 🔧 Recent Improvements
+
+### File Upload System (April 2026)
+- ✅ Complete end-to-end file upload implementation
+- ✅ FileUpload component with drag & drop
+- ✅ FileViewer component with preview and download
+- ✅ Backend upload endpoint with validation
+- ✅ Integration with Maintenance and Projects modules
+- ✅ Secure file storage with UUID naming
+- ✅ Comprehensive documentation
+
+### Performance Enhancements
+- ✅ Optimized React Query configuration with smart caching
+- ✅ Added query key factory for better cache management
+- ✅ Implemented custom hooks for data fetching with mutations
+- ✅ Added performance monitoring utilities
+
+### Developer Experience
+- ✅ Error boundary for graceful error handling
+- ✅ Loading states components (skeletons, loaders)
+- ✅ Centralized constants file
+- ✅ Enhanced error handling utilities
+- ✅ React Query DevTools in development mode
+
+### Code Quality
+- ✅ TypeScript strict mode enabled
+- ✅ Consistent error handling patterns
+- ✅ Reusable custom hooks
+- ✅ Better separation of concerns
 
 ---
 

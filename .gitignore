@@ -27,6 +27,11 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env.local
+.env
+
+# Keep example env
+!.env.example
 
 # vercel
 .vercel
@@ -41,3 +46,15 @@ next-env.d.ts
 
 # temporary files
 test-hash.js
+
+# Additional temporary files
+*.tmp
+*.temp
+*_search.txt
+*_output.txt
+
+# IDE files (additional)
+.idea/
+*.swp
+*.swo
+*~

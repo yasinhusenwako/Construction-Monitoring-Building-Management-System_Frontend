@@ -1,19 +1,16 @@
 "use client";
 
-import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   ArrowLeft,
   CheckCircle,
   ChevronRight,
-  FileText,
-  Upload,
-  X,
 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { useLanguage } from "@/context/LanguageContext";
+import { FileUpload, UploadedFile } from "@/components/common/FileUpload";
 import type { Maintenance } from "@/types/models";
 
 // Static constants moved inside component for translation support
@@ -56,12 +53,7 @@ type FormState = {
   block: string;
   floor: string;
   roomArea: string;
-  files: File[];
-};
-
-type PreviewImage = {
-  file: File;
-  url: string;
+  files: UploadedFile[];
 };
 
 export function NewMaintenancePage() {
@@ -181,9 +173,7 @@ export function NewMaintenancePage() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submittedId, setSubmittedId] = useState("");
-  const [dragOver, setDragOver] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [previews, setPreviews] = useState<PreviewImage[]>([]);
 
   const [form, setForm] = useState<FormState>({
     title: "",
@@ -197,50 +187,9 @@ export function NewMaintenancePage() {
     files: [],
   });
 
-  useEffect(() => {
-    const nextPreviews = form.files
-      .filter((f) => f.type.startsWith("image/"))
-      .map((f) => ({ file: f, url: URL.createObjectURL(f) }));
-
-    setPreviews(nextPreviews);
-
-    return () => {
-      nextPreviews.forEach((preview) => URL.revokeObjectURL(preview.url));
-    };
-  }, [form.files]);
-
   const update = (k: keyof FormState, v: FormState[keyof FormState]) => {
     setForm((f) => ({ ...f, [k]: v }));
     setErrors((e) => ({ ...e, [k]: "", files: "" }));
-  };
-
-  const validateFiles = (files: File[]) => {
-    for (const f of files) {
-      if (!f.type.startsWith("image/")) {
-        return t("maintenance.imageOnlyExc");
-      }
-      if (f.size > 10 * 1024 * 1024) {
-        return t("maintenance.maxFileSizeExc");
-      }
-    }
-    return "";
-  };
-
-  const addFiles = (incoming: File[]) => {
-    const fileErr = validateFiles(incoming);
-    if (fileErr) {
-      setErrors((e) => ({ ...e, files: fileErr }));
-      return;
-    }
-    setForm((f) => ({ ...f, files: [...f.files, ...incoming] }));
-    setErrors((e) => ({ ...e, files: "" }));
-  };
-
-  const removeFile = (index: number) => {
-    setForm((f) => ({
-      ...f,
-      files: f.files.filter((_, i) => i !== index),
-    }));
   };
 
   const validate = () => {
@@ -318,46 +267,36 @@ export function NewMaintenancePage() {
       );
 
       const maintenanceId = created.maintenanceId || generatedId;
-      const now = new Date().toISOString();
-      const location = [form.building, form.block, form.floor, form.roomArea]
-        .filter((x) => x && x.trim())
-        .join(" / ");
-
-      const maintenanceType = mapMaintenanceType(form.category);
-      const divisionId = mapDivisionId(maintenanceType);
-
-      const maintenanceItem: Maintenance = {
-        id: maintenanceId,
-        title: form.title,
-        description: form.description,
-        type: maintenanceType,
-        divisionId,
-        subType: form.category,
-        status: "Submitted",
-        priority: (form.priority === "Routine" || !form.priority
-          ? "Low"
-          : form.priority) as Extract<Maintenance["priority"], string>,
-        requestedBy,
-        location: location || t("bookings.notSpecified"),
-        floor: form.floor || t("bookings.notSpecified"),
-
-        createdAt: now,
-        updatedAt: now,
-        building: form.building,
-        roomArea: form.roomArea,
-        notes: t("requests.submitted"),
-        attachments: form.files.map((f) => f.name),
-        timeline: [
-          {
-            id: `EVT-${Date.now()}`,
-            action: "Submitted",
-            actor: requestedBy,
-            timestamp: now,
-            note: t("requests.submitted"),
-          },
-        ],
-      };
-
+      
+      // Upload files if any
+      if (form.files.length > 0) {
+        try {
+          const formData = new FormData();
+          form.files.forEach((uploadedFile) => {
+            if (uploadedFile.file) {
+              formData.append("files", uploadedFile.file);
+            }
+          });
+          formData.append("entityType", "maintenance");
+          formData.append("entityId", maintenanceId);
+          
+          console.log(`[File Upload] Uploading ${form.files.length} file(s) for ${maintenanceId}`);
+          
+          await apiRequest("/api/files/upload", {
+            method: "POST",
+            body: formData as any,
+            showErrorToast: false, // Don't show toast for file upload errors
+          });
+          
+          console.log("[File Upload] Files uploaded successfully");
+        } catch (fileError) {
+          console.warn("File upload failed (non-critical):", fileError);
+          // Don't fail the whole request if file upload fails
+          // The maintenance request was created successfully
+          // Files can be uploaded later if needed
+        }
+      }
+      
       setSubmittedId(maintenanceId);
       setSubmitted(true);
     } catch (error) {
@@ -667,94 +606,15 @@ export function NewMaintenancePage() {
             <p className="text-muted-foreground text-sm">
               {t("maintenance.imageEvidence")}
             </p>
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragOver(false);
-                addFiles(Array.from(e.dataTransfer.files));
-              }}
-              className={`file-drop-zone border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer ${
-                dragOver
-                  ? "drag-over"
-                  : "border-border hover:border-[#CC1F1A]/50 hover:bg-secondary/50 bg-white/40 backdrop-blur-sm"
-              }`}
-              onClick={() => document.getElementById("mnt-upload")?.click()}
-            >
-              <Upload
-                size={32}
-                className="mx-auto text-muted-foreground mb-3"
-              />
-              <p className="text-sm font-medium">
-                {t("maintenance.dragDropImages")}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {t("maintenance.fileTypes")}
-              </p>
-              <input
-                id="mnt-upload"
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={(e) => addFiles(Array.from(e.target.files || []))}
-                className="hidden"
-                aria-label="Upload attachment images"
-                title="Upload attachment images"
-              />
-            </div>
-
-            {errors.files && (
-              <p className="text-red-500 text-xs mt-1">{errors.files}</p>
-            )}
-
-            {form.files.length > 0 && (
-              <div className="space-y-2">
-                {form.files.map((file, i) => (
-                  <div
-                    key={`${file.name}-${i}`}
-                    className="flex items-center gap-3 bg-secondary/50 rounded-lg px-4 py-2.5"
-                  >
-                    <FileText size={16} className="text-[#CC1F1A]" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {file.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {(file.size / 1024).toFixed(0)} KB
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => removeFile(i)}
-                      className="text-muted-foreground hover:text-red-500"
-                      aria-label={`Remove ${file.name}`}
-                      title={`Remove ${file.name}`}
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {previews.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {previews.map((p, idx) => (
-                  <Image
-                    key={`${p.file.name}-${idx}`}
-                    src={p.url}
-                    alt={p.file.name}
-                    width={240}
-                    height={96}
-                    unoptimized
-                    className="w-full h-24 object-cover rounded-lg border border-border"
-                  />
-                ))}
-              </div>
-            )}
+            
+            <FileUpload
+              files={form.files}
+              onFilesChange={(files) => update("files", files)}
+              maxFiles={10}
+              maxSizeMB={10}
+              label={t("maintenance.dragDropImages") || "Upload Files"}
+              description={t("maintenance.fileTypes") || "Drag and drop files here, or click to browse"}
+            />
           </div>
         )}
 

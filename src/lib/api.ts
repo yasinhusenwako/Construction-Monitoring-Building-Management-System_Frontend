@@ -1,6 +1,9 @@
+import { toast } from "sonner";
+
 type ApiRequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
   onError?: (error: Error) => void;
+  showErrorToast?: boolean;
   retryCount?: number;
   retryDelayMs?: number;
 };
@@ -69,6 +72,7 @@ export async function apiRequest<T>(
     body,
     headers,
     onError,
+    showErrorToast = true,
     retryCount = 0,
     retryDelayMs = 500,
     ...rest
@@ -139,6 +143,14 @@ export async function apiRequest<T>(
     } catch (error: any) {
       lastError = error instanceof Error ? error : new Error(String(error));
       if (onError) onError(lastError);
+
+      // Global error toast (only on client)
+      if (showErrorToast && !isServer()) {
+        toast.error("API Error", {
+          description: lastError.message,
+        });
+      }
+
       // Only retry on network errors or 5xx
       if (
         attempt < retryCount &&

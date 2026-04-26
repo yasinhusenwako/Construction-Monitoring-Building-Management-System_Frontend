@@ -64,6 +64,7 @@ export interface Project {
   divisionId?: string;
   assignedSupervisorId?: string;
   assignedProfessionalId?: string;
+  linkedProjectId?: string; // For A5/A6 existing project references
   documents: string[];
   timeline: TimelineEvent[];
   materialCost?: number;
@@ -135,6 +136,14 @@ export interface Maintenance {
   resolvedAt?: string;
   notes: string;
   attachments: string[];
+  files?: Array<{
+    id: string;
+    name: string;
+    url?: string;
+    size?: number;
+    type?: string;
+    uploadedAt?: string;
+  }>;
   timeline: TimelineEvent[];
   materialCost?: number;
   laborCost?: number;

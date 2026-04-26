@@ -532,18 +532,19 @@ export function UsersPage() {
                     value={form.role}
                     onChange={(e) =>
                       setForm((f) => {
-                        const nextRole = e.target.value as UserRole;
-                        if (
-                          nextRole !== "supervisor" &&
-                          nextRole !== "professional"
-                        ) {
-                          return {
-                            ...f,
-                            role: nextRole,
-                            divisionId: "",
-                            profession:
-                              nextRole === "professional" ? f.profession : "",
-                          };
+                         const nextRole = e.target.value as UserRole;
+                         const notSuperOrProf =
+                           nextRole !== "supervisor" && nextRole !== "professional";
+                         if (notSuperOrProf) {
+                           return {
+                             ...f,
+                             role: nextRole,
+                             divisionId: "",
+                             profession:
+                               nextRole === ("professional" as UserRole)
+                                 ? f.profession
+                                 : "",
+                           };
                         }
                         return { ...f, role: nextRole };
                       })

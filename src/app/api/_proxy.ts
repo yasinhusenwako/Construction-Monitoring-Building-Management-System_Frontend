@@ -32,25 +32,41 @@ export async function proxyBackendRequest(
   request: NextRequest,
 ): Promise<NextResponse> {
   const method = request.method.toUpperCase();
-  const body =
-    method === "GET" || method === "HEAD"
-      ? undefined
-      : await request.arrayBuffer();
+  const targetUrl = buildTargetUrl(request);
+  
+  try {
+    const body =
+      method === "GET" || method === "HEAD"
+        ? undefined
+        : await request.arrayBuffer();
 
-  const response = await fetch(buildTargetUrl(request), {
-    method,
-    headers: cloneRequestHeaders(request),
-    body,
-    redirect: "manual",
-    cache: "no-store",
-  });
+    console.log(`[Proxy] ${method} ${targetUrl}`);
 
-  const responseBody =
-    method === "HEAD" ? null : await response.arrayBuffer();
+    const response = await fetch(targetUrl, {
+      method,
+      headers: cloneRequestHeaders(request),
+      body,
+      redirect: "manual",
+      cache: "no-store",
+    });
 
-  return new NextResponse(responseBody, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: cloneResponseHeaders(response),
-  });
+    const responseBody =
+      method === "HEAD" ? null : await response.arrayBuffer();
+
+    return new NextResponse(responseBody, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: cloneResponseHeaders(response),
+    });
+  } catch (error: any) {
+    console.error(`[Proxy Error] ${method} ${targetUrl}:`, error.message);
+    
+    return NextResponse.json(
+      { 
+        message: "Backend service is currently unavailable. Please ensure the backend server is running.",
+        error: error.message 
+      },
+      { status: 503 }
+    );
+  }
 }
