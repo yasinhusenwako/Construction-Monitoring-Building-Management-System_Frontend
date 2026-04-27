@@ -21,7 +21,7 @@ interface BackendProject {
   description?: string;
   classification?: string;
   status: BackendStatus;
-  requestedBy: number;
+  createdBy: number;  // Backend uses createdBy, not requestedBy
   assignedSupervisorId?: number | null;
   assignedProfessionalId?: number | null;
   location?: string;
@@ -216,7 +216,7 @@ export async function fetchLiveProjects(
       category: "Capital Project",
       classification: item.classification || "General",
       status: mapStatusFromBackend(item.status) as Project["status"],
-      requestedBy: userId(item.requestedBy),
+      requestedBy: userId(item.createdBy),  // Map createdBy to requestedBy
       supervisorId: item.assignedSupervisorId
         ? userId(item.assignedSupervisorId)
         : undefined,
