@@ -96,12 +96,13 @@ export function ProjectsPage() {
   };
 
   const canDeleteProject = (project: Project) => {
-    return (
-      role === "admin" ||
-      (role === "user" &&
-        project.requestedBy === currentUser?.id &&
-        ["Submitted", "Approved", "Rejected", "Closed"].includes(project.status))
-    );
+    // Users can only delete their own projects in Submitted status
+    // Admins can delete any project
+    if (role === "admin") return true;
+    if (role === "user" && project.requestedBy === currentUser?.id && project.status === "Submitted") {
+      return true;
+    }
+    return false;
   };
 
   const handleDeleteProject = async (project: Project) => {
