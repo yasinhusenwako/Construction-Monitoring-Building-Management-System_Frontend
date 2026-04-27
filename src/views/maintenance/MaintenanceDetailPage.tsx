@@ -865,7 +865,6 @@ export function MaintenanceDetailPage() {
         </div>
 
         {/* Right Panel */}
-        {/* Right Panel */}
         <div className="space-y-5">
           {/* Admin Actions */}
           {role === "admin" && (
