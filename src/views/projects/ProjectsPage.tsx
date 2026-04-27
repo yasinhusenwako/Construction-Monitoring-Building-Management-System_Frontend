@@ -12,6 +12,7 @@ import {
   WorkflowRole,
 } from '@/lib/workflow';
 import { fetchLiveProjects } from "@/lib/live-api";
+import { apiRequest } from "@/lib/api";
 import { StatusBadge } from '@/components/common/StatusBadge';
 import {
   Plus,
@@ -21,6 +22,8 @@ import {
   ExternalLink,
   FolderOpen,
   SlidersHorizontal,
+  Trash2,
+  FileText,
 } from "lucide-react";
 
 export function ProjectsPage() {
@@ -77,6 +80,42 @@ export function ProjectsPage() {
     }
     setCopied(id);
     setTimeout(() => setCopied(""), 2000);
+  };
+
+  const canDeleteProject = (project: Project) => {
+    return (
+      role === "admin" ||
+      (role === "user" &&
+        project.requestedBy === currentUser?.id &&
+        ["Submitted", "Approved", "Rejected", "Closed"].includes(project.status))
+    );
+  };
+
+  const handleDeleteProject = async (project: Project) => {
+    const confirmed = confirm(
+      "Are you sure you want to delete this project? This action cannot be undone.",
+    );
+    if (!confirmed) return;
+
+    try {
+      await apiRequest(`/api/projects/${project.dbId ?? project.id}`, {
+        method: "DELETE",
+      });
+      setProjects((prev) => prev.filter((p) => p.id !== project.id));
+    } catch (error) {
+      alert(
+        "Failed to delete project: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+      );
+    }
+  };
+
+  const canEditProject = (project: Project) => {
+    return (
+      role === "user" &&
+      project.requestedBy === currentUser?.id &&
+      project.status === "Submitted"
+    );
   };
 
   const getStreamBadge = (classification: string) => {
@@ -276,6 +315,16 @@ export function ProjectsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
+                        {canEditProject(project) && (
+                          <button
+                            onClick={() =>
+                              router.push(`/dashboard/projects/${project.id}/edit`)
+                            }
+                            className="flex items-center gap-1 text-xs text-[#1A3580] hover:underline font-medium"
+                          >
+                            <FileText size={12} /> {t("action.edit") || "Edit"}
+                          </button>
+                        )}
                         <button
                           onClick={() =>
                             router.push(`/dashboard/projects/${project.id}`)
@@ -284,6 +333,14 @@ export function ProjectsPage() {
                         >
                           <ExternalLink size={12} /> {t("action.view")}
                         </button>
+                        {canDeleteProject(project) && (
+                          <button
+                            onClick={() => void handleDeleteProject(project)}
+                            className="flex items-center gap-1 text-xs text-red-600 hover:underline font-medium"
+                          >
+                            <Trash2 size={12} /> {t("action.delete") || "Delete"}
+                          </button>
+                        )}
                         {role === "admin" && project.status === "Submitted" && (
                           <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
                             {t("projects.review")}

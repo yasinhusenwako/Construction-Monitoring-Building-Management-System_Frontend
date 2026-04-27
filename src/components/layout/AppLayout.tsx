@@ -47,6 +47,8 @@ interface NavItem {
   children?: NavItem[];
 }
 
+const DROPDOWN_MAX_NOTIFICATIONS = 8;
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const PROJECT_BADGE_SEEN_KEY = "insa_admin_seen_projects_actionable";
   const MAINTENANCE_BADGE_SEEN_KEY =
@@ -68,7 +70,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  const userNotifs = notifications.filter((n) => n.userId === currentUser?.id);
+  const userNotifs = notifications
+    .filter((n) => n.userId === currentUser?.id)
+    .sort((a, b) => {
+      if (a.read !== b.read) return Number(a.read) - Number(b.read);
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  const dropdownNotifs = userNotifs
+    .filter((n) => !n.read)
+    .slice(0, DROPDOWN_MAX_NOTIFICATIONS);
   const unreadCount = userNotifs.filter((n) => !n.read).length;
 
   useEffect(() => {
@@ -87,6 +97,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     fetchLiveNotifications()
       .then(setNotifications)
       .catch(() => {});
+    
+    // Poll for new notifications every 30 seconds
+    const interval = setInterval(() => {
+      fetchLiveNotifications()
+        .then(setNotifications)
+        .catch(() => {});
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -177,12 +196,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const handleNotificationClick = async (notification: Notification) => {
     // Mark as read if not already read
     if (!notification.read) {
+      // Optimistic update so the notification disappears from the unread list immediately.
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.id === notification.id ? { ...n, read: true } : n,
+        ),
+      );
+
       try {
         await markNotificationAsRead(notification.id);
-        // Remove from local state immediately
-        setNotifications((prev) =>
-          prev.filter((n) => n.id !== notification.id)
-        );
       } catch (error) {
         console.error("Failed to mark notification as read:", error);
       }
@@ -264,13 +286,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       path: "/dashboard/team",
       icon: <Users size={18} />,
       roles: ["supervisor"],
-    },
-    {
-      label: t("nav.notifications"),
-      path: "/dashboard/notifications",
-      icon: <Bell size={18} />,
-      roles: ["admin", "user", "supervisor", "professional"],
-      badge: unreadCount || undefined,
     },
     {
       label:
@@ -493,12 +508,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     )}
                   </div>
                   <div className="max-h-72 overflow-y-auto">
-                    {userNotifs.length === 0 ? (
+                    {dropdownNotifs.length === 0 ? (
                       <p className="text-center text-muted-foreground text-sm py-6">
-                        No notifications
+                        No recent notifications
                       </p>
                     ) : (
-                      userNotifs.slice(0, 5).map((n) => (
+                      dropdownNotifs.map((n) => (
                         <div
                           key={n.id}
                           onClick={() => handleNotificationClick(n)}

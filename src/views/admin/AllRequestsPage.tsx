@@ -1104,7 +1104,6 @@ export function AllRequestsPage() {
   const [userFilter, setUserFilter] = useState("All");
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortAsc, setSortAsc] = useState(false);
-  const [selectedReq, setSelectedReq] = useState<UnifiedRequest | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
   // ─── Live data fetched from backend ────────────────────────────────────────
@@ -1191,8 +1190,6 @@ export function AllRequestsPage() {
 
   const filtered = useMemo(() => {
     let list = allRequests;
-    if (activeModule !== "All")
-      list = list.filter((r) => r.module === activeModule);
     if (statusFilter !== "All")
       list = list.filter((r) => r.status === statusFilter);
     if (userFilter !== "All")
@@ -1221,7 +1218,6 @@ export function AllRequestsPage() {
     return list;
   }, [
     allRequests,
-    activeModule,
     statusFilter,
     userFilter,
     search,
@@ -1260,21 +1256,6 @@ export function AllRequestsPage() {
 
   return (
     <div className="space-y-5">
-      {/* Detail Panel */}
-      {selectedReq && (
-        <DetailPanel
-          req={selectedReq}
-          onClose={() => setSelectedReq(null)}
-          users={users}
-          getUserInfo={getUserInfo}
-          onRefresh={refresh}
-          onNavigate={(path) => {
-            setSelectedReq(null);
-            router.push(path);
-          }}
-        />
-      )}
-
       {/* ── Page Header ────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-start gap-3">
@@ -1409,8 +1390,15 @@ export function AllRequestsPage() {
                 <button
                   key={mod}
                   onClick={() => {
-                    setActiveModule(mod);
-                    setStatusFilter("All");
+                    if (mod === "All") {
+                      setActiveModule("All");
+                      setStatusFilter("All");
+                      return;
+                    }
+                    if (mod === "Projects") router.push("/dashboard/projects");
+                    else if (mod === "Bookings")
+                      router.push("/dashboard/bookings");
+                    else router.push("/dashboard/maintenance");
                   }}
                   className={`flex items-center gap-2 px-5 py-3.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-all ${
                     activeModule === mod
@@ -1593,14 +1581,17 @@ export function AllRequestsPage() {
             {filtered.map((req) => {
               const meta = MODULE_META[req.module];
               const requester = getUserInfo(req.requestedBy);
-              const isSelected = selectedReq?.id === req.id;
               return (
                 <div
                   key={req.id}
-                  onClick={() => setSelectedReq(req)}
-                  className={`px-5 py-4 flex items-center gap-4 cursor-pointer transition-all hover:bg-secondary/30 group ${
-                    isSelected ? "bg-[#EEF2FF]" : ""
-                  }`}
+                  onClick={() => {
+                    if (req.module === "Projects")
+                      router.push(`/dashboard/projects/${req.id}`);
+                    else if (req.module === "Maintenance")
+                      router.push(`/dashboard/maintenance/${req.id}`);
+                    else router.push(`/dashboard/bookings/${req.id}`);
+                  }}
+                  className="px-5 py-4 flex items-center gap-4 cursor-pointer transition-all hover:bg-secondary/30 group"
                 >
                   {/* Module Icon */}
                   <div
@@ -1656,11 +1647,7 @@ export function AllRequestsPage() {
                   {/* Chevron */}
                   <ChevronRight
                     size={16}
-                    className={`flex-shrink-0 transition-all ${
-                      isSelected
-                        ? "text-[#1A3580]"
-                        : "text-muted-foreground/40 group-hover:text-muted-foreground"
-                    }`}
+                    className="flex-shrink-0 transition-all text-muted-foreground/40 group-hover:text-muted-foreground"
                   />
                 </div>
               );

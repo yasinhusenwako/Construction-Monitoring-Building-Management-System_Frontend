@@ -21,14 +21,24 @@ interface BackendProject {
   assignedSupervisorId?: number | null;
   assignedProfessionalId?: number | null;
   location?: string;
+  block?: string;
+  floor?: string;
   budget?: number;
   startDate?: string;
   endDate?: string;
   createdAt?: string;
+  department?: string;
+  contactPerson?: string;
+  phone?: string;
+  siteCondition?: string;
   materialCost?: number;
   laborCost?: number;
   totalCost?: number;
   partsUsed?: string;
+  requestMode?: string;
+  linkedProjectId?: string;
+  scope?: unknown;
+  divisionId?: number | null;
 }
 
 interface BackendBooking {
@@ -194,6 +204,24 @@ function splitLocation(location?: string): {
   };
 }
 
+function parseProjectScope(scope: unknown): Record<string, unknown> | undefined {
+  if (!scope) return undefined;
+  if (typeof scope === "object" && !Array.isArray(scope)) {
+    return scope as Record<string, unknown>;
+  }
+  if (typeof scope === "string") {
+    try {
+      const parsed = JSON.parse(scope);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
 export async function fetchLiveProjects(
   filterProjectId?: string,
 ): Promise<Project[]> {
@@ -220,17 +248,31 @@ export async function fetchLiveProjects(
         ? userId(item.assignedProfessionalId)
         : undefined,
       location: item.location || "N/A",
+      block: item.block,
+      floor: item.floor,
       budget: Number(item.budget || 0),
       startDate: item.startDate || "",
       endDate: item.endDate || "",
+      department: item.department,
+      contactPerson: item.contactPerson,
+      contactPhone: item.phone,
+      siteCondition: item.siteCondition,
+      requestMode: item.requestMode,
+      linkedProjectId: item.linkedProjectId,
       createdAt: toIsoDate(item.createdAt),
       updatedAt: toIsoDate(item.createdAt),
+      divisionId:
+        item.divisionId == null
+          ? undefined
+          : `DIV-${String(item.divisionId).padStart(3, "0")}`,
       documents: [],
       timeline: [],
       materialCost: item.materialCost,
       laborCost: item.laborCost,
       totalCost: item.totalCost,
       partsUsed: item.partsUsed,
+      rejectionReason: item.rejectionReason,
+      scope: parseProjectScope(item.scope),
     };
   });
 }
@@ -272,6 +314,7 @@ export async function fetchLiveBookings(
       laborCost: item.laborCost,
       totalCost: item.totalCost,
       partsUsed: item.partsUsed,
+      rejectionReason: item.rejectionReason,
     };
   });
 }
@@ -318,6 +361,8 @@ export async function fetchLiveMaintenance(
       laborCost: item.laborCost,
       totalCost: item.totalCost,
       partsUsed: item.partsUsed,
+      rejectionReason: item.rejectionReason,
+      createdBy: userId(item.createdBy),
     };
   });
 }

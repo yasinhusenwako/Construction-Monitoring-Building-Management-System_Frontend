@@ -22,7 +22,9 @@ import {
   Package,
   MessageSquare,
   UserPlus,
+  Trash2,
   Users as UsersIcon,
+  ThumbsDown,
 } from "lucide-react";
 import { fetchLiveMaintenance, fetchLiveUsers } from "@/lib/live-api";
 import { apiRequest } from "@/lib/api";
@@ -177,6 +179,31 @@ export function MaintenanceDetailPage() {
   const requester = systemUsers.find((u) => u.id === maint.requestedBy);
   const assignee = systemUsers.find((u) => u.id === maint.assignedTo);
   const professionals = systemUsers.filter((u) => u.role === "professional");
+  
+  // Maintenance uses professionals from the 3 maintenance divisions (DIV-001, DIV-002, DIV-003)
+  // NOT from "OTHER" division
+  const maintenanceDivisions = ["DIV-001", "DIV-002", "DIV-003"];
+  const divisionProfessionals = professionals.filter(
+    (u) => u.divisionId && maintenanceDivisions.includes(u.divisionId.toUpperCase())
+  );
+  
+  // Further filter by profession/task type if selected
+  const taskTypeDivisionProfessionals = divisionProfessionals.filter(
+    (u) => u.profession === selectedTaskType
+  );
+
+  // Debug: Log delete button visibility
+  console.log("=== Delete Button Debug (Maintenance) ===");
+  console.log("Role:", role);
+  console.log("Current User ID:", currentUser?.id);
+  console.log("Maintenance Requested By:", maint.requestedBy);
+  console.log("Maintenance Status:", maint.status);
+  console.log("Is User:", role === "user");
+  console.log("Is Creator:", maint.requestedBy === currentUser?.id);
+  console.log("Is Submitted:", maint.status === "Submitted");
+  console.log("User Can Delete:", role === "user" && maint.requestedBy === currentUser?.id && maint.status === "Submitted");
+  console.log("Admin Can Delete:", role === "admin");
+  console.log("Show Delete Button:", ((role === "user" && maint.requestedBy === currentUser?.id && maint.status === "Submitted") || role === "admin"));
 
   const totalCost = parseInt(materialCost || "0") + parseInt(laborCost || "0");
 
@@ -372,6 +399,46 @@ export function MaintenanceDetailPage() {
             </div>
             <h1 className="text-[#0E2271]">{maint.title}</h1>
           </div>
+        </div>
+        
+        {/* Action Buttons - Edit and Delete */}
+        <div className="flex gap-2">
+          {/* Edit Button - Only show if user is the creator and status is Submitted */}
+          {role === "user" && 
+           maint.requestedBy === currentUser?.id && 
+           maint.status === "Submitted" && (
+            <button
+              onClick={() => router.push(`/dashboard/maintenance/${maint.id}/edit`)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1A3580] text-white text-sm font-semibold hover:bg-[#0E2271] transition-all"
+            >
+              <FileText size={16} />
+              {t("action.edit") || "Edit Request"}
+            </button>
+          )}
+          
+          {/* Delete Button - Show for creator (Submitted, Approved, Rejected, Closed) or admin (any status) */}
+          {((role === "user" && 
+             maint.requestedBy === currentUser?.id && 
+             ["Submitted", "Approved", "Rejected", "Closed"].includes(maint.status)) ||
+            role === "admin") && (
+            <button
+              onClick={async () => {
+                if (confirm("Are you sure you want to delete this maintenance request? This action cannot be undone.")) {
+                  try {
+                    await apiRequest(`/api/maintenance/${maint.dbId}`, { method: "DELETE" });
+                    alert("Maintenance request deleted successfully");
+                    router.push("/dashboard/maintenance");
+                  } catch (error) {
+                    alert("Failed to delete maintenance request: " + (error instanceof Error ? error.message : "Unknown error"));
+                  }
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-all"
+            >
+              <Trash2 size={16} />
+              {t("action.delete") || "Delete"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -804,10 +871,40 @@ export function MaintenanceDetailPage() {
               <div className="space-y-4">
                 {maint.status === "Submitted" && (
                   <div className="space-y-3 bg-white border border-border rounded-xl p-4 shadow-sm">
-                    <div className="mb-4 pb-4 border-b border-dashed border-border text-center">
+                    <div className="mb-4 pb-4 border-b border-dashed border-border">
                       <p className="text-xs text-muted-foreground mb-3">
-                        {t("requests.submitted")}: Ready for initial review.
+                        Quick Actions: Approve/Reject directly or start review process.
                       </p>
+                      <div className="flex gap-2 mb-3">
+                        <button
+                          onClick={() =>
+                            handleAction("Approved", "admin", t("requests.approved"))
+                          }
+                          className="flex-1 py-2.5 rounded-lg text-white text-sm font-bold bg-green-600 hover:bg-green-700 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                        >
+                          <CheckCircle size={16} /> Approve
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const reason = prompt("Please enter the reason for rejection:");
+                            if (reason !== null) {
+                              try {
+                                await apiRequest(`/api/maintenance/${maint.dbId}/reject`, {
+                                  method: "PATCH",
+                                  body: { reason },
+                                });
+                                window.location.reload();
+                              } catch (error) {
+                                alert("Failed to reject maintenance: " + (error instanceof Error ? error.message : "Unknown error"));
+                              }
+                            }
+                          }}
+                          className="flex-1 py-2.5 rounded-lg text-[#CC1F1A] text-sm font-bold border-2 border-[#CC1F1A] hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+                        >
+                          <ThumbsDown size={16} /> Reject
+                        </button>
+                      </div>
+                      <div className="text-xs text-muted-foreground mb-2">OR</div>
                       <button
                         onClick={() =>
                           handleAction(
@@ -909,9 +1006,7 @@ export function MaintenanceDetailPage() {
                             <option value="">
                               {t("common.select") || "Select"}
                             </option>
-                            {systemUsers
-                              .filter((u) => u.role === "professional")
-                              .map((pr) => (
+                            {divisionProfessionals.map((pr) => (
                                 <option key={pr.id} value={pr.id}>
                                   {pr.name}
                                 </option>
@@ -959,13 +1054,20 @@ export function MaintenanceDetailPage() {
                       {t("maintenance.approveCompletion")}
                     </button>
                     <button
-                      onClick={() =>
-                        handleAction(
-                          "Rejected",
-                          "admin",
-                          t("requests.rejected"),
-                        )
-                      }
+                      onClick={async () => {
+                        const reason = prompt("Please enter the reason for rejection:");
+                        if (reason !== null) {
+                          try {
+                            await apiRequest(`/api/maintenance/${maint.dbId}/reject`, {
+                              method: "PATCH",
+                              body: { reason },
+                            });
+                            window.location.reload();
+                          } catch (error) {
+                            alert("Failed to reject maintenance: " + (error instanceof Error ? error.message : "Unknown error"));
+                          }
+                        }
+                      }}
                       className="w-full py-2.5 rounded-lg text-[#CC1F1A] text-sm font-bold border-2 border-[#CC1F1A] hover:bg-red-50 transition-all flex items-center justify-center gap-2"
                     >
                       <ArrowLeft size={16} /> {t("maintenance.rejectToDiv")}
@@ -1050,18 +1152,16 @@ export function MaintenanceDetailPage() {
                       className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all"
                     >
                       <option value="">Select professional...</option>
-                      {systemUsers
-                        .filter((u) => u.role === "professional")
-                        .map((tech) => (
+                      {divisionProfessionals.map((tech) => (
                           <option key={tech.id} value={tech.id}>
                             {tech.name}{tech.profession ? ` - ${tech.profession}` : " - General"}
                           </option>
                         ))}
                     </select>
                     
-                    {systemUsers.filter((u) => u.role === "professional").length === 0 && (
+                    {divisionProfessionals.length === 0 && (
                       <p className="text-xs text-amber-600 mb-3 bg-amber-50 border border-amber-200 rounded px-3 py-2">
-                        No professionals available
+                        No professionals available in this division
                       </p>
                     )}
 
@@ -1122,25 +1222,13 @@ export function MaintenanceDetailPage() {
                           className="w-full px-3 py-2.5 rounded-lg border border-border bg-input-background text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all"
                         >
                           <option value="">Select professional...</option>
-                          {systemUsers
-                            .filter(
-                              (u) =>
-                                u.role === "professional" &&
-                                u.profession === selectedTaskType &&
-                                (!maint.divisionId || u.divisionId === maint.divisionId),
-                            )
-                            .map((tech) => (
+                          {taskTypeDivisionProfessionals.map((tech) => (
                               <option key={tech.id} value={tech.id}>
                                 {tech.name} - {tech.profession}
                               </option>
                             ))}
                         </select>
-                        {systemUsers.filter(
-                          (u) =>
-                            u.role === "professional" &&
-                            u.profession === selectedTaskType &&
-                            (!maint.divisionId || u.divisionId === maint.divisionId),
-                        ).length === 0 && (
+                        {taskTypeDivisionProfessionals.length === 0 && (
                           <p className="text-xs text-amber-600 mb-3 bg-amber-50 border border-amber-200 rounded px-3 py-2">
                             No {selectedTaskType} professionals available in this division
                           </p>

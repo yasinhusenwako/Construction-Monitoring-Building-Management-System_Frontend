@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
 import {
   CheckCircle,
   Upload,
@@ -13,6 +13,8 @@ import {
 import { DatePicker } from "@/components/common/DatePicker";
 import { apiRequest } from "@/lib/api";
 import { useLanguage } from "@/context/LanguageContext";
+import { useAuth } from "@/context/AuthContext";
+import { fetchLiveProjects } from "@/lib/live-api";
 import type { Project } from "@/types/models";
 
 interface DynamicScope {
@@ -101,42 +103,6 @@ const defaultScope: DynamicScope = {
   otherSupervisionType: "",
 };
 
-function createDefaultScope(): DynamicScope {
-  return {
-    buildingType: "",
-    otherBuildingType: "",
-    floorArea: "",
-    disciplines: [],
-    otherDiscipline: "",
-
-    interventionType: [],
-    otherInterventionType: "",
-    a2DesignScope: [],
-    otherA2DesignScope: "",
-    a2Deliverables: [],
-    otherA2Deliverable: "",
-
-    spaceType: "",
-    otherSpaceType: "",
-    userCapacity: "",
-    a3Deliverables: [],
-    otherA3Deliverable: "",
-
-    projectContext: "",
-    otherProjectContext: "",
-    siteArea: "",
-    a4Deliverables: [],
-    otherA4Deliverable: "",
-
-    boqPurpose: "",
-    otherBoqPurpose: "",
-    linkedProjectId: "",
-
-    supervisionTypes: [],
-    otherSupervisionType: "",
-  };
-}
-
 function Toggle({
   label,
   checked,
@@ -162,9 +128,14 @@ function Toggle({
   );
 }
 
-export function NewProjectPage() {
+export function EditProjectPage() {
   const router = useRouter();
+  const params = useParams();
+  const projectId = params.id as string;
   const { t } = useLanguage();
+  const { currentUser } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [existingProject, setExistingProject] = useState<Project | null>(null);
 
   const steps = [
     t("projects.step.classification"),
@@ -357,7 +328,6 @@ export function NewProjectPage() {
   const [submittedId, setSubmittedId] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [dragOver, setDragOver] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState<FormData>({
     classification: "",
@@ -377,22 +347,69 @@ export function NewProjectPage() {
     budget: "",
     startDate: "",
     endDate: "",
-    scope: createDefaultScope(),
+    scope: defaultScope,
     files: [],
   });
+
+  // Load existing project data
+  useEffect(() => {
+    const loadProject = async () => {
+      try {
+        const projects = await fetchLiveProjects(projectId);
+        const project = projects.find((p) => p.id === projectId);
+        
+        if (!project) {
+          alert("Project not found");
+          router.push("/dashboard/projects");
+          return;
+        }
+
+        // Check if user can edit
+        if (project.requestedBy !== currentUser?.id || project.status !== "Submitted") {
+          alert("You can only edit your own submitted requests");
+          router.push(`/dashboard/projects/${projectId}`);
+          return;
+        }
+
+        setExistingProject(project);
+
+        // Pre-populate form with existing data
+        setForm({
+          classification: project.classification || "",
+          requestMode: "new",
+          existingProjectId: "",
+          title: project.title || "",
+          location: project.location || "",
+          otherLocation: "",
+          block: "",
+          floor: "",
+          department: project.department || "",
+          contactPerson: project.contactPerson || "",
+          contactPhone: project.contactPhone || "",
+          siteCondition: project.siteCondition || "",
+          otherSiteCondition: "",
+          functionalDescription: project.description || "",
+          budget: project.budget?.toString() || "",
+          startDate: project.startDate || "",
+          endDate: project.endDate || "",
+          scope: (project.scope as any) || defaultScope,
+          files: [],
+        });
+        
+        setLoading(false);
+      } catch (error) {
+        console.error("Failed to load project:", error);
+        alert("Failed to load project");
+        router.push("/dashboard/projects");
+      }
+    };
+
+    loadProject();
+  }, [projectId, currentUser, router]);
 
   const update = (k: keyof FormData, v: string | number | boolean) => {
     setForm((f) => ({ ...f, [k]: v }));
     setErrors((e) => ({ ...e, [k]: "" }));
-  };
-
-  const updateClassification = (classification: string) => {
-    setForm((f) => ({
-      ...f,
-      classification,
-      scope: createDefaultScope(),
-    }));
-    setErrors((e) => ({ ...e, classification: "" }));
   };
 
   const updateScope = (
@@ -569,14 +586,13 @@ export function NewProjectPage() {
     }));
 
   const handleSubmit = async () => {
+    if (!existingProject?.dbId) {
+      alert("Project ID not found");
+      return;
+    }
+
     setLoading(true);
-    const year = new Date().getFullYear();
-    const id = `PRJ-${year}-${String(Math.floor(Math.random() * 900) + 100)}`;
     const budgetValue = form.budget ? Number(form.budget) : 0;
-    const storedUser = sessionStorage.getItem("insa_user");
-    const parsedUser = storedUser ? JSON.parse(storedUser) : null;
-    const divisionId =
-      Number(String(parsedUser?.divisionId ?? "").replace(/[^\d]/g, "")) || 1;
 
     try {
       const locParts: string[] = [];
@@ -590,122 +606,86 @@ export function NewProjectPage() {
       const locString =
         locParts.length > 0 ? locParts.join(", ") : "Not Specified";
 
-      const isExistingMode =
-        (form.classification === "A5" || form.classification === "A6") &&
-        form.requestMode === "existing";
+      const requestBody = {
+        projectId: existingProject.id, // Keep the original project ID
+        title: form.title,
+        location: locString,
+        block: form.block,
+        floor: form.floor,
+        department: form.department || "N/A",
+        contactPerson: form.contactPerson || "N/A",
+        phone: form.contactPhone || "N/A",
+        siteCondition:
+          form.siteCondition === t("common.other")
+            ? form.otherSiteCondition
+            : form.siteCondition || "N/A",
+        description: form.functionalDescription,
+        budget: budgetValue,
+        startDate: form.startDate,
+        endDate: form.endDate,
+        classification: form.classification,
+        priority: "Medium",
+        // IMPORTANT: Include scope with all classification-specific fields
+        scope: {
+          ...form.scope,
+          buildingType:
+            form.scope.buildingType === t("projects.buildingType.other")
+              ? form.scope.otherBuildingType
+              : form.scope.buildingType,
+          disciplines: form.scope.disciplines.map((d) =>
+            d === t("common.other") ? form.scope.otherDiscipline : d,
+          ),
+          interventionType: form.scope.interventionType.map((t_item) =>
+            t_item === t("common.other")
+              ? form.scope.otherInterventionType
+              : t_item,
+          ),
+          a2DesignScope: form.scope.a2DesignScope.map((s) =>
+            s === t("common.other") ? form.scope.otherA2DesignScope : s,
+          ),
+          a2Deliverables: form.scope.a2Deliverables.map((d) =>
+            d === t("common.other") ? form.scope.otherA2Deliverable : d,
+          ),
+          spaceType:
+            form.scope.spaceType === t("common.other")
+              ? form.scope.otherSpaceType
+              : form.scope.spaceType,
+          a3Deliverables: form.scope.a3Deliverables.map((d) =>
+            d === t("common.other") ? form.scope.otherA3Deliverable : d,
+          ),
+          projectContext:
+            form.scope.projectContext === t("common.other")
+              ? form.scope.otherProjectContext
+              : form.scope.projectContext,
+          a4Deliverables: form.scope.a4Deliverables.map((d) =>
+            d === t("common.other") ? form.scope.otherA4Deliverable : d,
+          ),
+          boqPurpose:
+            form.scope.boqPurpose === t("common.other")
+              ? form.scope.otherBoqPurpose
+              : form.scope.boqPurpose,
+          supervisionTypes: form.scope.supervisionTypes.map((t_item) =>
+            t_item === t("common.other")
+              ? form.scope.otherSupervisionType
+              : t_item,
+          ),
+        },
+      };
 
-      const requestBody = isExistingMode
-        ? {
-            projectId: id,
-            title: `${form.classification} request for ${form.existingProjectId}`,
-            location: "Linked Existing Project",
-            department: "Linked Existing Project",
-            contactPerson: "Linked Existing Project",
-            phone: "N/A",
-            siteCondition: "Linked Existing Project",
-            description: `Request linked to existing project ${form.existingProjectId}`,
-            budget: 1,
-            startDate: new Date().toISOString().slice(0, 10),
-            endDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
-            classification: form.classification,
-            priority: "Medium",
-            status: "Submitted",
-            divisionId,
-            scope: {
-              ...form.scope,
-              linkedProjectId: form.existingProjectId,
-              supervisionTypes: form.scope.supervisionTypes.map((t_item) =>
-                t_item === t("common.other")
-                  ? form.scope.otherSupervisionType
-                  : t_item,
-              ),
-            },
-            linkedProjectId: form.existingProjectId,
-            requestMode: "existing",
-          }
-        : {
-            projectId: id,
-            title: form.title,
-            location: locString,
-          block: form.block,
-          floor: form.floor,
-            department: form.department,
-            contactPerson: form.contactPerson,
-            phone: form.contactPhone,
-            siteCondition:
-              form.siteCondition === t("common.other")
-                ? form.otherSiteCondition
-                : form.siteCondition,
-            description: form.functionalDescription,
-            budget: budgetValue,
-            startDate: form.startDate,
-            endDate: form.endDate,
-            classification: form.classification,
-            priority: "Medium",
-            status: "Submitted",
-            divisionId,
-            requestMode: "new",
-            // Attach processed scope data
-            scope: {
-              ...form.scope,
-              buildingType:
-                form.scope.buildingType === t("projects.buildingType.other")
-                  ? form.scope.otherBuildingType
-                  : form.scope.buildingType,
-              disciplines: form.scope.disciplines.map((d) =>
-                d === t("common.other") ? form.scope.otherDiscipline : d,
-              ),
-              interventionType: form.scope.interventionType.map((t_item) =>
-                t_item === t("common.other")
-                  ? form.scope.otherInterventionType
-                  : t_item,
-              ),
-              a2DesignScope: form.scope.a2DesignScope.map((s) =>
-                s === t("common.other") ? form.scope.otherA2DesignScope : s,
-              ),
-              a2Deliverables: form.scope.a2Deliverables.map((d) =>
-                d === t("common.other") ? form.scope.otherA2Deliverable : d,
-              ),
-              spaceType:
-                form.scope.spaceType === t("common.other")
-                  ? form.scope.otherSpaceType
-                  : form.scope.spaceType,
-              a3Deliverables: form.scope.a3Deliverables.map((d) =>
-                d === t("common.other") ? form.scope.otherA3Deliverable : d,
-              ),
-              projectContext:
-                form.scope.projectContext === t("common.other")
-                  ? form.scope.otherProjectContext
-                  : form.scope.projectContext,
-              a4Deliverables: form.scope.a4Deliverables.map((d) =>
-                d === t("common.other") ? form.scope.otherA4Deliverable : d,
-              ),
-              boqPurpose:
-                form.scope.boqPurpose === t("common.other")
-                  ? form.scope.otherBoqPurpose
-                  : form.scope.boqPurpose,
-              supervisionTypes: form.scope.supervisionTypes.map((t_item) =>
-                t_item === t("common.other")
-                  ? form.scope.otherSupervisionType
-                  : t_item,
-              ),
-            },
-          };
-
-      const created = await apiRequest<{ projectId: string }>("/api/projects", {
-        method: "POST",
+      await apiRequest(`/api/projects/${existingProject.dbId}`, {
+        method: "PUT",
         body: requestBody,
       });
-      const projectId = created.projectId || id;
-      setSubmittedId(projectId);
-      setSubmitted(true);
+      
+      alert("Project updated successfully!");
+      router.push(`/dashboard/projects/${projectId}`);
     } catch (error) {
       setErrors((prev) => ({
         ...prev,
         submit:
           error instanceof Error
             ? error.message
-            : "Failed to submit project request",
+            : "Failed to update project",
       }));
     } finally {
       setLoading(false);
@@ -735,98 +715,14 @@ export function NewProjectPage() {
     return map[form.classification] || "—";
   };
 
-  const isOther = (value: string) =>
-    value === "Other" || value === t("common.other");
-
-  const resolveOtherText = (value: string, otherValue: string) =>
-    isOther(value) ? otherValue : value;
-
-  const resolveOtherArray = (values: string[], otherValue: string) =>
-    values.map((v) => (isOther(v) ? otherValue : v)).join(", ");
-
-  const getScopeReviewRows = (): [string, string][] => {
-    if (form.classification === "A1") {
-      return [
-        [
-          "Building Type",
-          resolveOtherText(form.scope.buildingType, form.scope.otherBuildingType),
-        ],
-        ["Floor Area", form.scope.floorArea],
-        [
-          "Disciplines",
-          resolveOtherArray(form.scope.disciplines, form.scope.otherDiscipline),
-        ],
-      ];
-    }
-
-    if (form.classification === "A2") {
-      return [
-        [
-          "Intervention Type",
-          resolveOtherArray(
-            form.scope.interventionType,
-            form.scope.otherInterventionType,
-          ),
-        ],
-        [
-          "Design Disciplines",
-          resolveOtherArray(form.scope.a2DesignScope, form.scope.otherA2DesignScope),
-        ],
-        [
-          "Required Deliverables",
-          resolveOtherArray(form.scope.a2Deliverables, form.scope.otherA2Deliverable),
-        ],
-      ];
-    }
-
-    if (form.classification === "A3") {
-      return [
-        ["Space Type", resolveOtherText(form.scope.spaceType, form.scope.otherSpaceType)],
-        ["User Capacity", form.scope.userCapacity],
-        [
-          "Required Deliverables",
-          resolveOtherArray(form.scope.a3Deliverables, form.scope.otherA3Deliverable),
-        ],
-      ];
-    }
-
-    if (form.classification === "A4") {
-      return [
-        [
-          "Project Context",
-          resolveOtherText(form.scope.projectContext, form.scope.otherProjectContext),
-        ],
-        [
-          "Site Area (sq.m)",
-          form.scope.siteArea || "-",
-        ],
-        [
-          "Required Deliverables",
-          resolveOtherArray(form.scope.a4Deliverables, form.scope.otherA4Deliverable),
-        ],
-      ];
-    }
-
-    if (form.classification === "A5") {
-      return [
-        ["BOQ Purpose", resolveOtherText(form.scope.boqPurpose, form.scope.otherBoqPurpose)],
-      ];
-    }
-
-    if (form.classification === "A6") {
-      return [
-        [
-          "Supervision Types",
-          resolveOtherArray(
-            form.scope.supervisionTypes,
-            form.scope.otherSupervisionType,
-          ),
-        ],
-      ];
-    }
-
-    return [];
-  };
+  if (loading) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 text-center">
+        <div className="animate-spin text-4xl mb-4">⟳</div>
+        <p className="text-muted-foreground">Loading project data...</p>
+      </div>
+    );
+  }
 
   if (submitted)
     return (
@@ -883,7 +779,7 @@ export function NewProjectPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => router.push("/dashboard/projects")}
+          onClick={() => router.push(`/dashboard/projects/${projectId}`)}
           className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft size={18} />
@@ -895,7 +791,7 @@ export function NewProjectPage() {
               {t("config.streamA")}
             </span>
           </div>
-          <h1 className="text-[#0E2271]">{t("nav.projects")}</h1>
+          <h1 className="text-[#0E2271]">Edit Project Request</h1>
         </div>
       </div>
 
@@ -960,7 +856,7 @@ export function NewProjectPage() {
                 <button
                   key={cls.code}
                   type="button"
-                  onClick={() => updateClassification(cls.code)}
+                  onClick={() => update("classification", cls.code)}
                   className={`text-left border-2 rounded-xl p-4 transition-all ${
                     form.classification === cls.code
                       ? "border-[#1A3580] bg-[#EEF2FF]"
@@ -1598,7 +1494,7 @@ export function NewProjectPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-[#0E2271] mb-2">
-                    Space Type *
+                    {t("projects.buildingType.other")} *
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     {spaceTypes.map((t) => (
@@ -2069,7 +1965,13 @@ export function NewProjectPage() {
                         : "Not specified",
                     ],
                     ["Timeline", `${form.startDate} → ${form.endDate}`],
-                    ...getScopeReviewRows(),
+                    [
+                      "Building Type",
+                      form.scope.buildingType === t("projects.buildingType.other")
+                        ? form.scope.otherBuildingType
+                        : form.scope.buildingType,
+                    ],
+                    ["Floor Area", form.scope.floorArea],
                     ["Auto-Assign To", getAssignmentInfo()],
                     ["Documents", `${form.files.length} file(s) attached`],
                   ]
@@ -2156,4 +2058,9 @@ export function NewProjectPage() {
       </div>
     </div>
   );
+}
+
+// Wrapper component for the route
+export function EditProjectPageWrapper() {
+  return <EditProjectPage />;
 }

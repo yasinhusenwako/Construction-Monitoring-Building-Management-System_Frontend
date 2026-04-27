@@ -180,18 +180,16 @@ export const WorkflowVisualizer: React.FC<WorkflowVisualizerProps> = ({
         })}
       </div>
 
-      {/* Current Status Badge for Mobile/Brief */}
-      <div className="current-status-brief">
-        <Clock size={14} className="text-[#1A3580] animate-pulse" />
-        <span>
-          {t("workflow.currently")}:{" "}
-          <strong>
-            {t(
-              `status.${currentStatus.charAt(0).toLowerCase()}${currentStatus.slice(1).replace(/\s+/g, "")}` as any,
-            ) || currentStatus}
-          </strong>
-        </span>
-      </div>
+       {/* Current Status Badge for Mobile/Brief */}
+        <div className="current-status-brief">
+          <Clock size={14} className="text-[#1A3580] animate-pulse" />
+          <span>
+            {t("workflow.currently")}:{" "}
+            <strong>
+              {currentStatus}
+            </strong>
+          </span>
+        </div>
     </div>
   );
 };

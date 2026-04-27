@@ -18,7 +18,6 @@ import {
   Info,
   Layers,
   User,
-  FileText,
   MessageSquare,
   ThumbsUp,
   ThumbsDown,
@@ -58,6 +57,9 @@ export function ProjectDetailPage() {
   const [costSaved, setCostSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [rejectingProject, setRejectingProject] = useState(false);
 
   useEffect(() => {
     const refresh = async () => {
@@ -112,6 +114,19 @@ export function ProjectDetailPage() {
     role === "professional" &&
     (project.assignedTo === currentUser?.id || !project.assignedTo);
   
+  // Debug: Log delete button visibility
+  console.log("=== Delete Button Debug (Project) ===");
+  console.log("Role:", role);
+  console.log("Current User ID:", currentUser?.id);
+  console.log("Project Requested By:", project.requestedBy);
+  console.log("Project Status:", project.status);
+  console.log("Is User:", role === "user");
+  console.log("Is Creator:", project.requestedBy === currentUser?.id);
+  console.log("Is Submitted:", project.status === "Submitted");
+  console.log("User Can Delete:", role === "user" && project.requestedBy === currentUser?.id && project.status === "Submitted");
+  console.log("Admin Can Delete:", role === "admin");
+  console.log("Show Delete Button:", ((role === "user" && project.requestedBy === currentUser?.id && project.status === "Submitted") || role === "admin"));
+  
   // Debug: Log project cost data
   console.log("=== Project Cost Data ===");
   console.log("Role:", role);
@@ -140,10 +155,161 @@ export function ProjectDetailPage() {
   const requester = systemUsers.find((u) => u.id === project.requestedBy);
   const assignee = systemUsers.find((u) => u.id === project.assignedTo);
   const professionals = systemUsers.filter((u) => u.role === "professional");
+  
+  // Projects use professionals from "OTHER" division (not maintenance divisions)
   const projectProfessionals = professionals.filter(
-    (u) => u.divisionId === "OTHER",
+    (u) => u.divisionId && u.divisionId.toUpperCase() === "OTHER"
   );
   const totalCost = parseInt(materialCost || "0") + parseInt(laborCost || "0");
+  const requestModeLabel =
+    project.requestMode === "existing" ? "Existing Project" : "New Project";
+  const autoAssignMap: Record<string, string> = {
+    A1: "Structural Engineer & Lead Architect",
+    A2: "Interior / Renovation Specialist",
+    A3: "Interior / Renovation Specialist",
+    A4: "Landscape Architect",
+    A5: "Quantity Surveyor",
+    A6: "Site Supervision Team",
+  };
+  const classificationCode = (project.classification || "").slice(0, 2);
+  const autoAssignTo = autoAssignMap[classificationCode] || "Not Defined";
+  const timelineRange =
+    project.startDate && project.endDate
+      ? `${project.startDate} -> ${project.endDate}`
+      : "Not specified";
+  const contactSummary = [project.contactPerson, project.contactPhone]
+    .filter(Boolean)
+    .join(" | ");
+  const actualLocation = project.location || "-";
+  const block = project.block || "-";
+  const floor = project.floor || "-";
+  const scopeData = project.scope || {};
+
+  const toScopeDisplayValue = (value: unknown): string => {
+    if (Array.isArray(value)) {
+      return value.length > 0 ? value.join(", ") : "-";
+    }
+    if (typeof value === "string") {
+      return value.trim() ? value : "-";
+    }
+    if (typeof value === "number") {
+      return String(value);
+    }
+    return "-";
+  };
+
+  const summaryScopeItems = (() => {
+    const hasA1Scope =
+      toScopeDisplayValue(scopeData.buildingType) !== "-" ||
+      toScopeDisplayValue(scopeData.floorArea) !== "-" ||
+      toScopeDisplayValue(scopeData.disciplines) !== "-";
+    const hasA2Scope =
+      toScopeDisplayValue(scopeData.interventionType) !== "-" ||
+      toScopeDisplayValue(scopeData.a2DesignScope) !== "-" ||
+      toScopeDisplayValue(scopeData.a2Deliverables) !== "-";
+    const hasA3Scope =
+      toScopeDisplayValue(scopeData.spaceType) !== "-" ||
+      toScopeDisplayValue(scopeData.a3Deliverables) !== "-";
+    const hasA4Scope =
+      toScopeDisplayValue(scopeData.projectContext) !== "-" ||
+      toScopeDisplayValue(scopeData.a4Deliverables) !== "-";
+    const hasA5Scope = toScopeDisplayValue(scopeData.boqPurpose) !== "-";
+    const hasA6Scope =
+      toScopeDisplayValue(scopeData.supervisionTypes) !== "-";
+
+    const inferredCode = hasA2Scope
+      ? "A2"
+      : hasA3Scope
+        ? "A3"
+        : hasA4Scope
+          ? "A4"
+          : hasA5Scope
+            ? "A5"
+            : hasA6Scope
+              ? "A6"
+              : hasA1Scope
+                ? "A1"
+                : classificationCode;
+
+    const items = (() => {
+      switch (inferredCode) {
+      case "A1":
+        return [
+          {
+            label: "Building Type",
+            value: toScopeDisplayValue(scopeData.buildingType),
+          },
+          {
+            label: "Floor Area",
+            value: toScopeDisplayValue(scopeData.floorArea),
+          },
+          {
+            label: "Disciplines",
+            value: toScopeDisplayValue(scopeData.disciplines),
+          },
+        ];
+      case "A2":
+        return [
+          {
+            label: "Intervention Type",
+            value: toScopeDisplayValue(scopeData.interventionType),
+          },
+          {
+            label: "Design Disciplines",
+            value: toScopeDisplayValue(scopeData.a2DesignScope),
+          },
+          {
+            label: "Deliverables",
+            value: toScopeDisplayValue(scopeData.a2Deliverables),
+          },
+        ];
+      case "A3":
+        return [
+          {
+            label: "Space Type",
+            value: toScopeDisplayValue(scopeData.spaceType),
+          },
+          {
+            label: "Deliverables",
+            value: toScopeDisplayValue(scopeData.a3Deliverables),
+          },
+        ];
+      case "A4":
+        return [
+          {
+            label: "Project Context",
+            value: toScopeDisplayValue(scopeData.projectContext),
+          },
+          {
+            label: "Site Area (sq.m)",
+            value: scopeData.siteArea || "-",
+          },
+          {
+            label: "Deliverables",
+            value: toScopeDisplayValue(scopeData.a4Deliverables),
+          },
+        ];
+      case "A5":
+        return [
+          {
+            label: "BOQ Purpose",
+            value: toScopeDisplayValue(scopeData.boqPurpose),
+          },
+        ];
+      case "A6":
+        return [
+          {
+            label: "Supervision Types",
+            value: toScopeDisplayValue(scopeData.supervisionTypes),
+          },
+        ];
+      default:
+        return [];
+      }
+    })();
+
+    return items.filter((item) => item.value !== "-");
+  })();
 
   // Debug logging for assign professional visibility
   console.log("DEBUG ProjectDetail:", {
@@ -259,6 +425,28 @@ export function ProjectDetailPage() {
     setTimeout(() => setActionDone(""), 3000);
   };
 
+  const handleReject = async () => {
+    if (!rejectionReason.trim()) {
+      alert("Please enter a rejection reason");
+      return;
+    }
+    
+    setRejectingProject(true);
+    try {
+      await apiRequest(`/api/projects/${project.dbId}/reject`, {
+        method: "PATCH",
+        body: { reason: rejectionReason },
+      });
+      setShowRejectModal(false);
+      setRejectionReason("");
+      window.location.reload();
+    } catch (error) {
+      alert("Failed to reject project: " + (error instanceof Error ? error.message : "Unknown error"));
+    } finally {
+      setRejectingProject(false);
+    }
+  };
+
   const persistCostData = async (): Promise<Project> => {
     if (!project.dbId) throw new Error("Project request id is missing");
 
@@ -348,7 +536,31 @@ export function ProjectDetailPage() {
             </p>
           </div>
         </div>
+        
+        <div className="flex gap-2" />
       </div>
+
+      {/* Rejection Reason Alert - Show if project is rejected */}
+      {project.status === "Rejected" && project.rejectionReason && (
+        <div className="bg-red-50 border-2 border-red-200 rounded-xl p-5 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+              <ThumbsDown size={20} className="text-red-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-red-900 mb-2">
+                Project Rejected
+              </h3>
+              <p className="text-sm text-red-800 font-medium mb-1">
+                Reason for rejection:
+              </p>
+              <p className="text-sm text-red-700 bg-white/50 rounded-lg p-3 border border-red-200">
+                {project.rejectionReason}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Workflow Progress */}
       <div className="bg-white rounded-xl border border-border p-5 shadow-sm">
@@ -363,6 +575,60 @@ export function ProjectDetailPage() {
         <div className="lg:col-span-2 space-y-5">
           {/* Combined Card for Description, Details, Contact, and Scope */}
           <div className="bg-white rounded-xl border border-border p-5 shadow-sm space-y-8">
+            {/* Request Summary */}
+            <div>
+              <h3 className="text-sm font-semibold text-[#0E2271] mb-4">
+                Request Summary
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {[
+                  { label: "Request ID", value: project.id || "-" },
+                  { label: "Request Mode", value: requestModeLabel },
+                  { label: "Classification", value: project.classification || "-" },
+                  { label: "Title", value: project.title || "-" },
+                  { label: "Location", value: actualLocation },
+                  { label: "Block", value: block },
+                  { label: "Floor", value: floor },
+                  { label: "Department", value: project.department || "-" },
+                  {
+                    label: "Requested By",
+                    value: requester?.name || project.requestedBy || "-",
+                  },
+                  { label: "Contact", value: contactSummary || "-" },
+                  {
+                    label: "Site Condition",
+                    value: project.siteCondition || "-",
+                  },
+                  {
+                    label: "Budget",
+                    value: `ETB ${project.budget.toLocaleString()}`,
+                  },
+                  { label: "Timeline", value: timelineRange },
+                  { label: "Auto-Assign To", value: autoAssignTo },
+                  ...summaryScopeItems,
+                  {
+                    label: "Linked Project",
+                    value: project.linkedProjectId || "-",
+                  },
+                  {
+                    label: "Documents",
+                    value: `${project.documents.length} file(s) attached`,
+                  },
+                  {
+                    label: "Functional Description",
+                    value: project.description || "-",
+                  },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-lg border border-border p-3 bg-secondary/20">
+                    <p className="text-xs text-muted-foreground mb-1">{item.label}</p>
+                    <p className="text-sm font-medium text-foreground break-words">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="h-px bg-border w-full" />
+
             {/* Description Section */}
             <div>
               <h3 className="text-sm font-semibold text-[#0E2271] mb-3">
@@ -802,8 +1068,25 @@ export function ProjectDetailPage() {
                     {project.status === "Submitted" && (
                       <div className="mb-4 pb-4 border-b border-dashed border-border">
                         <p className="text-xs text-muted-foreground mb-3">
-                          {t("requests.submitted")}: Ready for initial review.
+                          Quick Actions: Approve/Reject directly or start review process.
                         </p>
+                        <div className="flex gap-2 mb-3">
+                          <button
+                            onClick={() =>
+                              handleAction("Approved", "admin", "Approved")
+                            }
+                            className="flex-1 py-2.5 rounded-lg text-white text-sm font-bold bg-green-600 hover:bg-green-700 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                          >
+                            <ThumbsUp size={16} /> Approve
+                          </button>
+                          <button
+                            onClick={() => setShowRejectModal(true)}
+                            className="flex-1 py-2.5 rounded-lg text-[#CC1F1A] text-sm font-bold border-2 border-[#CC1F1A] hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+                          >
+                            <ThumbsDown size={16} /> Reject
+                          </button>
+                        </div>
+                        <div className="text-xs text-muted-foreground mb-2">OR</div>
                         <button
                           onClick={() =>
                             handleAction(
@@ -820,6 +1103,31 @@ export function ProjectDetailPage() {
                       </div>
                     )}
 
+                    {/* Approve/Reject buttons for Under Review status */}
+                    {project.status === "Under Review" && (
+                      <div className="mb-4 pb-4 border-b border-dashed border-border">
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Review the project and make a decision before assigning to professional.
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() =>
+                              handleAction("Approved", "admin", "Approved")
+                            }
+                            className="flex-1 py-2.5 rounded-lg text-white text-sm font-bold bg-green-600 hover:bg-green-700 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                          >
+                            <ThumbsUp size={16} /> Approve
+                          </button>
+                          <button
+                            onClick={() => setShowRejectModal(true)}
+                            className="flex-1 py-2.5 rounded-lg text-[#CC1F1A] text-sm font-bold border-2 border-[#CC1F1A] hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+                          >
+                            <ThumbsDown size={16} /> Reject
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
                         {t("requests.selectProfessional") ||
@@ -831,7 +1139,7 @@ export function ProjectDetailPage() {
                         className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-secondary/20 outline-none focus:border-[#1A3580]"
                       >
                         <option value="">
-                          {t("common.select") || "Select"}
+                          Select
                         </option>
                         {projectProfessionals.map((pr) => (
                           <option key={pr.id} value={pr.id}>
@@ -841,7 +1149,7 @@ export function ProjectDetailPage() {
                       </select>
                       {projectProfessionals.length === 0 && (
                         <p className="text-[10px] text-muted-foreground">
-                          No Project/Booking professionals found (Division: Other).
+                          No professional users found. Create a professional account first.
                         </p>
                       )}
                       {project.status === "Submitted" && (
@@ -891,9 +1199,7 @@ export function ProjectDetailPage() {
                       <ThumbsUp size={16} /> {t("projects.approveProject")}
                     </button>
                     <button
-                      onClick={() =>
-                        handleAction("Rejected", "admin", "Rejected")
-                      }
+                      onClick={() => setShowRejectModal(true)}
                       className="w-full py-2.5 rounded-lg text-[#CC1F1A] text-sm font-bold border-2 border-[#CC1F1A] hover:bg-red-50 transition-all flex items-center justify-center gap-2"
                     >
                       <ThumbsDown size={16} /> {t("projects.rejectProject")}
@@ -1054,6 +1360,46 @@ export function ProjectDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Rejection Reason Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 className="text-lg font-bold text-[#0E2271] mb-4">
+              Reject Project
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Please provide a reason for rejecting this project. This will be sent to the requester.
+            </p>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="Enter rejection reason..."
+              rows={4}
+              className="w-full px-3 py-2 border border-border rounded-lg resize-none focus:outline-none focus:border-[#1A3580] text-sm"
+            />
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setRejectionReason("");
+                }}
+                disabled={rejectingProject}
+                className="flex-1 px-4 py-2 rounded-lg border-2 border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReject}
+                disabled={rejectingProject || !rejectionReason.trim()}
+                className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {rejectingProject ? "Rejecting..." : "Reject Project"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
