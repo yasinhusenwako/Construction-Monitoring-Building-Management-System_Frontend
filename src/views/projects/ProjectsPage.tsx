@@ -60,6 +60,17 @@ export function ProjectsPage() {
       p,
       currentUser?.id,
     );
+    
+    // Debug logging
+    if (!matchesRole && role === "user") {
+      console.log("Project filtered out:", {
+        projectId: p.id,
+        projectRequestedBy: p.requestedBy,
+        currentUserId: currentUser?.id,
+        match: p.requestedBy === currentUser?.id
+      });
+    }
+    
     const matchesSearch =
       !search ||
       p.title.toLowerCase().includes(search.toLowerCase()) ||
