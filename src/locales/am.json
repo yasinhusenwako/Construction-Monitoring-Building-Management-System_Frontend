@@ -512,6 +512,8 @@
   "bookings.noPermission": "ይህን ቅድሚያ ለማየት ፈቃድ የለዎትም",
   "bookings.backToBookings": "ወደ ቅድሚያዎች ይመለሱ",
   "bookings.requirements": "መስፈርቶች",
+  "bookings.activityTimeline": "የእንቅስቃሴ የጊዜ መስመር",
+  "bookings.noActivityYet": "ገና እንቅስቃሴ የለም",
   "bookings.totalSpaces": "ጠቅላላ ቦታዎች",
   "bookings.availableSpacesCount": "ያሉ",
   "bookings.occupiedSpaces": "የተያዙ",

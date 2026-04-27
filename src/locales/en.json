@@ -496,6 +496,8 @@
   "bookings.noPermission": "You don't have permission to view this booking",
   "bookings.backToBookings": "Back to Bookings",
   "bookings.requirements": "Requirements",
+  "bookings.activityTimeline": "Activity Timeline",
+  "bookings.noActivityYet": "No activity yet",
   "bookings.totalSpaces": "Total Spaces",
   "bookings.availableSpacesCount": "Available",
   "bookings.occupiedSpaces": "Occupied",
