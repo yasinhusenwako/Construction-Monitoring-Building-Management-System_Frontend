@@ -213,7 +213,12 @@ export function canViewItem(
   if (!userId) return false;
   
   // ANY role can view a request they created
+  // Note: USR-000 means no valid requestedBy, so we should show these to users
   if (item.requestedBy === userId) return true;
+  
+  // For users, also show items with no valid requestedBy (USR-000)
+  // This handles legacy data or items created before user tracking
+  if (role === "user" && item.requestedBy === "USR-000") return true;
 
   if (role === "user") return false; // already checked requestedBy
   if (role === "supervisor") return item.supervisorId === userId;
