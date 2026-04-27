@@ -68,7 +68,6 @@ export interface Project {
   divisionId?: string;
   assignedSupervisorId?: string;
   assignedProfessionalId?: string;
-  linkedProjectId?: string; // For A5/A6 existing project references
   documents: string[];
   timeline: TimelineEvent[];
   materialCost?: number;

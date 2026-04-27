@@ -215,8 +215,8 @@ export async function fetchLiveProjects(
       description: item.description || "",
       category: "Capital Project",
       classification: item.classification || "General",
-      status: normalizeStatus(item.status) as Project["status"],
-      requestedBy: userId(item.createdBy),
+      status: mapStatusFromBackend(item.status) as Project["status"],
+      requestedBy: userId(item.requestedBy),
       supervisorId: item.assignedSupervisorId
         ? userId(item.assignedSupervisorId)
         : undefined,
@@ -247,7 +247,6 @@ export async function fetchLiveProjects(
       laborCost: item.laborCost,
       totalCost: item.totalCost,
       partsUsed: item.partsUsed,
-      rejectionReason: item.rejectionReason,
       scope: parseProjectScope(item.scope),
     };
   });
@@ -347,7 +346,6 @@ export async function fetchLiveBookings(
       laborCost: item.laborCost,
       totalCost: item.totalCost,
       partsUsed: item.partsUsed,
-      rejectionReason: item.rejectionReason,
     };
   });
 }
@@ -370,7 +368,7 @@ export async function fetchLiveMaintenance(
       description: item.description || "",
       type: (item.category as Maintenance["type"]) || "General",
       subType: item.category,
-      status: normalizeStatus(item.status) as Maintenance["status"],
+      status: mapStatusFromBackend(item.status) as Maintenance["status"],
       priority: inferPriority(item.priority),
       requestedBy: userId(item.createdBy),
       assignedTo: item.assignedProfessionalId
@@ -394,7 +392,6 @@ export async function fetchLiveMaintenance(
       laborCost: item.laborCost,
       totalCost: item.totalCost,
       partsUsed: item.partsUsed,
-      rejectionReason: item.rejectionReason,
       createdBy: userId(item.createdBy),
     };
   });

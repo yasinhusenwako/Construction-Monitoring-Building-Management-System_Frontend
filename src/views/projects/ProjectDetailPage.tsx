@@ -27,6 +27,7 @@ import {
   UserPlus,
   Briefcase,
   Package,
+  FileText,
 } from "lucide-react";
 import { fetchLiveProjects, fetchLiveUsers } from "@/lib/live-api";
 import { apiRequest } from "@/lib/api";
@@ -57,6 +58,7 @@ export function ProjectDetailPage() {
   const [systemUsers, setSystemUsers] = useState<any[]>([]);
   const [materialCost, setMaterialCost] = useState("");
   const [laborCost, setLaborCost] = useState("");
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
   const [partsUsed, setPartsUsed] = useState("");
   const [costSaved, setCostSaved] = useState(false);
   const [loading, setLoading] = useState(true);

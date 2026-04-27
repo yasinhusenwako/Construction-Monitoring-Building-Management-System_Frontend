@@ -13,6 +13,7 @@ import {
 } from '@/lib/workflow';
 import { fetchLiveProjects } from "@/lib/live-api";
 import { apiRequest } from "@/lib/api";
+import { getClassificationInfo, getClassificationLabel, formatProjectTitle } from "@/lib/classification-utils";
 import { StatusBadge } from '@/components/common/StatusBadge';
 import {
   Plus,

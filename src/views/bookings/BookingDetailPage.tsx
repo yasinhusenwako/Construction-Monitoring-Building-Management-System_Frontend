@@ -28,7 +28,6 @@ import {
   User,
   Users,
   Briefcase,
-  FileText,
 } from "lucide-react";
 import { fetchLiveBookings, fetchLiveUsers } from "@/lib/live-api";
 import { apiRequest } from "@/lib/api";
@@ -120,6 +119,8 @@ export default function BookingDetailPage({ id }: { id: string }) {
       </div>
     );
   }
+
+  const isOfficeAllocation = booking.type === "Office";
 
   const requester = systemUsers.find((u) => u.id === booking.requestedBy);
   const assignee = systemUsers.find((u) => u.id === booking.assignedTo);
@@ -708,6 +709,35 @@ export default function BookingDetailPage({ id }: { id: string }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Helper Components
+function DetailRow({ icon, label, value }: { icon: ReactNode; label: string; value?: string | number }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-start gap-3">
+      <div className="text-[#1A3580] mt-0.5">{icon}</div>
+      <div>
+        <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
+        <p className="text-sm font-medium text-foreground">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function ChipList({ items }: { items: string[] }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map((item, idx) => (
+        <span
+          key={idx}
+          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-[#1A3580] border border-blue-200"
+        >
+          {item}
+        </span>
+      ))}
     </div>
   );
 }

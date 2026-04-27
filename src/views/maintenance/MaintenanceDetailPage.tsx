@@ -25,6 +25,8 @@ import {
   Trash2,
   Users as UsersIcon,
   ThumbsDown,
+  Info,
+  Calendar,
 } from "lucide-react";
 import { fetchLiveMaintenance, fetchLiveUsers } from "@/lib/live-api";
 import { apiRequest } from "@/lib/api";
