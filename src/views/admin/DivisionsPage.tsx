@@ -10,6 +10,8 @@ import {
   Clock,
   ChevronRight,
   BarChart2,
+  Activity,
+  AlertCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { fetchLiveProjects, fetchLiveMaintenance } from "@/lib/live-api";
@@ -25,11 +27,10 @@ export function DivisionsPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const token = sessionStorage.getItem("insa_token") ?? undefined;
       try {
         const [liveProjects, liveMaintenance] = await Promise.all([
-          fetchLiveProjects(token),
-          fetchLiveMaintenance(token),
+          fetchLiveProjects(),
+          fetchLiveMaintenance(),
         ]);
         setProjects(liveProjects);
         setMaintenance(liveMaintenance);
@@ -44,25 +45,27 @@ export function DivisionsPage() {
 
   const divisionStats = useMemo(() => {
     return divisions.map((div) => {
-      const divProjects = projects.filter((p) => p.assignedTo === div.id);
-      // Note: In a real app, divisions would be linked via divisionId.
-      // For now, we simulate matching for the dashboard display.
+      const divProjects = projects.filter((p) => p.divisionId === div.id);
       const divTasks = maintenance.filter((m) => m.divisionId === div.id);
 
       const activeProjects = divProjects.filter(
         (p) => !["Approved", "Rejected", "Closed"].includes(p.status),
       ).length;
-      const activeTasks = divTasks.filter(
-        (m) => !["Completed", "Closed"].includes(m.status),
+      
+      const openAssignments = divTasks.filter(
+        (m) => ["Assigned to Supervisor", "WorkOrder Created", "Assigned to Professionals"].includes(m.status),
       ).length;
 
       return {
         ...div,
         projectCount: divProjects.length,
         activeProjects,
-        taskCount: divTasks.length,
-        activeTasks,
-        totalActive: activeProjects + activeTasks,
+        serviceTickets: divTasks.length,
+        activeServiceTickets: divTasks.filter(
+          (m) => !["Completed", "Closed", "Approved"].includes(m.status),
+        ).length,
+        openAssignments,
+        activeWorkload: openAssignments,
       };
     });
   }, [projects, maintenance]);
@@ -70,146 +73,165 @@ export function DivisionsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1A3580]"></div>
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#7C3AED]"></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#0E2271]">
-            {t("divisions.title")}
+          <h1 className="text-2xl font-bold text-[#0E2271] dark:text-blue-300">
+            Divisions Management
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {t("divisions.description")}
+            Monitor workloads and performance across all operational divisions.
           </p>
         </div>
         <div className="flex gap-2">
-          <button className="px-4 py-2 bg-[#0E2271] text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors flex items-center gap-2">
-            <BarChart2 size={16} /> {t("divisions.reports")}
+          <button className="px-4 py-2.5 bg-[#7C3AED] text-white rounded-xl text-sm font-semibold hover:bg-[#6D28D9] transition-all shadow-sm hover:shadow-md flex items-center gap-2">
+            <BarChart2 size={16} /> Division Analytics
           </button>
         </div>
       </div>
 
+      {/* Division Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {divisionStats.map((div) => (
-          <div
-            key={div.id}
-            className="bg-white rounded-2xl border border-border shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col"
-          >
+        {divisionStats.map((div, index) => {
+          const gradients = [
+            "from-[#7C3AED] to-[#5B21B6]", // Purple
+            "from-[#3B82F6] to-[#1D4ED8]", // Blue
+            "from-[#8B5CF6] to-[#6D28D9]", // Violet
+          ];
+          
+          const divisionIds = [
+            "DIV-001",
+            "DIV-002", 
+            "DIV-003"
+          ];
+
+          return (
             <div
-              className={`p-6 bg-gradient-to-br ${
-                div.id === "1"
-                  ? "from-blue-500 to-blue-700"
-                  : div.id === "2"
-                    ? "from-cyan-500 to-cyan-700"
-                    : "from-indigo-500 to-indigo-700"
-              } text-white`}
+              key={div.id}
+              className="bg-white dark:bg-gray-800 rounded-2xl border border-border shadow-sm hover:shadow-lg transition-all overflow-hidden"
             >
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-2 bg-white/20 rounded-lg">
-                  <Building2 size={24} />
-                </div>
-                <span className="text-xs font-bold uppercase tracking-widest bg-white/20 px-2 py-1 rounded">
-                  ID: {div.id}
-                </span>
-              </div>
-              <h3 className="text-xl font-bold mb-1">{div.name}</h3>
-              <p className="text-blue-100 text-sm line-clamp-1">
-                {div.description}
-              </p>
-            </div>
-
-            <div className="p-6 flex-1 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-gray-500 uppercase">
-                    {t("nav.projects")}
-                  </p>
-                  <div className="flex items-end gap-2">
-                    <span className="text-2xl font-bold text-gray-900">
-                      {div.projectCount}
-                    </span>
-                    <span className="text-[10px] text-blue-600 font-bold mb-1.5">
-                      {div.activeProjects} {t("divisions.active")}
+              {/* Header with gradient */}
+              <div className={`p-6 bg-gradient-to-br ${gradients[index]} text-white relative overflow-hidden`}>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12" />
+                
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl">
+                      <Building2 size={24} />
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-wider bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-lg">
+                      ID: {divisionIds[index]}
                     </span>
                   </div>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-gray-500 uppercase">
-                    {t("divisions.fixedTasks")}
+                  <h3 className="text-xl font-bold mb-2">{div.name}</h3>
+                  <p className="text-white/80 text-sm leading-relaxed">
+                    {div.description}
                   </p>
-                  <div className="flex items-end gap-2">
-                    <span className="text-2xl font-bold text-gray-900">
-                      {div.taskCount}
-                    </span>
-                    <span className="text-[10px] text-orange-600 font-bold mb-1.5">
-                      {div.activeTasks} {t("divisions.active")}
-                    </span>
+                </div>
+              </div>
+
+              {/* Stats Section */}
+              <div className="p-6 space-y-5">
+                {/* Projects & Service Tickets */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      PROJECTS
+                    </p>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-bold text-[#0E2271] dark:text-blue-300">
+                        {div.projectCount}
+                      </span>
+                      <span className="text-xs text-blue-600 dark:text-blue-400 font-semibold">
+                        {div.activeProjects} Active
+                      </span>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      SERVICE TICKETS
+                    </p>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-bold text-[#0E2271] dark:text-blue-300">
+                        {div.serviceTickets}
+                      </span>
+                      <span className="text-xs text-orange-600 dark:text-orange-400 font-semibold">
+                        {div.activeServiceTickets} Active
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground flex items-center gap-2">
-                    <Clock size={16} className="text-orange-500" />{" "}
-                    {t("divisions.currentWorkload")}
-                  </span>
-                  <span className="font-bold text-gray-900">
-                    {div.totalActive} {t("divisions.assignments")}
-                  </span>
+                {/* Active Workload */}
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground flex items-center gap-2">
+                      <Activity size={16} className="text-orange-500" />
+                      Active Workload
+                    </span>
+                    <span className="font-bold text-[#0E2271] dark:text-blue-300">
+                      {div.openAssignments} Open Assignments
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-100 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-orange-500 to-orange-600 h-full rounded-full transition-all duration-1000"
+                      style={{
+                        width: `${Math.min((div.openAssignments / 10) * 100, 100)}%`,
+                      }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                  <div
-                    className="bg-blue-600 h-full rounded-full transition-all duration-1000"
-                    style={{
-                      width: `${Math.min((div.totalActive / 15) * 100, 100)}%`,
-                    }}
-                  />
-                </div>
-              </div>
 
-              <div className="pt-4 border-t border-border mt-auto">
-                <button
-                  onClick={() =>
-                    router.push(`/dashboard/team?division=${div.id}`)
-                  }
-                  className="w-full py-2.5 rounded-xl border border-border text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-all flex items-center justify-center gap-2 group"
-                >
-                  <Users size={16} /> {t("divisions.viewTeam")}
-                  <ChevronRight
-                    size={14}
-                    className="group-hover:translate-x-1 transition-transform"
-                  />
-                </button>
+                {/* View Team Button */}
+                <div className="pt-3">
+                  <button
+                    onClick={() => router.push(`/dashboard/team?division=${div.id}`)}
+                    className="w-full py-3 rounded-xl border-2 border-border text-[#0E2271] dark:text-blue-300 font-semibold text-sm hover:bg-secondary dark:hover:bg-gray-700 transition-all flex items-center justify-center gap-2 group"
+                  >
+                    <Users size={16} /> View Division Team
+                    <ChevronRight
+                      size={16}
+                      className="group-hover:translate-x-1 transition-transform"
+                    />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      <div className="bg-blue-50 border border-blue-100 rounded-2xl p-6 flex flex-col md:flex-row items-center gap-6">
-        <div className="p-4 bg-white rounded-xl shadow-sm">
-          <ClipboardList size={32} className="text-blue-600" />
+      {/* Global Resource Distribution Banner */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-6 flex flex-col md:flex-row items-center gap-6 shadow-sm">
+        <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm">
+          <ClipboardList size={32} className="text-blue-600 dark:text-blue-400" />
         </div>
         <div className="flex-1 text-center md:text-left">
-          <h4 className="font-bold text-[#0E2271]">
-            {t("divisions.globalDistribution")}
+          <h4 className="font-bold text-[#0E2271] dark:text-blue-300 mb-1">
+            Global Resource Distribution
           </h4>
-          <p className="text-sm text-blue-800/70">
-            {t("divisions.reassignNote")}
+          <p className="text-sm text-blue-800/70 dark:text-blue-300/70">
+            Administrators can reassign tasks between divisions or override assignments from the master console.
           </p>
         </div>
         <button
           onClick={() => router.push("/admin/requests")}
-          className="px-6 py-2.5 bg-white text-blue-700 border border-blue-200 rounded-xl font-bold text-sm hover:shadow-md transition-all"
+          className="px-6 py-3 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 border-2 border-blue-200 dark:border-blue-700 rounded-xl font-semibold text-sm hover:shadow-md hover:scale-105 transition-all flex items-center gap-2"
         >
-          {t("divisions.openConsole")}
+          Open Management Console
+          <ChevronRight size={16} />
         </button>
       </div>
     </div>
   );
 }
+
