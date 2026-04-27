@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { CheckCircle, Copy, ExternalLink, MapPin, User, Pencil } from "lucide-react";
+import { CheckCircle, Copy, ExternalLink, MapPin, User, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   PriorityBadge,
@@ -26,6 +26,7 @@ export function MaintenanceListItem({
   onFinalApprove,
   onReject,
   onClose,
+  onDelete,
   assignTarget,
   selectedTech,
   onSelectTech,
@@ -48,6 +49,7 @@ export function MaintenanceListItem({
   onFinalApprove: (m: Maintenance) => void;
   onReject: (m: Maintenance) => void;
   onClose: (m: Maintenance) => void;
+  onDelete: (m: Maintenance) => void;
   assignTarget: string | null;
   selectedTech: string;
   onSelectTech: (id: string) => void;
@@ -168,6 +170,19 @@ export function MaintenanceListItem({
                 {t("maintenance.submitReviewAdmin")}
               </button>
             </div>
+          )}
+
+          {/* Delete button - list action near Review/View */}
+          {((role === "user" &&
+            m.requestedBy === currentUserId &&
+            ["Submitted", "Approved", "Rejected", "Closed"].includes(m.status)) ||
+            role === "admin") && (
+            <button
+              onClick={() => onDelete(m)}
+              className="text-xs border-2 border-red-200 text-red-600 px-3 py-1.5 rounded-lg font-semibold hover:bg-red-50 flex items-center gap-1.5 transition-all"
+            >
+              <Trash2 size={13} /> {t("action.delete")}
+            </button>
           )}
 
 

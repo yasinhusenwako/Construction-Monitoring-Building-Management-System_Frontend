@@ -16,6 +16,7 @@ import {
   supervisorAssignProfessional,
   professionalUpdateTaskStatus,
 } from "@/lib/live-api";
+import { apiRequest } from "@/lib/api";
 import { StatusBadge, PriorityBadge } from "@/components/common/StatusBadge";
 import {
   canViewItem,
@@ -301,6 +302,35 @@ export function MaintenancePage() {
     }
   };
 
+  const handleDeleteRequest = async (m: Maintenance) => {
+    const confirmed = confirm(
+      "Are you sure you want to delete this maintenance request? This action cannot be undone.",
+    );
+    if (!confirmed) return;
+
+    try {
+      const requestModule = m.id.startsWith("PRJ-")
+        ? "projects"
+        : m.id.startsWith("BKG-") || m.id.startsWith("ALLOC-")
+          ? "bookings"
+          : "maintenance";
+
+      await apiRequest(`/api/${requestModule}/${m.dbId ?? m.id}`, {
+        method: "DELETE",
+      });
+
+      setMaintenanceItems((prev) => prev.filter((item) => item.id !== m.id));
+      setActionMsg(t("maintenance.requestDeleted") || "Request deleted");
+      setTimeout(() => setActionMsg(""), 3000);
+    } catch (error) {
+      console.error("Failed to delete request:", error);
+      alert(
+        "Failed to delete maintenance request: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+      );
+    }
+  };
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -497,6 +527,7 @@ export function MaintenancePage() {
                 onClose={(m) =>
                   applyTransition(m, "Closed", "admin", t("status.closed"))
                 }
+                onDelete={handleDeleteRequest}
                 assignTarget={assignTarget}
                 selectedTech={selectedTech}
                 onSelectTech={setSelectedTech}

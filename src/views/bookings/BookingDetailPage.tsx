@@ -24,7 +24,6 @@ import {
   Phone,
   ThumbsDown,
   ThumbsUp,
-  Trash2,
   User,
   Users,
   Briefcase,
@@ -272,7 +271,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
           </div>
         </div>
         
-        {/* Action Buttons - Edit and Delete */}
+        {/* Action Buttons */}
         <div className="flex gap-2">
           {/* Edit Button - Only show if user is the creator and status is Submitted */}
           {role === "user" && 
@@ -284,30 +283,6 @@ export default function BookingDetailPage({ id }: { id: string }) {
             >
               <FileText size={16} />
               {t("action.edit") || "Edit Request"}
-            </button>
-          )}
-          
-          {/* Delete Button - Show for creator (Submitted, Approved, Rejected, Closed) or admin (any status) */}
-          {((role === "user" && 
-             booking.requestedBy === currentUser?.id && 
-             ["Submitted", "Approved", "Rejected", "Closed"].includes(booking.status)) ||
-            role === "admin") && (
-            <button
-              onClick={async () => {
-                if (confirm("Are you sure you want to delete this booking? This action cannot be undone.")) {
-                  try {
-                    await apiRequest(`/api/bookings/${booking.dbId}`, { method: "DELETE" });
-                    alert("Booking deleted successfully");
-                    router.push("/dashboard/bookings");
-                  } catch (error) {
-                    alert("Failed to delete booking: " + (error instanceof Error ? error.message : "Unknown error"));
-                  }
-                }
-              }}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-all"
-            >
-              <Trash2 size={16} />
-              {t("action.delete") || "Delete"}
             </button>
           )}
         </div>

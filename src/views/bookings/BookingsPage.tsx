@@ -13,6 +13,7 @@ import {
   supervisorAssignProfessional,
   professionalUpdateTaskStatus,
 } from "@/lib/live-api";
+import { apiRequest } from "@/lib/api";
 import { Booking, User as UserType, SpaceType, Space } from "@/types/models";
 import {
   canTransition,
@@ -557,6 +558,27 @@ export function BookingsPage() {
     }
   };
 
+  const handleDeleteBooking = async (booking: Booking) => {
+    const confirmed = confirm(
+      "Are you sure you want to delete this booking? This action cannot be undone.",
+    );
+    if (!confirmed) return;
+
+    try {
+      await apiRequest(`/api/bookings/${booking.dbId ?? booking.id}`, {
+        method: "DELETE",
+      });
+      setBookings((prev) => prev.filter((b) => b.id !== booking.id));
+      setActionMsg(t("bookings.bookingDeleted") || "Booking deleted");
+      setTimeout(() => setActionMsg(""), 3000);
+    } catch (error) {
+      alert(
+        "Failed to delete booking: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+      );
+    }
+  };
+
   // ─── Space CRUD handlers ──────────────────────────────────────────────────
   const handleSaveSpace = (s: Space) => {
     if (spaceModal === "edit") {
@@ -840,6 +862,17 @@ export function BookingsPage() {
                         className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-green-600 text-green-600 text-xs font-semibold hover:bg-green-50 transition-all"
                       >
                         <Pencil size={13} /> {t("action.edit")}
+                      </button>
+                    )}
+                    {((role === "user" &&
+                      booking.requestedBy === currentUser?.id &&
+                      ["Submitted", "Approved", "Rejected", "Closed"].includes(booking.status)) ||
+                      role === "admin") && (
+                      <button
+                        onClick={() => void handleDeleteBooking(booking)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-red-200 text-red-600 text-xs font-semibold hover:bg-red-50 transition-all"
+                      >
+                        <Trash2 size={13} /> {t("action.delete")}
                       </button>
                     )}
                   </div>

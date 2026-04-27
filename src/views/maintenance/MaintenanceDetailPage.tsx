@@ -22,7 +22,6 @@ import {
   Package,
   MessageSquare,
   UserPlus,
-  Trash2,
   Users as UsersIcon,
   ThumbsDown,
   Info,
@@ -418,7 +417,7 @@ export function MaintenanceDetailPage() {
           </div>
         </div>
         
-        {/* Action Buttons - Edit and Delete */}
+        {/* Action Buttons */}
         <div className="flex gap-2">
           {/* Edit Button - Only show if user is the creator and status is Submitted */}
           {role === "user" && 
@@ -430,30 +429,6 @@ export function MaintenanceDetailPage() {
             >
               <FileText size={16} />
               {t("action.edit") || "Edit Request"}
-            </button>
-          )}
-          
-          {/* Delete Button - Show for creator (Submitted, Approved, Rejected, Closed) or admin (any status) */}
-          {((role === "user" && 
-             maint.requestedBy === currentUser?.id && 
-             ["Submitted", "Approved", "Rejected", "Closed"].includes(maint.status)) ||
-            role === "admin") && (
-            <button
-              onClick={async () => {
-                if (confirm("Are you sure you want to delete this maintenance request? This action cannot be undone.")) {
-                  try {
-                    await apiRequest(`/api/maintenance/${maint.dbId}`, { method: "DELETE" });
-                    alert("Maintenance request deleted successfully");
-                    router.push("/dashboard/maintenance");
-                  } catch (error) {
-                    alert("Failed to delete maintenance request: " + (error instanceof Error ? error.message : "Unknown error"));
-                  }
-                }
-              }}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-all"
-            >
-              <Trash2 size={16} />
-              {t("action.delete") || "Delete"}
             </button>
           )}
         </div>
