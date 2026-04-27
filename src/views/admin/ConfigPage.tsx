@@ -107,6 +107,18 @@ const defaultTemplates = [
   },
 ];
 
+type SystemSettings = {
+  siteName: string;
+  adminEmail: string;
+  maxFileSize: string;
+  sessionTimeout: string;
+  enableNotifications: boolean;
+  enableEmailAlerts: boolean;
+  enableSMSAlerts: boolean;
+  autoAssign: boolean;
+  requireBudget: boolean;
+};
+
 export function ConfigPage() {
   const { t } = useLanguage();
   const [saved, setSaved] = useState("");
@@ -114,21 +126,48 @@ export function ConfigPage() {
   const [templates, setTemplates] = useState(defaultTemplates);
   const [priorities] = useState(defaultPriorities);
 
-  const [systemSettings, setSystemSettings] = useState({
-    siteName: "INSA BuildMS",
-    adminEmail: "admin@insa.gov.et",
-    maxFileSize: "10",
-    sessionTimeout: "8",
-    enableNotifications: true,
-    enableEmailAlerts: true,
-    enableSMSAlerts: false,
-    autoAssign: false,
-    requireBudget: true,
+  // Load settings from localStorage on mount
+  const [systemSettings, setSystemSettings] = useState<SystemSettings>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('systemSettings');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error('Failed to parse saved settings:', e);
+        }
+      }
+    }
+    return {
+      siteName: "INSA BuildMS",
+      adminEmail: "admin@insa.gov.et",
+      maxFileSize: "10",
+      sessionTimeout: "8",
+      enableNotifications: true,
+      enableEmailAlerts: true,
+      enableSMSAlerts: false,
+      autoAssign: false,
+      requireBudget: true,
+    };
   });
 
   const handleSave = (section: string) => {
+    // Save to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('systemSettings', JSON.stringify(systemSettings));
+    }
+    
     setSaved(section);
     setTimeout(() => setSaved(""), 3000);
+    
+    console.log('✅ Settings saved:', systemSettings);
+  };
+
+  const handleSettingChange = (key: string, value: string) => {
+    setSystemSettings((prev: SystemSettings) => ({
+      ...prev,
+      [key]: value,
+    }));
   };
 
   const tabs = [
@@ -409,12 +448,7 @@ export function ConfigPage() {
                   <input
                     type={field.type}
                     value={(systemSettings as any)[field.key]}
-                    onChange={(e) =>
-                      setSystemSettings((s) => ({
-                        ...s,
-                        [field.key]: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => handleSettingChange(field.key, e.target.value)}
                     className="w-full px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none focus:border-[#1A3580]"
                   />
                 </div>
