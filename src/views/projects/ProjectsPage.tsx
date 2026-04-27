@@ -40,11 +40,12 @@ export function ProjectsPage() {
 
   useEffect(() => {
     const refresh = async () => {
-      const token = sessionStorage.getItem("insa_token") ?? undefined;
       try {
-        const live = await fetchLiveProjects(token);
+        const live = await fetchLiveProjects();
+        console.log("Fetched projects:", live);
         setProjects(live);
-      } catch {
+      } catch (error) {
+        console.error("Failed to fetch projects:", error);
         // backend unreachable
       }
     };
