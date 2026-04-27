@@ -685,46 +685,59 @@ export function ProjectDetailPage() {
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
-                  { label: "Request ID", value: project.id || "-" },
-                  { label: "Request Mode", value: requestModeLabel },
-                  { label: "Classification", value: project.classification || "-" },
-                  { label: "Title", value: project.title || "-" },
-                  { label: "Location", value: actualLocation },
-                  { label: "Block", value: block },
-                  { label: "Floor", value: floor },
-                  { label: "Department", value: project.department || "-" },
+                  { icon: <FileText size={16} />, label: "Request ID", value: project.id || "-" },
+                  { icon: <Layers size={16} />, label: "Request Mode", value: requestModeLabel },
+                  { icon: <Package size={16} />, label: "Classification", value: project.classification || "-" },
+                  { icon: <FileText size={16} />, label: "Title", value: project.title || "-" },
+                  { icon: <MapPin size={16} />, label: "Location", value: actualLocation },
+                  { icon: <MapPin size={16} />, label: "Block", value: block },
+                  { icon: <MapPin size={16} />, label: "Floor", value: floor },
+                  { icon: <Briefcase size={16} />, label: "Department", value: project.department || "-" },
                   {
+                    icon: <User size={16} />,
                     label: "Requested By",
                     value: requester?.name || project.requestedBy || "-",
                   },
-                  { label: "Contact", value: contactSummary || "-" },
+                  { icon: <Phone size={16} />, label: "Contact", value: contactSummary || "-" },
                   {
+                    icon: <Info size={16} />,
                     label: "Site Condition",
                     value: project.siteCondition || "-",
                   },
                   {
+                    icon: <DollarSign size={16} />,
                     label: "Budget",
                     value: `ETB ${project.budget.toLocaleString()}`,
                   },
-                  { label: "Timeline", value: timelineRange },
-                  { label: "Auto-Assign To", value: autoAssignTo },
+                  { icon: <Calendar size={16} />, label: "Timeline", value: timelineRange },
+                  { icon: <UserPlus size={16} />, label: "Auto-Assign To", value: autoAssignTo },
                   ...summaryScopeItems,
                   {
+                    icon: <Layers size={16} />,
                     label: "Linked Project",
                     value: project.linkedProjectId || "-",
                   },
                   {
+                    icon: <FileText size={16} />,
                     label: "Documents",
                     value: `${project.documents.length} file(s) attached`,
                   },
                   {
+                    icon: <MessageSquare size={16} />,
                     label: "Functional Description",
                     value: project.description || "-",
                   },
                 ].map((item) => (
-                  <div key={item.label} className="rounded-lg border border-border p-3 bg-secondary/20">
-                    <p className="text-xs text-muted-foreground mb-1">{item.label}</p>
-                    <p className="text-sm font-medium text-foreground break-words">{item.value}</p>
+                  <div key={item.label} className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-[#EEF2FF] flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-[#1A3580]">{item.icon}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">
+                        {item.label}
+                      </p>
+                      <p className="text-sm font-medium text-foreground break-words">{item.value}</p>
+                    </div>
                   </div>
                 ))}
               </div>
