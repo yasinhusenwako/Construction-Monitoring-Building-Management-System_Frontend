@@ -25,22 +25,24 @@ interface BackendProject {
   assignedSupervisorId?: number | null;
   assignedProfessionalId?: number | null;
   location?: string;
+  block?: string;
+  floor?: string;
   budget?: number;
   startDate?: string;
   endDate?: string;
   createdAt?: string;
-  materialCost?: number;
-  laborCost?: number;
-  totalCost?: number;
-  partsUsed?: string;
   department?: string;
   contactPerson?: string;
   phone?: string;
   siteCondition?: string;
-  scope?: any;
+  materialCost?: number;
+  laborCost?: number;
+  totalCost?: number;
+  partsUsed?: string;
+  requestMode?: string;
+  linkedProjectId?: string;
+  scope?: unknown;
   divisionId?: number | null;
-  createdBy: number;
-  linkedProjectId?: string; // For A5/A6 existing project references
 }
 
 interface BackendBooking {
@@ -178,6 +180,24 @@ function splitLocation(location?: string): {
   };
 }
 
+function parseProjectScope(scope: unknown): Record<string, unknown> | undefined {
+  if (!scope) return undefined;
+  if (typeof scope === "object" && !Array.isArray(scope)) {
+    return scope as Record<string, unknown>;
+  }
+  if (typeof scope === "string") {
+    try {
+      const parsed = JSON.parse(scope);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
 export async function fetchLiveProjects(
   filterProjectId?: string,
 ): Promise<Project[]> {
@@ -185,81 +205,52 @@ export async function fetchLiveProjects(
     ? `/api/projects?projectId=${filterProjectId}`
     : "/api/projects";
   const list = await apiRequest<BackendProject[]>(url);
-  
-  // Fetch timeline for each project
-  const projectsWithTimeline = await Promise.all(
-    list.map(async (item) => {
-      const businessId = item.projectId || `PRJ-${item.id}`;
-      cacheRequestDbId("PROJECT", businessId, item.id);
-      
-      // Extract linkedProjectId from scope if it exists
-      let linkedProjectId = item.linkedProjectId;
-      if (!linkedProjectId && item.scope) {
-        const scope = typeof item.scope === 'string' ? 
-          (() => { try { return JSON.parse(item.scope); } catch { return {}; } })() : 
-          item.scope;
-        linkedProjectId = scope.linkedProjectId;
-      }
-      
-      // Fetch timeline from history endpoint
-      let timeline: any[] = [];
-      try {
-        const history = await apiRequest<any[]>(`/api/history/PROJECT/${item.id}`);
-        timeline = history.map((h) => ({
-          id: `EV-${h.id}`,
-          action: h.action || h.status || "Status Updated",
-          actor: h.actorName || "System",
-          timestamp: h.createdAt,
-          note: h.note || "",
-        }));
-      } catch (error) {
-        console.error(`Failed to fetch timeline for ${businessId}:`, error);
-      }
-      
-      return {
-        id: businessId,
-        dbId: item.id,
-        title: item.title,
-        description: item.description || "",
-        category: "Capital Project",
-        classification: item.classification || "General",
-        status: mapStatusFromBackend(item.status) as Project["status"],
-        requestedBy: userId(item.createdBy),
-        supervisorId: item.assignedSupervisorId
-          ? userId(item.assignedSupervisorId)
-          : undefined,
-        assignedTo: item.assignedProfessionalId
-          ? userId(item.assignedProfessionalId)
-          : undefined,
-        location: item.location || "N/A",
-        budget: Number(item.budget || 0),
-        startDate: item.startDate || "",
-        endDate: item.endDate || "",
-        createdAt: toIsoDate(item.createdAt),
-        updatedAt: toIsoDate(item.createdAt),
-        documents: [],
-        timeline,
-        materialCost: item.materialCost,
-        laborCost: item.laborCost,
-        totalCost: item.totalCost,
-        partsUsed: item.partsUsed,
-        department: item.department,
-        contactPerson: item.contactPerson,
-        contactPhone: item.phone,
-        siteCondition: item.siteCondition,
-        linkedProjectId,
-        scope: (function() {
-          if (typeof item.scope === 'string') {
-            try { return JSON.parse(item.scope); } catch (e) { return item.scope; }
-          }
-          return item.scope;
-        })(),
-        divisionId: item.divisionId ? `DIV-${String(item.divisionId).padStart(3, "0")}` : undefined,
-      };
-    })
-  );
-  
-  return projectsWithTimeline;
+  return list.map((item) => {
+    const businessId = item.projectId || `PRJ-${item.id}`;
+    cacheRequestDbId("PROJECT", businessId, item.id);
+    return {
+      id: businessId,
+      dbId: item.id,
+      title: item.title,
+      description: item.description || "",
+      category: "Capital Project",
+      classification: item.classification || "General",
+      status: normalizeStatus(item.status) as Project["status"],
+      requestedBy: userId(item.createdBy),
+      supervisorId: item.assignedSupervisorId
+        ? userId(item.assignedSupervisorId)
+        : undefined,
+      assignedTo: item.assignedProfessionalId
+        ? userId(item.assignedProfessionalId)
+        : undefined,
+      location: item.location || "N/A",
+      block: item.block,
+      floor: item.floor,
+      budget: Number(item.budget || 0),
+      startDate: item.startDate || "",
+      endDate: item.endDate || "",
+      department: item.department,
+      contactPerson: item.contactPerson,
+      contactPhone: item.phone,
+      siteCondition: item.siteCondition,
+      requestMode: item.requestMode,
+      linkedProjectId: item.linkedProjectId,
+      createdAt: toIsoDate(item.createdAt),
+      updatedAt: toIsoDate(item.createdAt),
+      divisionId:
+        item.divisionId == null
+          ? undefined
+          : `DIV-${String(item.divisionId).padStart(3, "0")}`,
+      documents: [],
+      timeline: [],
+      materialCost: item.materialCost,
+      laborCost: item.laborCost,
+      totalCost: item.totalCost,
+      partsUsed: item.partsUsed,
+      rejectionReason: item.rejectionReason,
+      scope: parseProjectScope(item.scope),
+    };
+  });
 }
 
 export async function fetchLiveBookings(
@@ -356,6 +347,7 @@ export async function fetchLiveBookings(
       laborCost: item.laborCost,
       totalCost: item.totalCost,
       partsUsed: item.partsUsed,
+      rejectionReason: item.rejectionReason,
     };
   });
 }
@@ -367,69 +359,45 @@ export async function fetchLiveMaintenance(
     ? `/api/maintenance?maintenanceId=${filterMaintenanceId}`
     : "/api/maintenance";
   const list = await apiRequest<BackendMaintenance[]>(url);
-  
-  // Fetch timeline for each maintenance request
-  const maintenanceWithTimeline = await Promise.all(
-    list.map(async (item) => {
-      const businessId = item.maintenanceId || `MNT-${item.id}`;
-      cacheRequestDbId("MAINTENANCE", businessId, item.id);
-      const loc = splitLocation(item.location);
-      const building = item.building || loc.building;
-      const floor    = item.floor    || loc.floor;
-      const roomArea = item.roomArea;
-      
-      // Fetch timeline from history endpoint
-      let timeline: any[] = [];
-      try {
-        const history = await apiRequest<any[]>(`/api/history/MAINTENANCE/${item.id}`);
-        timeline = history.map((h) => ({
-          id: `EV-${h.id}`,
-          action: h.action || h.status || "Status Updated",
-          actor: h.actorName || "System",
-          timestamp: h.createdAt,
-          note: h.note || "",
-        }));
-      } catch (error) {
-        console.error(`Failed to fetch timeline for ${businessId}:`, error);
-      }
-      
-      return {
-        id: businessId,
-        dbId: item.id,
-        title: item.title || item.category || "Maintenance Request",
-        description: item.description || "",
-        type: (item.category as Maintenance["type"]) || "General",
-        subType: item.category,
-        status: mapStatusFromBackend(item.status) as Maintenance["status"],
-        priority: inferPriority(item.priority),
-        requestedBy: userId(item.createdBy),
-        assignedTo: item.assignedProfessionalId
-          ? userId(item.assignedProfessionalId)
-          : undefined,
-        supervisorId: item.assignedSupervisorId
-          ? userId(item.assignedSupervisorId)
-          : undefined,
-        divisionId: item.divisionId
-          ? `DIV-${String(item.divisionId).padStart(3, "0")}`
-          : undefined,
-        location: item.location || "N/A",
-        building,
-        floor,
-        roomArea,
-        createdAt: toIsoDate(item.createdAt),
-        updatedAt: toIsoDate(item.createdAt),
-        notes: "",
-        attachments: [],
-        timeline,
-        materialCost: item.materialCost,
-        laborCost: item.laborCost,
-        totalCost: item.totalCost,
-        partsUsed: item.partsUsed,
-      };
-    })
-  );
-  
-  return maintenanceWithTimeline;
+  return list.map((item) => {
+    const businessId = item.maintenanceId || `MNT-${item.id}`;
+    cacheRequestDbId("MAINTENANCE", businessId, item.id);
+    const loc = splitLocation(item.location);
+    return {
+      id: businessId,
+      dbId: item.id,
+      title: item.category || "Maintenance Request",
+      description: item.description || "",
+      type: (item.category as Maintenance["type"]) || "General",
+      subType: item.category,
+      status: normalizeStatus(item.status) as Maintenance["status"],
+      priority: inferPriority(item.priority),
+      requestedBy: userId(item.createdBy),
+      assignedTo: item.assignedProfessionalId
+        ? userId(item.assignedProfessionalId)
+        : undefined,
+      supervisorId: item.assignedSupervisorId
+        ? userId(item.assignedSupervisorId)
+        : undefined,
+      divisionId: item.divisionId
+        ? `DIV-${String(item.divisionId).padStart(3, "0")}`
+        : undefined,
+      location: item.location || "N/A",
+      building: loc.building,
+      floor: loc.floor,
+      createdAt: toIsoDate(item.createdAt),
+      updatedAt: toIsoDate(item.createdAt),
+      notes: "",
+      attachments: [],
+      timeline: [],
+      materialCost: item.materialCost,
+      laborCost: item.laborCost,
+      totalCost: item.totalCost,
+      partsUsed: item.partsUsed,
+      rejectionReason: item.rejectionReason,
+      createdBy: userId(item.createdBy),
+    };
+  });
 }
 
 export async function fetchLiveNotifications(): Promise<Notification[]> {

@@ -15,6 +15,19 @@ import {
   Clock,
 } from "lucide-react";
 
+const READ_RETENTION_HOURS = 24;
+
+function pruneOldReadNotifications(items: Notification[]): Notification[] {
+  const now = Date.now();
+  return items.filter((item) => {
+    if (!item.read) return true;
+    const createdMs = new Date(item.createdAt).getTime();
+    if (!Number.isFinite(createdMs)) return true;
+    const ageHours = (now - createdMs) / (1000 * 60 * 60);
+    return ageHours <= READ_RETENTION_HOURS;
+  });
+}
+
 type NotificationTypeConfig = Record<
   Notification["type"],
   {
@@ -63,18 +76,29 @@ export function NotificationsPage() {
       try {
         // Token is automatically sent via httpOnly cookie
         const live = await fetchLiveNotifications();
-        setNotifications(live);
+        setNotifications(pruneOldReadNotifications(live));
       } catch (error) {
         console.error("Failed to fetch live notifications:", error);
       }
     };
     refresh();
+
+    const pruneTimer = setInterval(() => {
+      setNotifications((prev) => pruneOldReadNotifications(prev));
+    }, 60000);
+
+    return () => clearInterval(pruneTimer);
   }, []);
 
   const unreadCount = notifications.filter(
     (n) => n.userId === currentUser?.id && !n.read,
   ).length;
-  const userNotifs = notifications.filter((n) => n.userId === currentUser?.id);
+  const userNotifs = notifications
+    .filter((n) => n.userId === currentUser?.id)
+    .sort((a, b) => {
+      if (a.read !== b.read) return Number(a.read) - Number(b.read);
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
   const filtered = userNotifs.filter((n) => {
     if (filter === "unread") return !n.read;
     if (filter === "read") return n.read;

@@ -207,8 +207,6 @@ export function AllRequestsPage() {
 
   const filtered = useMemo(() => {
     let list = allRequests;
-    if (activeModule !== "All")
-      list = list.filter((r) => r.module === activeModule);
     if (statusFilter !== "All")
       list = list.filter((r) => r.status === statusFilter);
     if (userFilter !== "All")
@@ -237,7 +235,6 @@ export function AllRequestsPage() {
     return list;
   }, [
     allRequests,
-    activeModule,
     statusFilter,
     userFilter,
     search,
@@ -276,7 +273,6 @@ export function AllRequestsPage() {
 
   return (
     <div className="space-y-5">
-
       {/* ── Page Header ────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-start gap-3">
@@ -411,8 +407,15 @@ export function AllRequestsPage() {
                 <button
                   key={mod}
                   onClick={() => {
-                    setActiveModule(mod);
-                    setStatusFilter("All");
+                    if (mod === "All") {
+                      setActiveModule("All");
+                      setStatusFilter("All");
+                      return;
+                    }
+                    if (mod === "Projects") router.push("/dashboard/projects");
+                    else if (mod === "Bookings")
+                      router.push("/dashboard/bookings");
+                    else router.push("/dashboard/maintenance");
                   }}
                   className={`flex items-center gap-2 px-5 py-3.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-all ${
                     activeModule === mod
@@ -599,13 +602,11 @@ export function AllRequestsPage() {
                 <div
                   key={req.id}
                   onClick={() => {
-                    const path =
-                      req.module === "Projects"
-                        ? `/dashboard/projects/${req.id}`
-                        : req.module === "Maintenance"
-                          ? `/dashboard/maintenance/${req.id}`
-                          : `/dashboard/bookings/${req.id}`;
-                    router.push(path);
+                    if (req.module === "Projects")
+                      router.push(`/dashboard/projects/${req.id}`);
+                    else if (req.module === "Maintenance")
+                      router.push(`/dashboard/maintenance/${req.id}`);
+                    else router.push(`/dashboard/bookings/${req.id}`);
                   }}
                   className="px-5 py-4 flex items-center gap-4 cursor-pointer transition-all hover:bg-secondary/30 group"
                 >
@@ -663,7 +664,7 @@ export function AllRequestsPage() {
                   {/* Chevron */}
                   <ChevronRight
                     size={16}
-                    className="flex-shrink-0 transition-all text-muted-foreground/40 group-hover:text-[#1A3580] group-hover:translate-x-1"
+                    className="flex-shrink-0 transition-all text-muted-foreground/40 group-hover:text-muted-foreground"
                   />
                 </div>
               );

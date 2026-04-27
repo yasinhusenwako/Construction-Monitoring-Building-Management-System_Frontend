@@ -18,17 +18,20 @@ import {
   CheckCircle,
   Clock,
   Copy,
+  FileText,
   LayoutGrid,
   MapPin,
   Phone,
   ThumbsDown,
   ThumbsUp,
+  Trash2,
   User,
   Users,
   Briefcase,
   FileText,
 } from "lucide-react";
 import { fetchLiveBookings, fetchLiveUsers } from "@/lib/live-api";
+import { apiRequest } from "@/lib/api";
 import { executeWorkflowAction } from "@/lib/workflow-actions";
 
 export default function BookingDetailPage({ id }: { id: string }) {
@@ -42,6 +45,9 @@ export default function BookingDetailPage({ id }: { id: string }) {
   const [copied, setCopied] = useState(false);
   const [actionDone, setActionDone] = useState("");
   const [systemUsers, setSystemUsers] = useState<any[]>([]);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [rejectingBooking, setRejectingBooking] = useState(false);
 
   // Assignment state
   const [selectedAssignee, setSelectedAssignee] = useState("");
@@ -117,11 +123,25 @@ export default function BookingDetailPage({ id }: { id: string }) {
 
   const requester = systemUsers.find((u) => u.id === booking.requestedBy);
   const assignee = systemUsers.find((u) => u.id === booking.assignedTo);
+  const supervisorUser = systemUsers.find((u) => u.id === booking.supervisorId);
+  
+  // Bookings use professionals from "OTHER" division (not maintenance divisions)
   const bookingProfessionals = systemUsers.filter(
-    (u) => u.role === "professional" && u.divisionId === "OTHER",
+    (u) => u.role === "professional" && u.divisionId && u.divisionId.toUpperCase() === "OTHER"
   );
 
-  const isOfficeAllocation = booking.type === "Office";
+  // Debug: Log delete button visibility
+  console.log("=== Delete Button Debug (Booking) ===");
+  console.log("Role:", role);
+  console.log("Current User ID:", currentUser?.id);
+  console.log("Booking Requested By:", booking.requestedBy);
+  console.log("Booking Status:", booking.status);
+  console.log("Is User:", role === "user");
+  console.log("Is Creator:", booking.requestedBy === currentUser?.id);
+  console.log("Is Submitted:", booking.status === "Submitted");
+  console.log("User Can Delete:", role === "user" && booking.requestedBy === currentUser?.id && booking.status === "Submitted");
+  console.log("Admin Can Delete:", role === "admin");
+  console.log("Show Delete Button:", ((role === "user" && booking.requestedBy === currentUser?.id && booking.status === "Submitted") || role === "admin"));
 
   const copyId = () => {
     try {
@@ -185,56 +205,27 @@ export default function BookingDetailPage({ id }: { id: string }) {
     setTimeout(() => setActionDone(""), 3000);
   };
 
-  // ── Helper: detail card row ──────────────────────────────────────
-  function DetailRow({
-    icon,
-    label,
-    value,
-    colorClass = "text-green-700",
-    bgClass = "bg-green-50",
-    borderClass = "border-green-100",
-  }: {
-    icon: ReactNode;
-    label: string;
-    value: ReactNode;
-    colorClass?: string;
-    bgClass?: string;
-    borderClass?: string;
-  }) {
-    if (!value && value !== 0) return null;
-    return (
-      <div className="flex items-start gap-3">
-        <span
-          className={`${colorClass} mt-0.5 flex-shrink-0 ${bgClass} p-1.5 rounded-md border ${borderClass}`}
-        >
-          {icon}
-        </span>
-        <div>
-          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">
-            {label}
-          </p>
-          <p className="font-medium text-foreground text-sm">{value}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Chip list for arrays ────────────────────────────────────────
-  function ChipList({ items }: { items: string[] }) {
-    if (!items || items.length === 0) return <span className="text-sm font-medium text-muted-foreground">—</span>;
-    return (
-      <div className="flex flex-wrap gap-1.5 mt-0.5">
-        {items.map((item) => (
-          <span
-            key={item}
-            className="text-xs bg-green-50 text-green-800 border border-green-200 px-2 py-0.5 rounded-full font-medium"
-          >
-            {item}
-          </span>
-        ))}
-      </div>
-    );
-  }
+  const handleReject = async () => {
+    if (!rejectionReason.trim()) {
+      alert("Please enter a rejection reason");
+      return;
+    }
+    
+    setRejectingBooking(true);
+    try {
+      await apiRequest(`/api/bookings/${booking.dbId}/reject`, {
+        method: "PATCH",
+        body: { reason: rejectionReason },
+      });
+      setShowRejectModal(false);
+      setRejectionReason("");
+      window.location.reload();
+    } catch (error) {
+      alert("Failed to reject booking: " + (error instanceof Error ? error.message : "Unknown error"));
+    } finally {
+      setRejectingBooking(false);
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-5xl modern-form">
@@ -279,6 +270,46 @@ export default function BookingDetailPage({ id }: { id: string }) {
             <h1 className="text-[#0E2271]">{booking.title}</h1>
           </div>
         </div>
+        
+        {/* Action Buttons - Edit and Delete */}
+        <div className="flex gap-2">
+          {/* Edit Button - Only show if user is the creator and status is Submitted */}
+          {role === "user" && 
+           booking.requestedBy === currentUser?.id && 
+           booking.status === "Submitted" && (
+            <button
+              onClick={() => router.push(`/dashboard/bookings/${booking.id}/edit`)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1A3580] text-white text-sm font-semibold hover:bg-[#0E2271] transition-all"
+            >
+              <FileText size={16} />
+              {t("action.edit") || "Edit Request"}
+            </button>
+          )}
+          
+          {/* Delete Button - Show for creator (Submitted, Approved, Rejected, Closed) or admin (any status) */}
+          {((role === "user" && 
+             booking.requestedBy === currentUser?.id && 
+             ["Submitted", "Approved", "Rejected", "Closed"].includes(booking.status)) ||
+            role === "admin") && (
+            <button
+              onClick={async () => {
+                if (confirm("Are you sure you want to delete this booking? This action cannot be undone.")) {
+                  try {
+                    await apiRequest(`/api/bookings/${booking.dbId}`, { method: "DELETE" });
+                    alert("Booking deleted successfully");
+                    router.push("/dashboard/bookings");
+                  } catch (error) {
+                    alert("Failed to delete booking: " + (error instanceof Error ? error.message : "Unknown error"));
+                  }
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-all"
+            >
+              <Trash2 size={16} />
+              {t("action.delete") || "Delete"}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Workflow */}
@@ -290,7 +321,39 @@ export default function BookingDetailPage({ id }: { id: string }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* ── Left: Main Details ── */}
+        <div className="lg:col-span-3">
+          <div className="bg-white rounded-xl border border-border p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-[#0E2271] mb-6">
+              {t("projects.workflowProgress") || "Workflow Progress"}
+            </h3>
+            <WorkflowVisualizer currentStatus={booking.status} module="booking" />
+          </div>
+        </div>
+
+        {/* Rejection Reason Alert - Show if booking is rejected */}
+        {booking.status === "Rejected" && booking.rejectionReason && (
+          <div className="lg:col-span-3">
+            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-5 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                  <ThumbsDown size={20} className="text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-bold text-red-900 mb-2">
+                    Booking Rejected
+                  </h3>
+                  <p className="text-sm text-red-800 font-medium mb-1">
+                    Reason for rejection:
+                  </p>
+                  <p className="text-sm text-red-700 bg-white/50 rounded-lg p-3 border border-red-200">
+                    {booking.rejectionReason}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="lg:col-span-2 space-y-5">
 
           {/* ── Purpose / Description Card ── */}
@@ -407,10 +470,27 @@ export default function BookingDetailPage({ id }: { id: string }) {
                   booking.status === "Under Review") && (
                   <div className="space-y-3 bg-white border border-border rounded-xl p-4 shadow-sm">
                     {booking.status === "Submitted" && (
-                      <div className="mb-4 pb-4 border-b border-dashed border-border text-center">
+                      <div className="mb-4 pb-4 border-b border-dashed border-border">
                         <p className="text-xs text-muted-foreground mb-3">
-                          Ready for initial review.
+                          Quick Actions: Approve/Reject directly or start review process.
                         </p>
+                        <div className="flex gap-2 mb-3">
+                          <button
+                            onClick={() =>
+                              handleAction("Approved", "admin", "Approved")
+                            }
+                            className="flex-1 py-2.5 rounded-lg text-white text-sm font-bold bg-green-600 hover:bg-green-700 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                          >
+                            <ThumbsUp size={16} /> Approve
+                          </button>
+                          <button
+                            onClick={() => setShowRejectModal(true)}
+                            className="flex-1 py-2.5 rounded-lg text-[#CC1F1A] text-sm font-bold border-2 border-[#CC1F1A] hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+                          >
+                            <ThumbsDown size={16} /> Reject
+                          </button>
+                        </div>
+                        <div className="text-xs text-muted-foreground mb-2">OR</div>
                         <button
                           onClick={() =>
                             handleAction("Under Review", "admin", "Started Review")
@@ -418,7 +498,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
                           className="w-full py-3 rounded-xl text-white text-sm font-bold transition-all shadow-premium hover-lift flex items-center justify-center gap-2"
                           style={{ background: "#7C3AED" }}
                         >
-                          <User size={16} /> Start Review
+                          <User size={16} /> Start Review Process
                         </button>
                       </div>
                     )}
@@ -483,10 +563,9 @@ export default function BookingDetailPage({ id }: { id: string }) {
                         <ThumbsUp size={16} /> Approve
                       </button>
                       <button
-                        onClick={() =>
-                          handleAction("Rejected", "admin", "Booking Rejected")
-                        }
-                        className="py-3 rounded-xl text-[#CC1F1A] text-sm font-bold border-2 border-[#CC1F1A] hover:bg-red-50 hover-lift transition-all flex items-center justify-center gap-2"
+                        onClick={() => setShowRejectModal(true)}
+                        className="py-2.5 rounded-lg text-white text-sm font-bold transition-all hover:shadow-md hover:opacity-90 flex items-center justify-center gap-2"
+                        style={{ background: "#CC1F1A" }}
                       >
                         <ThumbsDown size={16} /> Reject
                       </button>
@@ -589,6 +668,46 @@ export default function BookingDetailPage({ id }: { id: string }) {
           </div>
         </div>
       </div>
+
+      {/* Rejection Reason Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 className="text-lg font-bold text-[#0E2271] mb-4">
+              Reject Booking
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Please provide a reason for rejecting this booking. This will be sent to the requester.
+            </p>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="Enter rejection reason..."
+              rows={4}
+              className="w-full px-3 py-2 border border-border rounded-lg resize-none focus:outline-none focus:border-[#1A3580] text-sm"
+            />
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setRejectionReason("");
+                }}
+                disabled={rejectingBooking}
+                className="flex-1 px-4 py-2 rounded-lg border-2 border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReject}
+                disabled={rejectingBooking || !rejectionReason.trim()}
+                className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {rejectingBooking ? "Rejecting..." : "Reject Booking"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

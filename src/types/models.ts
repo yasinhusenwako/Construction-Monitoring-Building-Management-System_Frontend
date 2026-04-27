@@ -51,6 +51,8 @@ export interface Project {
   supervisorId?: string;
   workOrderId?: string;
   location: string;
+  block?: string;
+  floor?: string;
   budget: number;
   startDate: string;
   endDate: string;
@@ -58,7 +60,9 @@ export interface Project {
   contactPerson?: string;
   contactPhone?: string;
   siteCondition?: string;
-  scope?: unknown;
+  requestMode?: string;
+  linkedProjectId?: string;
+  scope?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
   divisionId?: string;
@@ -71,6 +75,7 @@ export interface Project {
   laborCost?: number;
   totalCost?: number;
   partsUsed?: string;
+  rejectionReason?: string;
 }
 
 export interface Booking {
@@ -104,6 +109,7 @@ export interface Booking {
   materialCost?: number;
   laborCost?: number;
   totalCost?: number;
+  rejectionReason?: string;
   partsUsed?: string;
 }
 
@@ -149,6 +155,8 @@ export interface Maintenance {
   laborCost?: number;
   totalCost?: number;
   partsUsed?: string;
+  rejectionReason?: string;
+  createdBy?: string;
 }
 
 export interface Notification {

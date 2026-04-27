@@ -103,6 +103,42 @@ const defaultScope: DynamicScope = {
   otherSupervisionType: "",
 };
 
+function createDefaultScope(): DynamicScope {
+  return {
+    buildingType: "",
+    otherBuildingType: "",
+    floorArea: "",
+    disciplines: [],
+    otherDiscipline: "",
+
+    interventionType: [],
+    otherInterventionType: "",
+    a2DesignScope: [],
+    otherA2DesignScope: "",
+    a2Deliverables: [],
+    otherA2Deliverable: "",
+
+    spaceType: "",
+    otherSpaceType: "",
+    userCapacity: "",
+    a3Deliverables: [],
+    otherA3Deliverable: "",
+
+    projectContext: "",
+    otherProjectContext: "",
+    siteArea: "",
+    a4Deliverables: [],
+    otherA4Deliverable: "",
+
+    boqPurpose: "",
+    otherBoqPurpose: "",
+    linkedProjectId: "",
+
+    supervisionTypes: [],
+    otherSupervisionType: "",
+  };
+}
+
 function Toggle({
   label,
   checked,
@@ -343,13 +379,22 @@ export function NewProjectPage() {
     budget: "",
     startDate: "",
     endDate: "",
-    scope: defaultScope,
+    scope: createDefaultScope(),
     files: [],
   });
 
   const update = (k: keyof FormData, v: string | number | boolean) => {
     setForm((f) => ({ ...f, [k]: v }));
     setErrors((e) => ({ ...e, [k]: "" }));
+  };
+
+  const updateClassification = (classification: string) => {
+    setForm((f) => ({
+      ...f,
+      classification,
+      scope: createDefaultScope(),
+    }));
+    setErrors((e) => ({ ...e, classification: "" }));
   };
 
   const updateScope = (
@@ -406,7 +451,7 @@ export function NewProjectPage() {
           errs.otherSiteCondition = t("validation.required");
         if (!form.functionalDescription.trim())
           errs.functionalDescription = t("validation.required");
-        if (!form.budget || Number(form.budget) <= 0)
+        if (form.budget && Number(form.budget) <= 0)
           errs.budget = t("validation.positiveNumber");
         if (!form.startDate) errs.startDate = t("validation.required");
         if (!form.endDate) errs.endDate = t("validation.required");
@@ -504,7 +549,7 @@ export function NewProjectPage() {
     setLoading(true);
     const year = new Date().getFullYear();
     const id = `PRJ-${year}-${String(Math.floor(Math.random() * 900) + 100)}`;
-    const budgetValue = Number(form.budget);
+    const budgetValue = form.budget ? Number(form.budget) : 0;
     const storedUser = sessionStorage.getItem("insa_user");
     const parsedUser = storedUser ? JSON.parse(storedUser) : null;
     const divisionId =
@@ -562,6 +607,8 @@ export function NewProjectPage() {
             projectId: id,
             title: form.title,
             location: locString,
+          block: form.block,
+          floor: form.floor,
             department: form.department,
             contactPerson: form.contactPerson,
             phone: form.contactPhone,
@@ -698,6 +745,99 @@ export function NewProjectPage() {
     return map[form.classification] || "—";
   };
 
+  const isOther = (value: string) =>
+    value === "Other" || value === t("common.other");
+
+  const resolveOtherText = (value: string, otherValue: string) =>
+    isOther(value) ? otherValue : value;
+
+  const resolveOtherArray = (values: string[], otherValue: string) =>
+    values.map((v) => (isOther(v) ? otherValue : v)).join(", ");
+
+  const getScopeReviewRows = (): [string, string][] => {
+    if (form.classification === "A1") {
+      return [
+        [
+          "Building Type",
+          resolveOtherText(form.scope.buildingType, form.scope.otherBuildingType),
+        ],
+        ["Floor Area", form.scope.floorArea],
+        [
+          "Disciplines",
+          resolveOtherArray(form.scope.disciplines, form.scope.otherDiscipline),
+        ],
+      ];
+    }
+
+    if (form.classification === "A2") {
+      return [
+        [
+          "Intervention Type",
+          resolveOtherArray(
+            form.scope.interventionType,
+            form.scope.otherInterventionType,
+          ),
+        ],
+        [
+          "Design Disciplines",
+          resolveOtherArray(form.scope.a2DesignScope, form.scope.otherA2DesignScope),
+        ],
+        [
+          "Required Deliverables",
+          resolveOtherArray(form.scope.a2Deliverables, form.scope.otherA2Deliverable),
+        ],
+      ];
+    }
+
+    if (form.classification === "A3") {
+      return [
+        ["Space Type", resolveOtherText(form.scope.spaceType, form.scope.otherSpaceType)],
+        ["User Capacity", form.scope.userCapacity],
+        [
+          "Required Deliverables",
+          resolveOtherArray(form.scope.a3Deliverables, form.scope.otherA3Deliverable),
+        ],
+      ];
+    }
+
+    if (form.classification === "A4") {
+      return [
+        [
+          "Project Context",
+          resolveOtherText(form.scope.projectContext, form.scope.otherProjectContext),
+        ],
+        [
+          "Site Area (sq.m)",
+          form.scope.siteArea || "-",
+        ],
+        [
+          "Required Deliverables",
+          resolveOtherArray(form.scope.a4Deliverables, form.scope.otherA4Deliverable),
+        ],
+      ];
+    }
+
+    if (form.classification === "A5") {
+      return [
+        ["BOQ Purpose", resolveOtherText(form.scope.boqPurpose, form.scope.otherBoqPurpose)],
+      ];
+    }
+
+    if (form.classification === "A6") {
+      return [
+        [
+          "Supervision Types",
+          resolveOtherArray(
+            form.scope.supervisionTypes,
+            form.scope.otherSupervisionType,
+          ),
+        ],
+      ];
+    }
+
+    return [];
+  };
+
   if (submitted)
     return (
       <div className="max-w-lg mx-auto text-center py-16">
@@ -830,8 +970,8 @@ export function NewProjectPage() {
                 <button
                   key={cls.code}
                   type="button"
-                  onClick={() => update("classification", cls.code)}
-                  className={`modern-card text-left border-2 rounded-2xl p-5 transition-all ${
+                  onClick={() => updateClassification(cls.code)}
+                  className={`text-left border-2 rounded-xl p-4 transition-all ${
                     form.classification === cls.code
                       ? "border-[#1A3580] bg-[#EEF2FF] selected"
                       : "border-border hover:border-[#1A3580]/40 hover:bg-secondary/50 glass-effect"
@@ -1388,7 +1528,7 @@ export function NewProjectPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[#0E2271] mb-2">
-                    {t("projects.step.designScope")}
+                    {t("projects.step.designDisciplines")}
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {a2DesignScopes.map((s) => (
@@ -1468,7 +1608,7 @@ export function NewProjectPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-[#0E2271] mb-2">
-                    {t("projects.buildingType.other")} *
+                    Space Type *
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     {spaceTypes.map((t) => (
@@ -1863,10 +2003,22 @@ export function NewProjectPage() {
                 : [
                     ["Request Mode", "New Project"],
                     ["Title", form.title],
-                    ["Location", form.location],
+                    [
+                      "Location",
+                      form.location === t("common.other")
+                        ? form.otherLocation
+                        : form.location,
+                    ],
+                    ["Block", form.block],
+                    ["Floor", form.floor],
                     ["Department", form.department],
                     ["Contact", `${form.contactPerson} · ${form.contactPhone}`],
-                    ["Site Condition", form.siteCondition],
+                    [
+                      "Site Condition",
+                      form.siteCondition === t("common.other")
+                        ? form.otherSiteCondition
+                        : form.siteCondition,
+                    ],
                     [
                       "Budget",
                       form.budget
@@ -1874,6 +2026,7 @@ export function NewProjectPage() {
                         : "Not specified",
                     ],
                     ["Timeline", `${form.startDate} → ${form.endDate}`],
+                    ...getScopeReviewRows(),
                     ["Auto-Assign To", getAssignmentInfo()],
                     ["Documents", `${form.files.length} file(s) attached`],
                   ]

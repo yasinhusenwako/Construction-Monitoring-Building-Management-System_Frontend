@@ -787,6 +787,7 @@
   "projects.step.classification": "Classification",
   "projects.step.generalInfo": "General Info",
   "projects.step.designScope": "Design Scope",
+  "projects.step.designDisciplines": "Design Disciplines",
   "projects.step.documents": "Documents",
   "projects.step.review": "Review & Submit",
   "projects.classification.A1.label": "New Building Project",
