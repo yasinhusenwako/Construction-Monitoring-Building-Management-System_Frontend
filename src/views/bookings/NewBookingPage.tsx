@@ -329,6 +329,15 @@ export function NewBookingPage() {
 
       createdAt: now,
       updatedAt: now,
+      timeline: [
+        {
+          id: `EV-${id}-created`,
+          action: "Submitted",
+          actor: requestedBy,
+          timestamp: now,
+          note: "",
+        },
+      ],
     };
 
     try {

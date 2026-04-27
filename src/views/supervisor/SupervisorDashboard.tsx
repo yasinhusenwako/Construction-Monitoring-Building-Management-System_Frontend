@@ -10,23 +10,13 @@ import {
   fetchLiveMaintenance,
   fetchLiveProjects,
   fetchLiveUsers,
-  supervisorAssignProfessional,
-  supervisorReviewRequest,
 } from "@/lib/live-api";
-import { AssignmentModal } from "./AssignmentModal";
-import { CompletionReportModal } from "./CompletionReportModal";
-import { StatusBadge, PriorityBadge } from "@/components/common/StatusBadge";
 import {
   ClipboardList,
   AlertTriangle,
   Activity,
   CheckCircle,
   Send,
-  MapPin,
-  Clock,
-  User,
-  UserCheck,
-  Eye,
   Download,
 } from "lucide-react";
 
@@ -37,9 +27,6 @@ export function SupervisorDashboard() {
   const router = useRouter();
   const uid = currentUser?.id || "";
 
-  const [assignTarget, setAssignTarget] = useState<string | null>(null);
-  const [actionMsg, setActionMsg] = useState("");
-  const [reportTarget, setReportTarget] = useState<string | null>(null);
   const [allTasks, setAllTasks] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,101 +100,8 @@ export function SupervisorDashboard() {
     [users, userDivision],
   );
 
-  const handleAssign = async (professionalId: string, instructions: string) => {
-    const task = myTasks.find((m) => m.id === assignTarget);
-    if (!task) return;
-    const requestModule = task.id.startsWith("PRJ-")
-      ? "PROJECT"
-      : (task.id.startsWith("BKG-") || task.id.startsWith("ALLOC-"))
-        ? "BOOKING"
-        : "MAINTENANCE";
-
-    try {
-      await supervisorAssignProfessional({
-        module: requestModule,
-        businessId: task.id,
-        professionalId,
-        instructions,
-      });
-
-      setAllTasks((prev) =>
-        prev.map((t) =>
-          t.id === task.id
-            ? {
-                ...t,
-                status: "Assigned to Professionals",
-                assignedTo: professionalId,
-                updatedAt: new Date().toISOString(),
-              }
-            : t,
-        ),
-      );
-      setActionMsg(t("supervisor.action.assigned"));
-      setTimeout(() => setActionMsg(""), 4000);
-    } catch (error) {
-      console.error("Assignment failed:", error);
-      setActionMsg(t("common.error"));
-    }
-    setAssignTarget(null);
-  };
-
-  const handleSubmitReport = async (id: string) => {
-    const task = myTasks.find((m) => m.id === id);
-    if (!task) return;
-    const requestModule = id.startsWith("PRJ-")
-      ? "PROJECT"
-      : (id.startsWith("BKG-") || id.startsWith("ALLOC-"))
-        ? "BOOKING"
-        : "MAINTENANCE";
-
-    try {
-      await supervisorReviewRequest({
-        module: requestModule,
-        businessId: id,
-      });
-      setAllTasks((prev) =>
-        prev.map((t) =>
-          t.id === id
-            ? { ...t, status: "Reviewed", updatedAt: new Date().toISOString() }
-            : t,
-        ),
-      );
-      setActionMsg(t("supervisor.action.reportSubmitted", { id }));
-      setTimeout(() => setActionMsg(""), 4000);
-    } catch (error) {
-      console.error("Review failed:", error);
-      setActionMsg(t("common.error"));
-    }
-    setReportTarget(null);
-  };
-
-  const assignTargetTask = myTasks.find((m) => m.id === assignTarget);
-
   return (
     <div className="space-y-6">
-      {/* Assignment Modal */}
-      {assignTarget && assignTargetTask && (
-        <AssignmentModal
-          ticketId={assignTarget}
-          ticketTitle={assignTargetTask.title}
-          professionals={approvedProfessionals}
-          activeTasks={allTasks}
-          onAssign={handleAssign}
-          onClose={() => setAssignTarget(null)}
-        />
-      )}
-
-      {/* Report Modal */}
-      {reportTarget && (
-        <CompletionReportModal
-          ticketId={reportTarget}
-          onClose={() => {
-            setReportTarget(null);
-          }}
-          onSubmit={handleSubmitReport}
-        />
-      )}
-
       {/* Header */}
       <div
         className="rounded-2xl overflow-hidden"
@@ -280,13 +174,6 @@ export function SupervisorDashboard() {
           </div>
         </div>
       </div>
-
-      {/* Action message */}
-      {actionMsg && (
-        <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-700 flex items-center gap-2">
-          <CheckCircle size={16} /> {actionMsg}
-        </div>
-      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
@@ -384,90 +271,46 @@ export function SupervisorDashboard() {
         )}
       </div>
 
-      {/* Task Management */}
-      <h2 className="text-[#0E2271]">{t("supervisor.taskManagement")}</h2>
-
-      {/* List View */}
-      <div className="space-y-3">
-        {myTasks.length === 0 ? (
-          <div className="bg-white rounded-xl border border-border p-16 text-center">
-            <ClipboardList
-              size={48}
-              className="mx-auto text-muted-foreground/40 mb-3"
-            />
-            <h3 className="text-[#0E2271]">
-              {t("supervisor.noTasksAssigned")}
-            </h3>
-            <p className="text-muted-foreground text-sm">
-              {t("supervisor.noTasksDesc")}
+      {/* Task Management - Navigate to dedicated page */}
+      <div className="bg-white rounded-xl border border-border p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-[#0E2271] font-semibold text-lg mb-1">
+              {t("supervisor.taskManagement")}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              View and manage all assigned tasks, assign professionals, and submit completion reports
             </p>
           </div>
-        ) : (
-          myTasks.map((m) => {
-            const assignee = users.find((u) => u.id === m.assignedTo);
-            return (
-              <div
-                key={m.id}
-                className="bg-white rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="font-mono text-xs font-bold text-[#7C3AED]">
-                        {m.id}
-                      </span>
-                      <StatusBadge status={m.status} />
-                      <PriorityBadge priority={m.priority} />
-                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                        {m.type}
-                      </span>
-                    </div>
-                    <h3 className="font-semibold text-[#0E2271]">{m.title}</h3>
-                    <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
-                      {m.description}
-                    </p>
-                    <div className="flex items-center gap-4 mt-2 flex-wrap">
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <MapPin size={12} /> {m.location}, {m.floor}
-                      </span>
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock size={12} /> {m.createdAt.split(" ")[0]}
-                      </span>
-                      {assignee && (
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <User size={12} /> {assignee.name}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2 items-end">
-                    <button
-                      onClick={() => {
-                        const path = m.id.startsWith("PRJ-")
-                          ? `/dashboard/projects/${m.id}`
-                          : (m.id.startsWith("BKG-") || m.id.startsWith("ALLOC-"))
-                            ? `/dashboard/bookings/${m.id}`
-                            : `/dashboard/maintenance/${m.id}`;
-                        router.push(path);
-                      }}
-                      className="flex items-center gap-1 text-xs text-[#7C3AED] hover:underline"
-                    >
-                      <Eye size={12} /> {t("supervisor.viewDetails")}
-                    </button>
-                    {m.status === "Completed" && (
-                      <button
-                        onClick={() => setReportTarget(m.id)}
-                        className="flex items-center gap-1 text-xs text-white px-3 py-1.5 rounded-lg bg-[#0891B2]"
-                      >
-                        <Send size={12} /> {t("supervisor.submitReport")}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
+          <div className="text-right">
+            <p className="text-3xl font-bold text-[#7C3AED] mb-1">{myTasks.length}</p>
+            <p className="text-xs text-muted-foreground">Total Tasks</p>
+          </div>
+        </div>
+        
+        {/* Quick Stats */}
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="bg-amber-50 rounded-lg p-3 text-center">
+            <p className="text-2xl font-bold text-amber-600">{pendingAssignment.length}</p>
+            <p className="text-xs text-muted-foreground mt-1">Need Assignment</p>
+          </div>
+          <div className="bg-orange-50 rounded-lg p-3 text-center">
+            <p className="text-2xl font-bold text-orange-600">{withProfessionals.length}</p>
+            <p className="text-xs text-muted-foreground mt-1">In Progress</p>
+          </div>
+          <div className="bg-teal-50 rounded-lg p-3 text-center">
+            <p className="text-2xl font-bold text-teal-600">{completedTasks.length}</p>
+            <p className="text-xs text-muted-foreground mt-1">Completed</p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => router.push("/dashboard/supervisor/tasks")}
+          className="w-full px-6 py-3 rounded-lg text-white text-sm font-semibold bg-[#7C3AED] hover:bg-[#6D28D9] transition-colors flex items-center justify-center gap-2"
+        >
+          <ClipboardList size={18} />
+          Open Task Management
+        </button>
       </div>
     </div>
   );

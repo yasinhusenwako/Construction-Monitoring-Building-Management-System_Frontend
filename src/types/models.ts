@@ -110,6 +110,7 @@ export interface Booking {
   totalCost?: number;
   rejectionReason?: string;
   partsUsed?: string;
+  timeline: TimelineEvent[];
 }
 
 export interface Maintenance {

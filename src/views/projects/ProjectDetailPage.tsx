@@ -32,6 +32,7 @@ import {
 import { fetchLiveProjects, fetchLiveUsers } from "@/lib/live-api";
 import { apiRequest } from "@/lib/api";
 import { executeWorkflowAction } from "@/lib/workflow-actions";
+import { Timeline } from "@/components/common/Timeline";
 import {
   getUserFacingStatus,
   WORKFLOW_STATUSES,
@@ -711,21 +712,14 @@ export function ProjectDetailPage() {
                   },
                   { icon: <Calendar size={16} />, label: "Timeline", value: timelineRange },
                   { icon: <UserPlus size={16} />, label: "Auto-Assign To", value: autoAssignTo },
-                  ...summaryScopeItems,
+                  ...summaryScopeItems.map(item => ({
+                    icon: <Package size={16} />,
+                    ...item
+                  })),
                   {
                     icon: <Layers size={16} />,
                     label: "Linked Project",
                     value: project.linkedProjectId || "-",
-                  },
-                  {
-                    icon: <FileText size={16} />,
-                    label: "Documents",
-                    value: `${project.documents.length} file(s) attached`,
-                  },
-                  {
-                    icon: <MessageSquare size={16} />,
-                    label: "Functional Description",
-                    value: project.description || "-",
                   },
                 ].map((item) => (
                   <div key={item.label} className="flex items-start gap-3">
@@ -740,6 +734,25 @@ export function ProjectDetailPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+              
+              {/* Functional Description - Full Width */}
+              <div className="mt-4 pt-4 border-t border-border">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-[#EEF2FF] flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-[#1A3580]">
+                      <MessageSquare size={16} />
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">
+                      Functional Description
+                    </p>
+                    <p className="text-sm font-medium text-foreground break-words leading-relaxed">
+                      {project.description || "-"}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 

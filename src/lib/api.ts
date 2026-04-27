@@ -117,7 +117,12 @@ export async function apiRequest<T>(
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => "");
-        console.error(`[API ERROR] ${response.status} ${url}`, errorText);
+        // Only log 403 errors as warnings (they're often expected for role-based access)
+        if (response.status === 403) {
+          console.warn(`[API ACCESS DENIED] ${response.status} ${url}`);
+        } else {
+          console.error(`[API ERROR] ${response.status} ${url}`, errorText);
+        }
         let message = errorText || `Request failed (${response.status})`;
         // ... (keep rest)
         try {

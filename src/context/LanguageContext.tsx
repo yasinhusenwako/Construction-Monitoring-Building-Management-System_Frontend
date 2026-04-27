@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+// Translation context for multi-language support
 import React, {
   createContext,
   useContext,

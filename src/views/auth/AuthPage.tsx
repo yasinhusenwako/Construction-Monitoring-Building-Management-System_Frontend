@@ -28,7 +28,6 @@ import {
 
 // Assets
 import logoImg from "../../assets/f90b53223fdaa6590fb74226dca7ff83be56c9f0.png";
-import heroImg from "../../assets/login-hero.png";
 import authBg from "../../assets/auth-bg.png";
 
 const REGISTER_STEPS = [
@@ -181,7 +180,7 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
           transition={{ type: "spring", stiffness: 100, damping: 20 }}
           className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col p-12 text-white z-20 shadow-2xl"
         >
-          {/* Background Image with Overlay */}
+          {/* Background Image */}
           <div className="absolute inset-0 z-0">
             <Image
               src={authBg}
@@ -190,8 +189,6 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
               className="object-cover"
               priority
             />
-            <div className="absolute inset-0 bg-[#0E2271]/80 backdrop-blur-[2px]" />
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1E3A8A]/40 to-transparent" />
           </div>
 
           <div className="relative z-10 flex flex-col h-full">
@@ -240,7 +237,7 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
                     </>
                   )}
                 </h1>
-                <p className="text-lg text-blue-100/80 max-w-md font-medium leading-relaxed">
+                <p className="text-lg text-white max-w-md font-medium leading-relaxed">
                   {mode === "login"
                     ? t("auth.brandingLoginSubtitle")
                     : t("auth.brandingRegisterSubtitle")}
@@ -274,19 +271,6 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
                     </p>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Illustration Container - Adjusted for visibility */}
-            <div className="mt-auto pt-10 relative">
-              <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-white/20 bg-black/20 backdrop-blur-sm">
-                <Image
-                  src={heroImg}
-                  alt="Illustration"
-                  className="w-full h-auto object-cover opacity-80 mix-blend-lighten"
-                  priority
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0e2271]/80 to-transparent" />
               </div>
             </div>
           </div>

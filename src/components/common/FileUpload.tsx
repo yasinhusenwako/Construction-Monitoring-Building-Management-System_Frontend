@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Upload, X, FileText, Image as ImageIcon, AlertCircle } from "lucide-react";
+import { useSystemSettings } from "@/context/SystemSettingsContext";
 
 export interface UploadedFile {
   id: string;
@@ -26,7 +27,7 @@ export function FileUpload({
   files,
   onFilesChange,
   maxFiles = 10,
-  maxSizeMB = 10,
+  maxSizeMB,
   acceptedTypes = ["image/*", ".pdf", ".doc", ".docx", ".xls", ".xlsx"],
   label = "Upload Files",
   description = "Drag and drop files here, or click to browse",
@@ -35,12 +36,15 @@ export function FileUpload({
   const [error, setError] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const maxSizeBytes = maxSizeMB * 1024 * 1024;
+  // Import system settings to get max file size
+  const { settings } = useSystemSettings();
+  const effectiveMaxSizeMB = maxSizeMB ?? settings.maxFileSize;
+  const maxSizeBytes = effectiveMaxSizeMB * 1024 * 1024;
 
   const validateFile = (file: File): string | null => {
     // Check file size
     if (file.size > maxSizeBytes) {
-      return `File "${file.name}" exceeds ${maxSizeMB}MB limit`;
+      return `File "${file.name}" exceeds ${effectiveMaxSizeMB}MB limit`;
     }
 
     // Check file count
@@ -202,7 +206,7 @@ export function FileUpload({
 
           <div className="text-xs text-muted-foreground space-y-1">
             <p>
-              Max {maxFiles} files • {maxSizeMB}MB per file
+              Max {maxFiles} files • {effectiveMaxSizeMB}MB per file
             </p>
             <p className="text-[10px]">
               Supported: Images, PDF, Word, Excel documents
