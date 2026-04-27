@@ -695,7 +695,7 @@ function DetailRow({ icon, label, value }: { icon: ReactNode; label: string; val
   if (!value) return null;
   return (
     <div className="flex items-start gap-3">
-      <div className="text-[#1A3580] mt-0.5">{icon}</div>
+      <div className="text-[#16a34a] mt-0.5">{icon}</div>
       <div>
         <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
         <p className="text-sm font-medium text-foreground">{value}</p>
