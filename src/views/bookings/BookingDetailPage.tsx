@@ -297,14 +297,6 @@ export default function BookingDetailPage({ id }: { id: string }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-3">
-          <div className="bg-white rounded-xl border border-border p-5 shadow-sm">
-            <h3 className="text-sm font-semibold text-[#0E2271] mb-6">
-              {t("projects.workflowProgress") || "Workflow Progress"}
-            </h3>
-            <WorkflowVisualizer currentStatus={booking.status} module="booking" />
-          </div>
-        </div>
 
         {/* Rejection Reason Alert - Show if booking is rejected */}
         {booking.status === "Rejected" && booking.rejectionReason && (
