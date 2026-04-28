@@ -438,6 +438,62 @@ export function BookingsPage() {
     };
   }, []);
 
+  // ─── Update space availability based on active bookings ───────────────────
+  useEffect(() => {
+    if (bookings.length === 0 || spaceList.length === 0) return;
+
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
+
+    // Get all active/approved bookings for today
+    const activeBookings = bookings.filter((b) => {
+      // Consider bookings that are Submitted, Under Review, Assigned, In Progress, or Approved
+      const isActiveStatus = [
+        "Submitted",
+        "Under Review", 
+        "Assigned to Professionals",
+        "In Progress",
+        "Approved",
+      ].includes(b.status);
+      
+      // Check if booking is for today or future
+      const isCurrentOrFuture = b.date >= today;
+      
+      // If booking is today, check if it's currently ongoing or upcoming
+      if (b.date === today) {
+        return isActiveStatus && b.endTime >= currentTime;
+      }
+      
+      // For future bookings, mark as occupied
+      return isActiveStatus && isCurrentOrFuture;
+    });
+
+    // Create a map of occupied spaces
+    const occupiedSpaceNames = new Set(
+      activeBookings.map((b) => b.space.toLowerCase().trim())
+    );
+
+    // Update space availability
+    const updatedSpaces = spaceList.map((space) => {
+      const isOccupied = occupiedSpaceNames.has(space.name.toLowerCase().trim());
+      return {
+        ...space,
+        available: !isOccupied,
+      };
+    });
+
+    // Only update if there are changes
+    const hasChanges = updatedSpaces.some(
+      (space, index) => space.available !== spaceList[index].available
+    );
+
+    if (hasChanges) {
+      setSpaceList(updatedSpaces);
+      saveSpaces(updatedSpaces); // Persist to localStorage
+    }
+  }, [bookings, spaceList.length]); // Re-run when bookings change
+
   // ─── Bookings ─────────────────────────────────────────────────────────────
   const filtered = bookings.filter((b) => {
     const matchRole = canViewItem(

@@ -847,28 +847,26 @@ export function NewProjectPage() {
         <h2 className="text-2xl font-bold text-[#0E2271] mb-2">
           {t("requests.submitted")}!
         </h2>
-        <p className="text-muted-foreground mb-2">
-          {t("bookings.allocationBeingReviewed")}
+        <p className="text-muted-foreground mb-4">
+          Your project request is being reviewed by the admin.
         </p>
-        <p className="text-sm text-muted-foreground mb-4">
-          {t("config.autoAssignTech")}:{" "}
-          <span className="font-semibold text-[#1A3580]">
-            {getAssignmentInfo()}
-          </span>
+        <p className="text-sm bg-blue-50 border border-blue-200 text-blue-700 rounded-lg p-3 mb-4">
+          <span className="font-semibold">Automated Technician Queuing:</span>{" "}
+          {getAssignmentInfo()}
         </p>
-        <div className="bg-[#EEF2FF] border border-[#1A3580]/20 rounded-xl p-4 mb-6">
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
           <p className="text-xs text-muted-foreground mb-1">
-            {t("bookings.generatedAllocationID")}
+            Generated Project ID
           </p>
-          <p className="font-mono text-xl font-bold text-[#1A3580]">
+          <p className="font-mono text-xl font-bold text-green-700">
             {submittedId}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            {t("common.saveForTracking")}
+            Save For Tracking
           </p>
         </div>
         <p className="text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-lg p-3 mb-5">
-          <span className="font-semibold">{t("requests.adminNote")}:</span>{" "}
+          <span className="font-semibold">Admin Note to Requester:</span>{" "}
           {t("projects.boq.checkMaterial")}
         </p>
         <div className="flex gap-3 justify-center">
@@ -880,7 +878,7 @@ export function NewProjectPage() {
           </button>
           <button
             onClick={() => router.push("/dashboard")}
-            className="px-5 py-2.5 rounded-lg text-white text-sm font-semibold bg-[#1A3580]"
+            className="px-5 py-2.5 rounded-lg text-white text-sm font-semibold bg-[#1A3580] hover:bg-[#0E2271]"
           >
             Go to Dashboard
           </button>

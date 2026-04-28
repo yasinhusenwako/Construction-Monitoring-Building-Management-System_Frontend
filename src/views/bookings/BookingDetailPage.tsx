@@ -7,6 +7,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { Booking } from "../../types/models";
 import { StatusBadge } from "../../components/common/StatusBadge";
 import { WorkflowVisualizer } from "../../components/common/WorkflowVisualizer";
+import { Timeline } from "../../components/common/Timeline";
 import {
   canViewItem,
   getUserFacingStatus,
@@ -351,7 +352,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
             {/* ── Core Booking Details Grid ── */}
             <div className="p-6 bg-slate-50/50">
               <h3 className="text-sm font-bold text-[#0E2271] mb-5">
-                {t("bookings.ticketDetails") || "Booking Details"}
+                {t("bookings.bookingDetails") || "Booking Details"}
               </h3>
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-4 text-sm">
                 {isOfficeAllocation ? (
@@ -413,6 +414,15 @@ export default function BookingDetailPage({ id }: { id: string }) {
                 </div>
               </>
             )}
+          </div>
+
+          {/* Activity Timeline */}
+          <div className="glass-card rounded-2xl p-6 shadow-modern">
+            <Timeline 
+              events={booking.timeline} 
+              title={t("bookings.activityTimeline") || "Activity Timeline"}
+              emptyMessage={t("bookings.noActivityYet") || "No activity yet"}
+            />
           </div>
         </div>
 
@@ -685,7 +695,7 @@ function DetailRow({ icon, label, value }: { icon: ReactNode; label: string; val
   if (!value) return null;
   return (
     <div className="flex items-start gap-3">
-      <div className="text-[#1A3580] mt-0.5">{icon}</div>
+      <div className="text-[#16a34a] mt-0.5">{icon}</div>
       <div>
         <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
         <p className="text-sm font-medium text-foreground">{value}</p>

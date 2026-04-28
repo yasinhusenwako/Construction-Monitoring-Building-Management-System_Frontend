@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { divisions, User, UserRole } from "@/types/models";
 import { apiRequest } from "@/lib/api";
+import { useSystemSettings } from "@/context/SystemSettingsContext";
 import {
   mapRoleFromBackend,
   mapRoleToBackend,
@@ -140,6 +141,46 @@ function toSessionUserFromProfile(
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { settings } = useSystemSettings();
+
+  // Session timeout management
+  useEffect(() => {
+    if (!currentUser || !settings.sessionTimeout) return;
+
+    const sessionDuration = settings.sessionTimeout * 60 * 60 * 1000; // Convert hours to milliseconds
+    let timeoutId: NodeJS.Timeout;
+    let lastActivity = Date.now();
+
+    const resetTimer = () => {
+      lastActivity = Date.now();
+      clearTimeout(timeoutId);
+      
+      timeoutId = setTimeout(() => {
+        const inactiveTime = Date.now() - lastActivity;
+        if (inactiveTime >= sessionDuration) {
+          console.log('Session expired due to inactivity');
+          logout();
+          alert(`Your session has expired after ${settings.sessionTimeout} hours of inactivity. Please log in again.`);
+        }
+      }, sessionDuration);
+    };
+
+    // Track user activity
+    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    activityEvents.forEach(event => {
+      window.addEventListener(event, resetTimer);
+    });
+
+    // Initialize timer
+    resetTimer();
+
+    return () => {
+      clearTimeout(timeoutId);
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [currentUser, settings.sessionTimeout]);
 
   useEffect(() => {
     const bootstrapAuth = async () => {

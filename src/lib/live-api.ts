@@ -242,7 +242,15 @@ export async function fetchLiveProjects(
           ? undefined
           : `DIV-${String(item.divisionId).padStart(3, "0")}`,
       documents: [],
-      timeline: [],
+      timeline: [
+        {
+          id: `EV-${item.id}-created`,
+          action: "Submitted",
+          actor: userId(item.createdBy) || "System",
+          timestamp: toIsoDate(item.createdAt),
+          note: "",
+        },
+      ],
       materialCost: item.materialCost,
       laborCost: item.laborCost,
       totalCost: item.totalCost,
@@ -346,6 +354,15 @@ export async function fetchLiveBookings(
       laborCost: item.laborCost,
       totalCost: item.totalCost,
       partsUsed: item.partsUsed,
+      timeline: [
+        {
+          id: `EV-${item.id}-created`,
+          action: "Submitted",
+          actor: userId(item.requester) || "System",
+          timestamp: toIsoDate(item.dateTime),
+          note: "",
+        },
+      ],
     };
   });
 }
@@ -387,7 +404,15 @@ export async function fetchLiveMaintenance(
       updatedAt: toIsoDate(item.createdAt),
       notes: "",
       attachments: [],
-      timeline: [],
+      timeline: [
+        {
+          id: `EV-${item.id}-created`,
+          action: "Submitted",
+          actor: userId(item.createdBy) || "System",
+          timestamp: toIsoDate(item.createdAt),
+          note: "",
+        },
+      ],
       materialCost: item.materialCost,
       laborCost: item.laborCost,
       totalCost: item.totalCost,
@@ -398,20 +423,30 @@ export async function fetchLiveMaintenance(
 }
 
 export async function fetchLiveNotifications(): Promise<Notification[]> {
-  const list = await apiRequest<BackendNotification[]>(
-    "/api/notifications",
-    {},
-  );
-  return list.map((item) => ({
-    id: `NOTIF-${item.id}`,
-    title: item.title,
-    message: item.message,
-    type: "info",
-    read: item.isRead,
-    userId: userId(item.userId),
-    link: "/dashboard/notifications",
-    createdAt: item.createdAt,
-  }));
+  try {
+    const list = await apiRequest<BackendNotification[]>(
+      "/api/notifications",
+      {},
+    );
+    return list.map((item) => ({
+      id: `NOTIF-${item.id}`,
+      title: item.title,
+      message: item.message,
+      type: "info",
+      read: item.isRead,
+      userId: userId(item.userId),
+      link: "/dashboard/notifications",
+      createdAt: item.createdAt,
+    }));
+  } catch (error: any) {
+    // Silently handle 403 errors (user doesn't have notification access)
+    if (error?.message?.includes("403") || error?.status === 403) {
+      console.log("Notifications not available for this user role");
+      return [];
+    }
+    // Re-throw other errors
+    throw error;
+  }
 }
 
 export async function markNotificationAsRead(notificationId: string): Promise<void> {

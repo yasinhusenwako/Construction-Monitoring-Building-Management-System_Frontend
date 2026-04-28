@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -71,6 +72,13 @@ export function DashboardPage() {
   const { t } = useLanguage();
   const role = currentUser?.role;
   const uid = currentUser?.id;
+
+  // Redirect supervisors to their dedicated dashboard
+  useEffect(() => {
+    if (role === "supervisor") {
+      router.push("/dashboard/supervisor");
+    }
+  }, [role, router]);
 
   // Token is automatically sent via httpOnly cookie
   const { data, isLoading, isError, error, refetch } = useDashboardData();
@@ -236,79 +244,10 @@ export function DashboardPage() {
         <AdminDashboard adminName={currentUser?.name || "Administrator"} />
       )}
 
-      {/* Supervisor gets redirected to supervisor dashboard */}
+      {/* Supervisor redirects to dedicated dashboard - handled by useEffect above */}
       {role === "supervisor" && (
-        <div className="space-y-6">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <h1 className="text-[#0E2271]">
-                {getGreeting()}, {currentUser?.name?.split(" ")[0]}!
-              </h1>
-              <p className="text-muted-foreground text-sm mt-0.5">
-                {t("dashboard.divisionSupervisor")} ·{" "}
-                {t("dashboard.manageAssignedTasks")}
-              </p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard
-              icon={<Wrench size={20} />}
-              label={t("dashboard.assignedToDivision")}
-              value={supervisorTasks.length}
-              sub={t("dashboard.totalAssignedTasks")}
-              color="#1A3580"
-              onClick={() => router.push("/dashboard/supervisor")}
-            />
-            <StatCard
-              icon={<Activity size={20} />}
-              label={t("dashboard.activeOperations")}
-              value={
-                supervisorTasks.filter((m) =>
-                  ["Assigned to Professionals", "In Progress"].includes(
-                    m.status,
-                  ),
-                ).length
-              }
-              sub={t("dashboard.inExecution")}
-              color="#EA580C"
-              onClick={() => router.push("/dashboard/supervisor")}
-            />
-            <StatCard
-              icon={<CheckCircle size={20} />}
-              label={t("dashboard.pendingReview")}
-              value={
-                supervisorTasks.filter((m) => m.status === "Completed").length
-              }
-              sub={t("dashboard.awaitingReview")}
-              color="#0D9488"
-              onClick={() => router.push("/dashboard/supervisor")}
-            />
-            <StatCard
-              icon={<TrendingUp size={20} />}
-              label={t("dashboard.processed")}
-              value={
-                supervisorTasks.filter((m) => m.status === "Reviewed").length
-              }
-              sub={t("dashboard.processed")}
-              color="#10B981"
-              onClick={() => router.push("/dashboard/supervisor")}
-            />
-          </div>
-          <div className="bg-white rounded-xl border border-border p-5 shadow-sm text-center">
-            <p className="text-muted-foreground text-sm mb-3">
-              {t("dashboard.goFullSupervisor")}
-            </p>
-
-            <button
-              onClick={() => router.push("/dashboard/supervisor")}
-              className="px-6 py-2.5 rounded-lg text-white text-sm font-semibold"
-              style={{
-                background: "linear-gradient(135deg, #5B21B6, #7C3AED)",
-              }}
-            >
-              {t("dashboard.openSupervisor")} →
-            </button>
-          </div>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1A3580]"></div>
         </div>
       )}
 

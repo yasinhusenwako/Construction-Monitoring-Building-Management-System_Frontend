@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { useSystemSettings } from "@/context/SystemSettingsContext";
 import type { Notification } from "@/types/models";
 import {
   fetchLiveMaintenance,
@@ -55,6 +56,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     "insa_admin_seen_maintenance_actionable";
   const { currentUser, logout } = useAuth();
   const { t } = useLanguage();
+  const { settings } = useSystemSettings();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -224,7 +226,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       label: t("nav.dashboard"),
       path: "/dashboard",
       icon: <LayoutDashboard size={18} />,
-      roles: ["admin", "user", "supervisor", "professional"],
+      roles: ["admin", "user", "professional"],
     },
     {
       label: t("nav.allRequests"),
@@ -271,8 +273,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     },
 
     {
-      label: t("nav.taskManagement"),
+      label: t("nav.dashboard"),
       path: "/dashboard/supervisor",
+      icon: <LayoutDashboard size={18} />,
+      roles: ["supervisor"],
+    },
+    {
+      label: t("nav.taskManagement"),
+      path: "/dashboard/supervisor/tasks",
       icon: <ClipboardList size={18} />,
       roles: ["supervisor"],
     },
@@ -337,9 +345,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <div
           className={`transition-all duration-200 ${sidebarOpen ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden"}`}
         >
-          <p className="text-white text-sm font-semibold leading-tight">INSA</p>
+          <p className="text-white text-sm font-semibold leading-tight">
+            {settings.siteName.split(' ')[0] || 'INSA'}
+          </p>
           <p className="text-blue-200 dark:text-blue-300 text-xs leading-tight">
-            BuildMS
+            {settings.siteName.split(' ').slice(1).join(' ') || 'BuildMS'}
           </p>
         </div>
       </div>
@@ -461,7 +471,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-2 flex-1">
               <Building2 size={18} className="text-primary dark:text-primary" />
               <span className="text-primary dark:text-primary font-semibold text-sm hidden sm:block">
-                Construction Supervision & BMS
+                {settings.siteName}
               </span>
             </div>
 
