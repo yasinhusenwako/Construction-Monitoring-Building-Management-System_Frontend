@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-// Translation context for multi-language support
+// Translation context for multi-language support with next-intl
 import React, {
   createContext,
   useContext,
@@ -9,9 +9,8 @@ import React, {
   useEffect,
   ReactNode,
 } from "react";
-
-import en from "@/locales/en.json";
-import am from "@/locales/am.json";
+import { useLocale } from 'next-intl';
+import { useRouter, usePathname } from 'next/navigation';
 
 type Language = "en" | "am";
 
@@ -25,47 +24,35 @@ const LanguageContext = createContext<LanguageContextType | undefined>(
   undefined,
 );
 
-const translations: Record<string, Record<string, string>> = {
-  en: en as Record<string, string>,
-  am: am as Record<string, string>,
-};
-
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<Language>("en");
+  const currentLocale = useLocale() as Language;
+  const router = useRouter();
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    const stored = localStorage.getItem("insa-buildms-language");
-    if (stored === "am" || stored === "en") {
-      setLanguageState(stored);
-    }
   }, []);
 
-  useEffect(() => {
-    if (mounted) {
-      localStorage.setItem("insa-buildms-language", language);
-      // Update HTML lang attribute for accessibility
-      document.documentElement.lang = language === "am" ? "am" : "en";
-    }
-  }, [language, mounted]);
-
   const setLanguage = (lang: Language) => {
-    setLanguageState(lang);
+    if (!mounted) return;
+    
+    // Get the current path without locale
+    const pathWithoutLocale = pathname.replace(/^\/(en|am)/, '');
+    
+    // Navigate to the same path with new locale
+    router.push(`/${lang}${pathWithoutLocale || '/'}`);
   };
 
+  // Dummy t function for backward compatibility
+  // Components should use useTranslations from next-intl instead
   const t = (key: string, args?: Record<string, string | number>): string => {
-    let str = translations[language][key] || key;
-    if (args) {
-      Object.entries(args).forEach(([k, v]) => {
-        str = str.replace(`{${k}}`, String(v));
-      });
-    }
-    return str;
+    console.warn('Using legacy t() function. Please migrate to useTranslations from next-intl');
+    return key;
   };
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={{ language: currentLocale, setLanguage, t }}>
       {children}
     </LanguageContext.Provider>
   );
