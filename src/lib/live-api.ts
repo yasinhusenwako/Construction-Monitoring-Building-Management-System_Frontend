@@ -198,6 +198,41 @@ function parseProjectScope(scope: unknown): Record<string, unknown> | undefined 
   return undefined;
 }
 
+interface BackendRequestHistory {
+  id: number;
+  requestId: number;
+  requestType: string;
+  action: string;
+  status?: string;
+  actorName: string;
+  actorId?: number;
+  note?: string;
+  createdAt: string;
+}
+
+async function fetchTimeline(requestId: number, requestType: string): Promise<Array<{
+  id: string;
+  action: string;
+  actor: string;
+  timestamp: string;
+  note: string;
+}>> {
+  try {
+    const history = await apiRequest<BackendRequestHistory[]>(`/api/history/${requestType}/${requestId}`);
+    return history.map((item) => ({
+      id: `EV-${item.id}`,
+      action: item.status || item.action,
+      actor: item.actorName || "System",
+      timestamp: item.createdAt,
+      note: item.note || "",
+    }));
+  } catch (error) {
+    console.error(`Failed to fetch timeline for ${requestType} ${requestId}:`, error);
+    // Return empty array if timeline fetch fails
+    return [];
+  }
+}
+
 export async function fetchLiveProjects(
   filterProjectId?: string,
 ): Promise<Project[]> {
@@ -205,59 +240,68 @@ export async function fetchLiveProjects(
     ? `/api/projects?projectId=${filterProjectId}`
     : "/api/projects";
   const list = await apiRequest<BackendProject[]>(url);
-  return list.map((item) => {
-    const businessId = item.projectId || `PRJ-${item.id}`;
-    cacheRequestDbId("PROJECT", businessId, item.id);
-    return {
-      id: businessId,
-      dbId: item.id,
-      title: item.title,
-      description: item.description || "",
-      category: "Capital Project",
-      classification: item.classification || "General",
-      status: mapStatusFromBackend(item.status) as Project["status"],
-      requestedBy: userId(item.createdBy),  // Map createdBy to requestedBy
-      supervisorId: item.assignedSupervisorId
-        ? userId(item.assignedSupervisorId)
-        : undefined,
-      assignedTo: item.assignedProfessionalId
-        ? userId(item.assignedProfessionalId)
-        : undefined,
-      location: item.location || "N/A",
-      block: item.block,
-      floor: item.floor,
-      budget: Number(item.budget || 0),
-      startDate: item.startDate || "",
-      endDate: item.endDate || "",
-      department: item.department,
-      contactPerson: item.contactPerson,
-      contactPhone: item.phone,
-      siteCondition: item.siteCondition,
-      requestMode: item.requestMode,
-      linkedProjectId: item.linkedProjectId,
-      createdAt: toIsoDate(item.createdAt),
-      updatedAt: toIsoDate(item.createdAt),
-      divisionId:
-        item.divisionId == null
-          ? undefined
-          : `DIV-${String(item.divisionId).padStart(3, "0")}`,
-      documents: [],
-      timeline: [
-        {
-          id: `EV-${item.id}-created`,
-          action: "Submitted",
-          actor: userId(item.createdBy) || "System",
-          timestamp: toIsoDate(item.createdAt),
-          note: "",
-        },
-      ],
-      materialCost: item.materialCost,
-      laborCost: item.laborCost,
-      totalCost: item.totalCost,
-      partsUsed: item.partsUsed,
-      scope: parseProjectScope(item.scope),
-    };
-  });
+  
+  // Fetch timelines for all projects in parallel
+  const projectsWithTimeline = await Promise.all(
+    list.map(async (item) => {
+      const businessId = item.projectId || `PRJ-${item.id}`;
+      cacheRequestDbId("PROJECT", businessId, item.id);
+      
+      const timeline = await fetchTimeline(item.id, "PROJECT");
+      
+      return {
+        id: businessId,
+        dbId: item.id,
+        title: item.title,
+        description: item.description || "",
+        category: "Capital Project",
+        classification: item.classification || "General",
+        status: mapStatusFromBackend(item.status) as Project["status"],
+        requestedBy: userId(item.createdBy),  // Map createdBy to requestedBy
+        supervisorId: item.assignedSupervisorId
+          ? userId(item.assignedSupervisorId)
+          : undefined,
+        assignedTo: item.assignedProfessionalId
+          ? userId(item.assignedProfessionalId)
+          : undefined,
+        location: item.location || "N/A",
+        block: item.block,
+        floor: item.floor,
+        budget: Number(item.budget || 0),
+        startDate: item.startDate || "",
+        endDate: item.endDate || "",
+        department: item.department,
+        contactPerson: item.contactPerson,
+        contactPhone: item.phone,
+        siteCondition: item.siteCondition,
+        requestMode: item.requestMode,
+        linkedProjectId: item.linkedProjectId,
+        createdAt: toIsoDate(item.createdAt),
+        updatedAt: toIsoDate(item.createdAt),
+        divisionId:
+          item.divisionId == null
+            ? undefined
+            : `DIV-${String(item.divisionId).padStart(3, "0")}`,
+        documents: [],
+        timeline: timeline.length > 0 ? timeline : [
+          {
+            id: `EV-${item.id}-created`,
+            action: "Submitted",
+            actor: userId(item.createdBy) || "System",
+            timestamp: toIsoDate(item.createdAt),
+            note: "",
+          },
+        ],
+        materialCost: item.materialCost,
+        laborCost: item.laborCost,
+        totalCost: item.totalCost,
+        partsUsed: item.partsUsed,
+        scope: parseProjectScope(item.scope),
+      };
+    })
+  );
+  
+  return projectsWithTimeline;
 }
 
 export async function fetchLiveBookings(
@@ -267,104 +311,112 @@ export async function fetchLiveBookings(
     ? `/api/bookings?bookingId=${filterBookingId}`
     : "/api/bookings";
   const list = await apiRequest<BackendBooking[]>(url);
-  return list.map((item) => {
-    const businessId = item.bookingId || `BKG-${item.id}`;
-    cacheRequestDbId("BOOKING", businessId, item.id);
-    const dt = item.dateTime ? new Date(item.dateTime) : new Date();
+  
+  // Fetch timelines for all bookings in parallel
+  const bookingsWithTimeline = await Promise.all(
+    list.map(async (item) => {
+      const businessId = item.bookingId || `BKG-${item.id}`;
+      cacheRequestDbId("BOOKING", businessId, item.id);
+      const dt = item.dateTime ? new Date(item.dateTime) : new Date();
 
-    // Parse structured amenities JSON (stored by NewBookingPage for full field recovery)
-    let parsed: Record<string, any> = {};
-    const rawAmenities = item.amenities || "";
-    try {
-      if (rawAmenities.trim().startsWith("{")) {
-        parsed = JSON.parse(rawAmenities);
+      // Parse structured amenities JSON (stored by NewBookingPage for full field recovery)
+      let parsed: Record<string, any> = {};
+      const rawAmenities = item.amenities || "";
+      try {
+        if (rawAmenities.trim().startsWith("{")) {
+          parsed = JSON.parse(rawAmenities);
+        }
+      } catch { /* not JSON — legacy plain-text, keep as-is */ }
+
+      const bookingSubType: string = parsed._bookingType || "";
+      const isOffice = item.type?.toUpperCase() === "OFFICE";
+
+      // Derive title
+      let title = item.layout || "Booking";
+      if (bookingSubType === "B1") {
+        title = `Office Allocation - ${parsed.department || ""}`.trim().replace(/- $/, "");
+      } else if (bookingSubType === "B2") {
+        title = parsed.title || item.layout || "Hall Booking";
       }
-    } catch { /* not JSON — legacy plain-text, keep as-is */ }
 
-    const bookingSubType: string = parsed._bookingType || "";
-    const isOffice = item.type?.toUpperCase() === "OFFICE";
+      // Derive space (physical room/location)
+      const space = item.layout || "N/A";
 
-    // Derive title
-    let title = item.layout || "Booking";
-    if (bookingSubType === "B1") {
-      title = `Office Allocation - ${parsed.department || ""}`.trim().replace(/- $/, "");
-    } else if (bookingSubType === "B2") {
-      title = parsed.title || item.layout || "Hall Booking";
-    }
+      // Derive purpose
+      let purpose = "N/A";
+      if (bookingSubType === "B1") {
+        purpose = parsed.reason || "Office Allocation";
+      } else if (bookingSubType === "B2") {
+        purpose = parsed.purpose || item.layout || "N/A";
+      } else {
+        purpose = isOffice ? "Office Allocation" : (item.layout || "N/A");
+      }
 
-    // Derive space (physical room/location)
-    const space = item.layout || "N/A";
+      // Derive requirements (plain text for display)
+      let requirements = rawAmenities;
+      if (bookingSubType === "B1") {
+        requirements = parsed.specialReqs || "";
+      } else if (bookingSubType === "B2") {
+        const ams = parsed.amenities;
+        requirements = Array.isArray(ams) ? ams.join(", ") : (typeof ams === "string" ? ams : rawAmenities);
+      }
 
-    // Derive purpose
-    let purpose = "N/A";
-    if (bookingSubType === "B1") {
-      purpose = parsed.reason || "Office Allocation";
-    } else if (bookingSubType === "B2") {
-      purpose = parsed.purpose || item.layout || "N/A";
-    } else {
-      purpose = isOffice ? "Office Allocation" : (item.layout || "N/A");
-    }
+      // End time (B2 stores it in parsed JSON; B1 defaults to same)
+      const startTime = dt.toISOString().slice(11, 16);
+      const endTime = parsed.endTime || startTime;
+      
+      const timeline = await fetchTimeline(item.id, "BOOKING");
 
-    // Derive requirements (plain text for display)
-    let requirements = rawAmenities;
-    if (bookingSubType === "B1") {
-      requirements = parsed.specialReqs || "";
-    } else if (bookingSubType === "B2") {
-      const ams = parsed.amenities;
-      requirements = Array.isArray(ams) ? ams.join(", ") : (typeof ams === "string" ? ams : rawAmenities);
-    }
-
-    // End time (B2 stores it in parsed JSON; B1 defaults to same)
-    const startTime = dt.toISOString().slice(11, 16);
-    const endTime = parsed.endTime || startTime;
-
-    return {
-      id: businessId,
-      dbId: item.id,
-      title,
-      space,
-      type: parseBookingType(item.type),
-      status: mapStatusFromBackend(item.status) as Booking["status"],
-      requestedBy: userId(item.requester),
-      supervisorId: item.assignedSupervisorId
-        ? userId(item.assignedSupervisorId)
-        : undefined,
-      assignedTo: item.assignedProfessionalId
-        ? userId(item.assignedProfessionalId)
-        : undefined,
-      date: dt.toISOString().slice(0, 10),
-      startTime,
-      endTime,
-      attendees: Number(item.capacity || 0),
-      purpose,
-      requirements,
-      // Extended B1 fields
-      department: parsed.department,
-      contactPerson: parsed.contactName,
-      contactPhone: parsed.contactPhone,
-      officeType: parsed.officeType,
-      notes: parsed.notes,
-      seniorStaff: parsed.seniorStaff,
-      supportStaff: parsed.supportStaff,
-      // Extended B2 fields
-      roomLayout: parsed.roomLayout,
-      createdAt: toIsoDate(item.dateTime),
-      updatedAt: toIsoDate(item.dateTime),
-      materialCost: item.materialCost,
-      laborCost: item.laborCost,
-      totalCost: item.totalCost,
-      partsUsed: item.partsUsed,
-      timeline: [
-        {
-          id: `EV-${item.id}-created`,
-          action: "Submitted",
-          actor: userId(item.requester) || "System",
-          timestamp: toIsoDate(item.dateTime),
-          note: "",
-        },
-      ],
-    };
-  });
+      return {
+        id: businessId,
+        dbId: item.id,
+        title,
+        space,
+        type: parseBookingType(item.type),
+        status: mapStatusFromBackend(item.status) as Booking["status"],
+        requestedBy: userId(item.requester),
+        supervisorId: item.assignedSupervisorId
+          ? userId(item.assignedSupervisorId)
+          : undefined,
+        assignedTo: item.assignedProfessionalId
+          ? userId(item.assignedProfessionalId)
+          : undefined,
+        date: dt.toISOString().slice(0, 10),
+        startTime,
+        endTime,
+        attendees: Number(item.capacity || 0),
+        purpose,
+        requirements,
+        // Extended B1 fields
+        department: parsed.department,
+        contactPerson: parsed.contactName,
+        contactPhone: parsed.contactPhone,
+        officeType: parsed.officeType,
+        notes: parsed.notes,
+        seniorStaff: parsed.seniorStaff,
+        supportStaff: parsed.supportStaff,
+        // Extended B2 fields
+        roomLayout: parsed.roomLayout,
+        createdAt: toIsoDate(item.dateTime),
+        updatedAt: toIsoDate(item.dateTime),
+        materialCost: item.materialCost,
+        laborCost: item.laborCost,
+        totalCost: item.totalCost,
+        partsUsed: item.partsUsed,
+        timeline: timeline.length > 0 ? timeline : [
+          {
+            id: `EV-${item.id}-created`,
+            action: "Submitted",
+            actor: userId(item.requester) || "System",
+            timestamp: toIsoDate(item.dateTime),
+            note: "",
+          },
+        ],
+      };
+    })
+  );
+  
+  return bookingsWithTimeline;
 }
 
 export async function fetchLiveMaintenance(
@@ -374,52 +426,61 @@ export async function fetchLiveMaintenance(
     ? `/api/maintenance?maintenanceId=${filterMaintenanceId}`
     : "/api/maintenance";
   const list = await apiRequest<BackendMaintenance[]>(url);
-  return list.map((item) => {
-    const businessId = item.maintenanceId || `MNT-${item.id}`;
-    cacheRequestDbId("MAINTENANCE", businessId, item.id);
-    const loc = splitLocation(item.location);
-    return {
-      id: businessId,
-      dbId: item.id,
-      title: item.category || "Maintenance Request",
-      description: item.description || "",
-      type: (item.category as Maintenance["type"]) || "General",
-      subType: item.category,
-      status: mapStatusFromBackend(item.status) as Maintenance["status"],
-      priority: inferPriority(item.priority),
-      requestedBy: userId(item.createdBy),
-      assignedTo: item.assignedProfessionalId
-        ? userId(item.assignedProfessionalId)
-        : undefined,
-      supervisorId: item.assignedSupervisorId
-        ? userId(item.assignedSupervisorId)
-        : undefined,
-      divisionId: item.divisionId
-        ? `DIV-${String(item.divisionId).padStart(3, "0")}`
-        : undefined,
-      location: item.location || "N/A",
-      building: loc.building,
-      floor: loc.floor,
-      createdAt: toIsoDate(item.createdAt),
-      updatedAt: toIsoDate(item.createdAt),
-      notes: "",
-      attachments: [],
-      timeline: [
-        {
-          id: `EV-${item.id}-created`,
-          action: "Submitted",
-          actor: userId(item.createdBy) || "System",
-          timestamp: toIsoDate(item.createdAt),
-          note: "",
-        },
-      ],
-      materialCost: item.materialCost,
-      laborCost: item.laborCost,
-      totalCost: item.totalCost,
-      partsUsed: item.partsUsed,
-      createdBy: userId(item.createdBy),
-    };
-  });
+  
+  // Fetch timelines for all maintenance tasks in parallel
+  const maintenanceWithTimeline = await Promise.all(
+    list.map(async (item) => {
+      const businessId = item.maintenanceId || `MNT-${item.id}`;
+      cacheRequestDbId("MAINTENANCE", businessId, item.id);
+      const loc = splitLocation(item.location);
+      
+      const timeline = await fetchTimeline(item.id, "MAINTENANCE");
+      
+      return {
+        id: businessId,
+        dbId: item.id,
+        title: item.category || "Maintenance Request",
+        description: item.description || "",
+        type: (item.category as Maintenance["type"]) || "General",
+        subType: item.category,
+        status: mapStatusFromBackend(item.status) as Maintenance["status"],
+        priority: inferPriority(item.priority),
+        requestedBy: userId(item.createdBy),
+        assignedTo: item.assignedProfessionalId
+          ? userId(item.assignedProfessionalId)
+          : undefined,
+        supervisorId: item.assignedSupervisorId
+          ? userId(item.assignedSupervisorId)
+          : undefined,
+        divisionId: item.divisionId
+          ? `DIV-${String(item.divisionId).padStart(3, "0")}`
+          : undefined,
+        location: item.location || "N/A",
+        building: loc.building,
+        floor: loc.floor,
+        createdAt: toIsoDate(item.createdAt),
+        updatedAt: toIsoDate(item.createdAt),
+        notes: "",
+        attachments: [],
+        timeline: timeline.length > 0 ? timeline : [
+          {
+            id: `EV-${item.id}-created`,
+            action: "Submitted",
+            actor: userId(item.createdBy) || "System",
+            timestamp: toIsoDate(item.createdAt),
+            note: "",
+          },
+        ],
+        materialCost: item.materialCost,
+        laborCost: item.laborCost,
+        totalCost: item.totalCost,
+        partsUsed: item.partsUsed,
+        createdBy: userId(item.createdBy),
+      };
+    })
+  );
+  
+  return maintenanceWithTimeline;
 }
 
 export async function fetchLiveNotifications(): Promise<Notification[]> {
