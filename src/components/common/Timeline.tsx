@@ -17,6 +17,7 @@ import {
   DollarSign,
   ShieldCheck,
 } from "lucide-react";
+import { getUserFacingStatus, WorkflowRole, WorkflowStatus, FINAL_STATUSES } from "@/lib/workflow";
 
 export interface TimelineEvent {
   id: string;
@@ -31,6 +32,7 @@ interface TimelineProps {
   title?: string;
   emptyMessage?: string;
   accentColor?: string;
+  userRole?: WorkflowRole;
 }
 
 // ── Status config: icon + colors per action ──────────────────────────────────
@@ -46,6 +48,14 @@ function getStatusConfig(action: string): {
   if (a.includes("submitted"))
     return {
       icon: <Send size={14} />,
+      dotColor: "bg-blue-500",
+      badgeBg: "bg-blue-50",
+      badgeText: "text-blue-700",
+      borderColor: "border-blue-200",
+    };
+  if (a.includes("in process"))
+    return {
+      icon: <Wrench size={14} />,
       dotColor: "bg-blue-500",
       badgeBg: "bg-blue-50",
       badgeText: "text-blue-700",
@@ -184,11 +194,35 @@ export function Timeline({
   events,
   title = "Activity Timeline",
   emptyMessage = "No activity recorded yet",
+  userRole,
 }: TimelineProps) {
   // Sort oldest → newest so the timeline reads top-to-bottom chronologically
   const sorted = [...(events ?? [])].sort(
     (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
   );
+  
+  // Helper function to get display action based on user role
+  const getDisplayAction = (action: string): string => {
+    if (!userRole || userRole !== "user") {
+      return action;
+    }
+    
+    // For users, map internal statuses to user-facing statuses
+    const isFinalStatus = FINAL_STATUSES.some(status => 
+      action.toLowerCase().includes(status.toLowerCase())
+    );
+    
+    if (isFinalStatus) {
+      return action; // Show final statuses as-is
+    }
+    
+    // Map all intermediate statuses to "In Process"
+    if (action === "Submitted" || action === "Request Created") {
+      return action; // Keep "Submitted" as-is
+    }
+    
+    return "In Process"; // All other non-final statuses become "In Process"
+  };
 
   return (
     <div>
@@ -215,7 +249,8 @@ export function Timeline({
       ) : (
         <div className="space-y-0">
           {sorted.map((event, i) => {
-            const cfg = getStatusConfig(event.action);
+            const displayAction = getDisplayAction(event.action);
+            const cfg = getStatusConfig(displayAction);
             const { date, time } = formatTimestamp(event.timestamp);
             const isLast = i === sorted.length - 1;
 
@@ -241,7 +276,7 @@ export function Timeline({
                       className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border ${cfg.badgeBg} ${cfg.badgeText} ${cfg.borderColor}`}
                     >
                       {cfg.icon}
-                      {event.action}
+                      {displayAction}
                     </span>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-md flex-shrink-0">
                       <Clock size={11} />

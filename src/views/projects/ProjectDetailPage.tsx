@@ -952,6 +952,7 @@ export function ProjectDetailPage() {
               events={project.timeline}
               title={t("projects.activityTimeline")}
               emptyMessage={t("projects.noActivityYet") || "No activity recorded yet"}
+              userRole={role as WorkflowRole}
             />
           </div>
         </div>

@@ -438,6 +438,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
               events={booking.timeline}
               title={t("bookings.activityTimeline") || "Activity Timeline"}
               emptyMessage={t("bookings.noActivityYet") || "No activity recorded yet"}
+              userRole={role as WorkflowRole}
             />
           </div>
         </div>

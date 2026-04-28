@@ -818,6 +818,7 @@ export function MaintenanceDetailPage() {
                   events={maint.timeline}
                   title={t("maintenance.activityTimeline")}
                   emptyMessage={t("maintenance.noActivityYet") || "No activity recorded yet"}
+                  userRole={role as WorkflowRole}
                 />
               </div>
             </>
