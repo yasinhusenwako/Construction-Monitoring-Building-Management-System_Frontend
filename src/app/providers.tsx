@@ -12,20 +12,20 @@ import { queryClient } from "@/lib/query-client";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <LanguageProvider>
-            <SystemSettingsProvider>
-              <DynamicMetadata />
-              <AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <LanguageProvider>
+          <SystemSettingsProvider>
+            <DynamicMetadata />
+            <AuthProvider>
+              <ErrorBoundary>
                 {children}
-                <Toaster />
-              </AuthProvider>
-            </SystemSettingsProvider>
-          </LanguageProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
+              </ErrorBoundary>
+              <Toaster />
+            </AuthProvider>
+          </SystemSettingsProvider>
+        </LanguageProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }

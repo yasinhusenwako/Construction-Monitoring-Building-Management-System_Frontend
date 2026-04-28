@@ -1,7 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-// Translation context for multi-language support with next-intl
 import React, {
   createContext,
   useContext,
@@ -9,8 +7,6 @@ import React, {
   useEffect,
   ReactNode,
 } from "react";
-import { useLocale } from 'next-intl';
-import { useRouter, usePathname } from 'next/navigation';
 
 type Language = "en" | "am";
 
@@ -20,39 +16,51 @@ interface LanguageContextType {
   t: (key: string, args?: Record<string, string | number>) => string;
 }
 
-const LanguageContext = createContext<LanguageContextType | undefined>(
-  undefined,
-);
+const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+
+// Flat JSON message store
+const messageCache: Record<Language, Record<string, string>> = {
+  en: {},
+  am: {},
+};
+
+function resolve(messages: Record<string, string>, key: string, args?: Record<string, string | number>): string {
+  const val = messages[key];
+  if (!val) return key;
+  if (!args) return val;
+  return val.replace(/\{(\w+)\}/g, (_, k) => String(args[k] ?? `{${k}}`));
+}
+
+async function loadMessages(lang: Language): Promise<Record<string, string>> {
+  if (Object.keys(messageCache[lang]).length > 0) return messageCache[lang];
+  const mod = await import(`../locales/${lang}.json`);
+  messageCache[lang] = mod.default as Record<string, string>;
+  return messageCache[lang];
+}
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const currentLocale = useLocale() as Language;
-  const router = useRouter();
-  const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
+  const [language, setLang] = useState<Language>("en");
+  const [messages, setMessages] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    setMounted(true);
+    const stored = (localStorage.getItem("locale") as Language) || "en";
+    const lang: Language = stored === "am" ? "am" : "en";
+    setLang(lang);
+    loadMessages(lang).then(setMessages);
   }, []);
 
   const setLanguage = (lang: Language) => {
-    if (!mounted) return;
-    
-    // Get the current path without locale
-    const pathWithoutLocale = pathname.replace(/^\/(en|am)/, '');
-    
-    // Navigate to the same path with new locale
-    router.push(`/${lang}${pathWithoutLocale || '/'}`);
+    setLang(lang);
+    localStorage.setItem("locale", lang);
+    loadMessages(lang).then(setMessages);
   };
 
-  // Dummy t function for backward compatibility
-  // Components should use useTranslations from next-intl instead
   const t = (key: string, args?: Record<string, string | number>): string => {
-    console.warn('Using legacy t() function. Please migrate to useTranslations from next-intl');
-    return key;
+    return resolve(messages, key, args);
   };
 
   return (
-    <LanguageContext.Provider value={{ language: currentLocale, setLanguage, t }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
       {children}
     </LanguageContext.Provider>
   );
@@ -60,8 +68,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
 export function useLanguage() {
   const context = useContext(LanguageContext);
-  if (!context) {
-    throw new Error("useLanguage must be used within LanguageProvider");
-  }
+  if (!context) throw new Error("useLanguage must be used within LanguageProvider");
   return context;
 }
