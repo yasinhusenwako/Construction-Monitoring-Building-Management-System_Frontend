@@ -27,6 +27,9 @@ import {
   User,
   UserCheck,
   Eye,
+  Copy,
+  ExternalLink,
+  Trash2,
 } from "lucide-react";
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
@@ -42,6 +45,7 @@ export function TaskManagementPage() {
   const [allTasks, setAllTasks] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState("");
   
   // Filters and search
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,7 +64,8 @@ export function TaskManagementPage() {
           fetchLiveBookings(),
           fetchLiveUsers(),
         ]);
-        setAllTasks([...maintenance, ...projects, ...bookings]);
+        // Only include maintenance tasks, exclude projects and bookings
+        setAllTasks([...maintenance]);
         setUsers(liveUsers);
       } catch (error) {
         console.error("Failed to refresh supervisor tasks:", error);
@@ -121,11 +126,8 @@ export function TaskManagementPage() {
   const handleAssign = async (professionalId: string, instructions: string) => {
     const task = myTasks.find((m) => m.id === assignTarget);
     if (!task) return;
-    const requestModule = task.id.startsWith("PRJ-")
-      ? "PROJECT"
-      : (task.id.startsWith("BKG-") || task.id.startsWith("ALLOC-"))
-        ? "BOOKING"
-        : "MAINTENANCE";
+    // Only maintenance tasks now
+    const requestModule = "MAINTENANCE";
 
     try {
       await supervisorAssignProfessional({
@@ -159,11 +161,8 @@ export function TaskManagementPage() {
   const handleSubmitReport = async (id: string) => {
     const task = myTasks.find((m) => m.id === id);
     if (!task) return;
-    const requestModule = id.startsWith("PRJ-")
-      ? "PROJECT"
-      : (id.startsWith("BKG-") || id.startsWith("ALLOC-"))
-        ? "BOOKING"
-        : "MAINTENANCE";
+    // Only maintenance tasks now
+    const requestModule = "MAINTENANCE";
 
     try {
       await supervisorReviewRequest({
@@ -187,6 +186,22 @@ export function TaskManagementPage() {
   };
 
   const assignTargetTask = myTasks.find((m) => m.id === assignTarget);
+
+  const copyId = (id: string) => {
+    try {
+      navigator.clipboard.writeText(id);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = id;
+      ta.style.cssText = "position:fixed;opacity:0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setCopied(id);
+    setTimeout(() => setCopied(""), 2000);
+  };
 
   // Filter and search tasks
   const filteredTasks = useMemo(() => {
@@ -314,9 +329,12 @@ export function TaskManagementPage() {
             className="px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED] focus:border-transparent"
           >
             <option value="all">{t("common.allTypes") || "All Types"}</option>
-            <option value="Project">Project</option>
-            <option value="Booking">Booking</option>
-            <option value="Maintenance">Maintenance</option>
+            <option value="HVAC">HVAC</option>
+            <option value="Electrical">Electrical</option>
+            <option value="Plumbing">Plumbing</option>
+            <option value="Structural">Structural</option>
+            <option value="General">General</option>
+            <option value="Urgent Repair">Urgent Repair</option>
           </select>
         </div>
 
@@ -370,96 +388,135 @@ export function TaskManagementPage() {
         </div>
       </div>
 
-      {/* List View */}
-      <div className="space-y-3">
-        {filteredTasks.length === 0 ? (
-          <div className="bg-white rounded-xl border border-border p-16 text-center">
-            <ClipboardList
-              size={48}
-              className="mx-auto text-muted-foreground/40 mb-3"
-            />
-            <h3 className="text-[#0E2271]">
-              {myTasks.length === 0 ? t("supervisor.noTasksAssigned") : "No tasks match your filters"}
-            </h3>
-            <p className="text-muted-foreground text-sm">
-              {myTasks.length === 0 ? t("supervisor.noTasksDesc") : "Try adjusting your search or filters"}
-            </p>
-          </div>
-        ) : (
-          filteredTasks.map((m) => {
-            const assignee = users.find((u) => u.id === m.assignedTo);
-            const priorityColors = {
-              Critical: "border-l-red-500",
-              High: "border-l-orange-500",
-              Medium: "border-l-yellow-500",
-              Routine: "border-l-blue-500",
-            };
-            const priorityBorderClass = priorityColors[m.priority as keyof typeof priorityColors] || "border-l-gray-300";
-            
-            return (
-              <div
-                key={m.id}
-                className={`bg-white rounded-xl border border-border border-l-4 ${priorityBorderClass} p-5 shadow-sm hover:shadow-md transition-shadow`}
-              >
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="font-mono text-xs font-bold text-[#7C3AED]">
-                        {m.id}
-                      </span>
-                      <StatusBadge status={m.status} />
-                      <PriorityBadge priority={m.priority} />
-                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                        {m.type}
-                      </span>
-                    </div>
-                    <h3 className="font-semibold text-[#0E2271]">{m.title}</h3>
-                    <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
-                      {m.description}
-                    </p>
-                    <div className="flex items-center gap-4 mt-2 flex-wrap">
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <MapPin size={12} /> {m.location}, {m.floor}
-                      </span>
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock size={12} /> {m.createdAt.split(" ")[0]}
-                      </span>
-                      {assignee && (
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <User size={12} /> {assignee.name}
+      {/* Table View */}
+      {filteredTasks.length === 0 ? (
+        <div className="bg-white rounded-xl border border-border p-16 text-center">
+          <ClipboardList
+            size={48}
+            className="mx-auto text-muted-foreground/40 mb-3"
+          />
+          <h3 className="text-[#0E2271]">
+            {myTasks.length === 0 ? t("supervisor.noTasksAssigned") : "No tasks match your filters"}
+          </h3>
+          <p className="text-muted-foreground text-sm">
+            {myTasks.length === 0 ? t("supervisor.noTasksDesc") : "Try adjusting your search or filters"}
+          </p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-secondary/50">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                    {t("maintenance.ticketID")}
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {t("form.title")}
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {t("maintenance.type")}
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {t("form.status")}
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {t("maintenance.priority")}
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {t("form.location")}
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {t("projects.updated")}
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {t("projects.actions")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredTasks.map((m) => {
+                  const assignee = users.find((u) => u.id === m.assignedTo);
+                  // All tasks are maintenance now
+                  const detailPath = `/dashboard/maintenance/${m.id}`;
+
+                  return (
+                    <tr key={m.id} className="hover:bg-secondary/30 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                          <span className="font-mono text-xs font-semibold text-[#7C3AED]">{m.id}</span>
+                          <button onClick={() => copyId(m.id)} className="text-muted-foreground hover:text-[#7C3AED]">
+                            {copied === m.id ? <CheckCircle size={11} className="text-green-500" /> : <Copy size={11} />}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 max-w-xs">
+                        <p className="text-sm font-medium text-foreground truncate">{m.title}</p>
+                        <p className="text-xs text-muted-foreground truncate">{m.description || ""}</p>
+                        {assignee && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                            <User size={10} /> {assignee.name}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                          {m.type || "Maintenance"}
                         </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2 items-end">
-                    <button
-                      onClick={() => {
-                        const path = m.id.startsWith("PRJ-")
-                          ? `/dashboard/projects/${m.id}`
-                          : (m.id.startsWith("BKG-") || m.id.startsWith("ALLOC-"))
-                            ? `/dashboard/bookings/${m.id}`
-                            : `/dashboard/maintenance/${m.id}`;
-                        router.push(path);
-                      }}
-                      className="flex items-center gap-1 text-xs text-[#7C3AED] hover:underline"
-                    >
-                      <Eye size={12} /> {t("supervisor.viewDetails")}
-                    </button>
-                    {m.status === "Completed" && (
-                      <button
-                        onClick={() => setReportTarget(m.id)}
-                        className="flex items-center gap-1 text-xs text-white px-3 py-1.5 rounded-lg bg-[#0891B2]"
-                      >
-                        <Send size={12} /> {t("supervisor.submitReport")}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={m.status} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <PriorityBadge priority={m.priority || "Medium"} />
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {m.location || "—"}
+                        {m.floor ? `, ${m.floor}` : ""}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                        {m.createdAt.split("T")[0].split(" ")[0]}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            onClick={() => router.push(detailPath)}
+                            className="flex items-center gap-1 text-xs text-[#7C3AED] hover:underline font-medium"
+                          >
+                            <ExternalLink size={12} /> {t("action.view")}
+                          </button>
+                          {m.status === "Completed" && (
+                            <button
+                              onClick={() => setReportTarget(m.id)}
+                              className="flex items-center gap-1 text-xs text-white px-2 py-1 rounded bg-[#0891B2] hover:bg-[#0e7490] font-medium"
+                            >
+                              <Send size={12} /> {t("supervisor.submitReport")}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-4 py-3 border-t border-border bg-secondary/30 flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">
+              {t("common.showing")} {filteredTasks.length} {t("common.of")} {myTasks.length} {t("nav.maintenance").toLowerCase()}
+            </p>
+            <div className="flex items-center gap-1">
+              <button className="px-3 py-1 rounded border border-border text-xs hover:bg-secondary">
+                {t("common.previous")}
+              </button>
+              <button className="px-3 py-1 rounded bg-[#7C3AED] text-white text-xs">1</button>
+              <button className="px-3 py-1 rounded border border-border text-xs hover:bg-secondary">
+                {t("common.next")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

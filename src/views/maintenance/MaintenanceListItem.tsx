@@ -100,47 +100,53 @@ export function MaintenanceListItem({
         <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{m.createdAt.split("T")[0].split(" ")[0]}</td>
         <td className="px-4 py-3">
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Workflow action buttons */}
-            {role === "admin" && m.status === "Submitted" && (
-              <button onClick={() => onStartReview(m)} className="text-xs bg-[#7C3AED] text-white px-2 py-1 rounded font-bold uppercase tracking-wider">
-                {t("maintenance.startReview")}
-              </button>
-            )}
-            {role === "admin" && m.status === "Under Review" && (
-              <button onClick={() => onAssign(m.id)} className="text-xs bg-[#1A3580] text-white px-2 py-1 rounded font-bold uppercase tracking-wider">
-                {t("maintenance.assignSupervisor")}
-              </button>
-            )}
-            {role === "supervisor" && m.status === "Assigned to Supervisor" && (
-              <button onClick={() => onCreateWorkOrder(m)} className="text-xs bg-[#1A3580] text-white px-2 py-1 rounded font-bold uppercase tracking-wider">
-                {t("maintenance.createWorkOrder")}
-              </button>
-            )}
-            {role === "supervisor" && m.status === "WorkOrder Created" && (
-              <button onClick={() => onAssign(m.id)} className="text-xs bg-[#CC1F1A] text-white px-2 py-1 rounded font-bold uppercase tracking-wider">
-                {t("maintenance.assignProfessional")}
-              </button>
-            )}
-            {role === "supervisor" && m.status === "Completed" && (
-              <button onClick={() => onApprove(m)} className="text-xs bg-teal-600 text-white px-2 py-1 rounded font-bold uppercase">
-                {t("maintenance.submitReviewAdmin")}
-              </button>
-            )}
-            {/* Edit */}
-            {role === "user" && m.status === "Submitted" && m.requestedBy === currentUserId && (
-              <button onClick={() => router.push(`/dashboard/maintenance/edit/${m.id}`)} className="flex items-center gap-1 text-xs text-[#1A3580] hover:underline font-medium">
-                <Pencil size={12} /> {t("action.edit")}
-              </button>
-            )}
-            {/* View */}
-            <button onClick={() => router.push(detailPath)} className="flex items-center gap-1 text-xs text-[#1A3580] hover:underline font-medium">
-              <ExternalLink size={12} /> {t("action.view")}
-            </button>
-            {/* Delete */}
-            {((role === "user" && m.requestedBy === currentUserId && ["Submitted", "Approved", "Rejected", "Closed"].includes(m.status)) || role === "admin") && (
-              <button onClick={() => onDelete(m)} className="flex items-center gap-1 text-xs text-red-600 hover:underline font-medium">
-                <Trash2 size={12} /> {t("action.delete")}
-              </button>
+            {/* Admin: Only View and Delete */}
+            {role === "admin" ? (
+              <>
+                {/* View */}
+                <button onClick={() => router.push(detailPath)} className="flex items-center gap-1 text-xs text-[#1A3580] hover:underline font-medium">
+                  <ExternalLink size={12} /> {t("action.view")}
+                </button>
+                {/* Delete */}
+                <button onClick={() => onDelete(m)} className="flex items-center gap-1 text-xs text-red-600 hover:underline font-medium">
+                  <Trash2 size={12} /> {t("action.delete")}
+                </button>
+              </>
+            ) : (
+              <>
+                {/* Workflow action buttons for non-admin roles */}
+                {role === "supervisor" && m.status === "Assigned to Supervisor" && (
+                  <button onClick={() => onCreateWorkOrder(m)} className="text-xs bg-[#1A3580] text-white px-2 py-1 rounded font-bold uppercase tracking-wider">
+                    {t("maintenance.createWorkOrder")}
+                  </button>
+                )}
+                {role === "supervisor" && m.status === "WorkOrder Created" && (
+                  <button onClick={() => onAssign(m.id)} className="text-xs bg-[#CC1F1A] text-white px-2 py-1 rounded font-bold uppercase tracking-wider">
+                    {t("maintenance.assignProfessional")}
+                  </button>
+                )}
+                {role === "supervisor" && m.status === "Completed" && (
+                  <button onClick={() => onApprove(m)} className="text-xs bg-teal-600 text-white px-2 py-1 rounded font-bold uppercase">
+                    {t("maintenance.submitReviewAdmin")}
+                  </button>
+                )}
+                {/* Edit */}
+                {role === "user" && m.status === "Submitted" && m.requestedBy === currentUserId && (
+                  <button onClick={() => router.push(`/dashboard/maintenance/edit/${m.id}`)} className="flex items-center gap-1 text-xs text-[#1A3580] hover:underline font-medium">
+                    <Pencil size={12} /> {t("action.edit")}
+                  </button>
+                )}
+                {/* View */}
+                <button onClick={() => router.push(detailPath)} className="flex items-center gap-1 text-xs text-[#1A3580] hover:underline font-medium">
+                  <ExternalLink size={12} /> {t("action.view")}
+                </button>
+                {/* Delete */}
+                {(role === "user" && m.requestedBy === currentUserId && ["Submitted", "Approved", "Rejected", "Closed"].includes(m.status)) && (
+                  <button onClick={() => onDelete(m)} className="flex items-center gap-1 text-xs text-red-600 hover:underline font-medium">
+                    <Trash2 size={12} /> {t("action.delete")}
+                  </button>
+                )}
+              </>
             )}
           </div>
         </td>

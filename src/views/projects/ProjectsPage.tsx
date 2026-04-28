@@ -327,36 +327,54 @@ export function ProjectsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        {canEditProject(project) && (
-                          <button
-                            onClick={() =>
-                              router.push(`/dashboard/projects/${project.id}/edit`)
-                            }
-                            className="flex items-center gap-1 text-xs text-[#1A3580] hover:underline font-medium"
-                          >
-                            <FileText size={12} /> {t("action.edit") || "Edit"}
-                          </button>
-                        )}
-                        <button
-                          onClick={() =>
-                            router.push(`/dashboard/projects/${project.id}`)
-                          }
-                          className="flex items-center gap-1 text-xs text-[#1A3580] hover:underline font-medium"
-                        >
-                          <ExternalLink size={12} /> {t("action.view")}
-                        </button>
-                        {canDeleteProject(project) && (
-                          <button
-                            onClick={() => void handleDeleteProject(project)}
-                            className="flex items-center gap-1 text-xs text-red-600 hover:underline font-medium"
-                          >
-                            <Trash2 size={12} /> {t("action.delete") || "Delete"}
-                          </button>
-                        )}
-                        {role === "admin" && project.status === "Submitted" && (
-                          <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
-                            {t("projects.review")}
-                          </span>
+                        {/* Admin: Only View and Delete */}
+                        {role === "admin" ? (
+                          <>
+                            <button
+                              onClick={() =>
+                                router.push(`/dashboard/projects/${project.id}`)
+                              }
+                              className="flex items-center gap-1 text-xs text-[#1A3580] hover:underline font-medium"
+                            >
+                              <ExternalLink size={12} /> {t("action.view")}
+                            </button>
+                            <button
+                              onClick={() => void handleDeleteProject(project)}
+                              className="flex items-center gap-1 text-xs text-red-600 hover:underline font-medium"
+                            >
+                              <Trash2 size={12} /> {t("action.delete") || "Delete"}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {/* Non-admin users: Show Edit, View, Delete based on permissions */}
+                            {canEditProject(project) && (
+                              <button
+                                onClick={() =>
+                                  router.push(`/dashboard/projects/${project.id}/edit`)
+                                }
+                                className="flex items-center gap-1 text-xs text-[#1A3580] hover:underline font-medium"
+                              >
+                                <FileText size={12} /> {t("action.edit") || "Edit"}
+                              </button>
+                            )}
+                            <button
+                              onClick={() =>
+                                router.push(`/dashboard/projects/${project.id}`)
+                              }
+                              className="flex items-center gap-1 text-xs text-[#1A3580] hover:underline font-medium"
+                            >
+                              <ExternalLink size={12} /> {t("action.view")}
+                            </button>
+                            {canDeleteProject(project) && (
+                              <button
+                                onClick={() => void handleDeleteProject(project)}
+                                className="flex items-center gap-1 text-xs text-red-600 hover:underline font-medium"
+                              >
+                                <Trash2 size={12} /> {t("action.delete") || "Delete"}
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>

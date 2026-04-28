@@ -12,10 +12,18 @@ import {
   BarChart2,
   Activity,
   AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  ExternalLink,
+  Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { fetchLiveProjects, fetchLiveMaintenance } from "@/lib/live-api";
 import { divisions } from "@/types/models";
+import { StatusBadge, PriorityBadge } from '@/components/common/StatusBadge';
+import { getUserFacingStatus, type WorkflowRole } from '@/lib/workflow';
+import { apiRequest } from "@/lib/api";
 
 export function DivisionsPage() {
   const { t } = useLanguage();
@@ -24,6 +32,8 @@ export function DivisionsPage() {
   const [projects, setProjects] = useState<any[]>([]);
   const [maintenance, setMaintenance] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedDivision, setExpandedDivision] = useState<string | null>(null);
+  const [copied, setCopied] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -46,6 +56,7 @@ export function DivisionsPage() {
   const divisionStats = useMemo(() => {
     return divisions.map((div) => {
       const divProjects = projects.filter((p) => p.divisionId === div.id);
+      // Only maintenance tasks for this division
       const divTasks = maintenance.filter((m) => m.divisionId === div.id);
 
       const activeProjects = divProjects.filter(
@@ -66,9 +77,46 @@ export function DivisionsPage() {
         ).length,
         openAssignments,
         activeWorkload: openAssignments,
+        // Only maintenance items, not projects or bookings
+        maintenanceItems: divTasks,
       };
     });
   }, [projects, maintenance]);
+
+  const copyId = (id: string) => {
+    try {
+      navigator.clipboard.writeText(id);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = id;
+      ta.style.cssText = "position:fixed;opacity:0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setCopied(id);
+    setTimeout(() => setCopied(""), 2000);
+  };
+
+  const handleDeleteMaintenance = async (m: any) => {
+    const confirmed = confirm(
+      "Are you sure you want to delete this maintenance request? This action cannot be undone.",
+    );
+    if (!confirmed) return;
+
+    try {
+      await apiRequest(`/api/maintenance/${m.dbId ?? m.id}`, {
+        method: "DELETE",
+      });
+      setMaintenance((prev) => prev.filter((item) => item.id !== m.id));
+    } catch (error) {
+      alert(
+        "Failed to delete maintenance request: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+      );
+    }
+  };
 
   if (loading) {
     return (
@@ -204,11 +252,133 @@ export function DivisionsPage() {
                     />
                   </button>
                 </div>
+
+                {/* View Maintenance List Button */}
+                <div>
+                  <button
+                    onClick={() => setExpandedDivision(expandedDivision === div.id ? null : div.id)}
+                    className="w-full py-3 rounded-xl border-2 border-border text-[#0E2271] dark:text-blue-300 font-semibold text-sm hover:bg-secondary dark:hover:bg-gray-700 transition-all flex items-center justify-center gap-2 group"
+                  >
+                    <ClipboardList size={16} /> View Maintenance List
+                    {expandedDivision === div.id ? (
+                      <ChevronUp size={16} className="transition-transform" />
+                    ) : (
+                      <ChevronDown size={16} className="transition-transform" />
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Expanded Maintenance List for Selected Division */}
+      {expandedDivision && (
+        <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+          <div className="bg-gradient-to-r from-[#CC1F1A] to-[#7A0E0E] text-white px-6 py-4">
+            <h3 className="text-lg font-bold">
+              {divisionStats.find(d => d.id === expandedDivision)?.name} - Maintenance Tasks
+            </h3>
+            <p className="text-sm text-white/80 mt-1">
+              {divisionStats.find(d => d.id === expandedDivision)?.maintenanceItems.length || 0} maintenance tasks assigned to this division
+            </p>
+          </div>
+          
+          {divisionStats.find(d => d.id === expandedDivision)?.maintenanceItems.length === 0 ? (
+            <div className="p-16 text-center">
+              <ClipboardList size={48} className="mx-auto text-muted-foreground/40 mb-3" />
+              <h3 className="text-[#0E2271]">No Maintenance Tasks</h3>
+              <p className="text-muted-foreground text-sm">This division has no maintenance tasks assigned yet.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/50">
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                      {t("maintenance.ticketID")}
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {t("form.title")}
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {t("maintenance.type")}
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {t("form.status")}
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {t("maintenance.priority")}
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {t("form.location")}
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {t("projects.updated")}
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {t("projects.actions")}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {divisionStats.find(d => d.id === expandedDivision)?.maintenanceItems.map((m: any) => (
+                    <tr key={m.id} className="hover:bg-secondary/30 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                          <span className="font-mono text-xs font-semibold text-[#CC1F1A]">{m.id}</span>
+                          <button onClick={() => copyId(m.id)} className="text-muted-foreground hover:text-[#CC1F1A]">
+                            {copied === m.id ? <CheckCircle size={11} className="text-green-500" /> : <Copy size={11} />}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 max-w-xs">
+                        <p className="text-sm font-medium text-foreground truncate">{m.title}</p>
+                        <p className="text-xs text-muted-foreground truncate">{m.description || ""}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                          {m.type || "Maintenance"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={getUserFacingStatus(m.status, "admin" as WorkflowRole)} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <PriorityBadge priority={m.priority || "Medium"} />
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {m.location || m.space || "—"}
+                        {m.floor ? `, ${m.floor}` : ""}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                        {m.createdAt.split("T")[0].split(" ")[0]}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => router.push(`/dashboard/maintenance/${m.id}`)}
+                            className="flex items-center gap-1 text-xs text-[#1A3580] hover:underline font-medium"
+                          >
+                            <ExternalLink size={12} /> {t("action.view")}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteMaintenance(m)}
+                            className="flex items-center gap-1 text-xs text-red-600 hover:underline font-medium"
+                          >
+                            <Trash2 size={12} /> {t("action.delete")}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Global Resource Distribution Banner */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-6 flex flex-col md:flex-row items-center gap-6 shadow-sm">
