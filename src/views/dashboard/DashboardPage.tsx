@@ -236,7 +236,7 @@ export function DashboardPage() {
         <AdminDashboard adminName={currentUser?.name || "Administrator"} />
       )}
 
-      {/* Supervisor gets redirected to supervisor dashboard */}
+      {/* Supervisor Dashboard Section */}
       {role === "supervisor" && (
         <div className="space-y-6">
           <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -257,7 +257,7 @@ export function DashboardPage() {
               value={supervisorTasks.length}
               sub={t("dashboard.totalAssignedTasks")}
               color="#1A3580"
-              onClick={() => router.push("/dashboard/supervisor")}
+              onClick={() => router.push("/dashboard/maintenance")}
             />
             <StatCard
               icon={<Activity size={20} />}
@@ -271,7 +271,7 @@ export function DashboardPage() {
               }
               sub={t("dashboard.inExecution")}
               color="#EA580C"
-              onClick={() => router.push("/dashboard/supervisor")}
+              onClick={() => router.push("/dashboard/maintenance")}
             />
             <StatCard
               icon={<CheckCircle size={20} />}
@@ -281,7 +281,7 @@ export function DashboardPage() {
               }
               sub={t("dashboard.awaitingReview")}
               color="#0D9488"
-              onClick={() => router.push("/dashboard/supervisor")}
+              onClick={() => router.push("/dashboard/maintenance")}
             />
             <StatCard
               icon={<TrendingUp size={20} />}
@@ -291,23 +291,56 @@ export function DashboardPage() {
               }
               sub={t("dashboard.processed")}
               color="#10B981"
-              onClick={() => router.push("/dashboard/supervisor")}
+              onClick={() => router.push("/dashboard/maintenance")}
             />
           </div>
-          <div className="bg-white rounded-xl border border-border p-5 shadow-sm text-center">
-            <p className="text-muted-foreground text-sm mb-3">
-              {t("dashboard.goFullSupervisor")}
-            </p>
 
-            <button
-              onClick={() => router.push("/dashboard/supervisor")}
-              className="px-6 py-2.5 rounded-lg text-white text-sm font-semibold"
-              style={{
-                background: "linear-gradient(135deg, #5B21B6, #7C3AED)",
-              }}
-            >
-              {t("dashboard.openSupervisor")} →
-            </button>
+          {/* Recent Tasks */}
+          <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-[#0E2271] flex items-center gap-2">
+                <ClipboardList size={16} />
+                {t("dashboard.recentTasks")}
+              </h3>
+              <button
+                onClick={() => router.push("/dashboard/maintenance")}
+                className="text-xs text-[#1A3580] hover:underline flex items-center gap-1"
+              >
+                {t("action.viewAll")} <ArrowRight size={12} />
+              </button>
+            </div>
+            <div className="divide-y divide-border">
+              {supervisorTasks.slice(0, 5).map((task) => (
+                <div
+                  key={task.id}
+                  onClick={() => router.push(`/dashboard/maintenance/${task.id}`)}
+                  className="px-5 py-3 hover:bg-secondary/50 cursor-pointer transition-colors flex items-center gap-3"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
+                    <Wrench size={14} className="text-orange-700" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {task.title}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {task.id} · {task.type}
+                    </p>
+                  </div>
+                  <StatusBadge
+                    status={getUserFacingStatus(
+                      task.status,
+                      "supervisor" as WorkflowRole,
+                    )}
+                  />
+                </div>
+              ))}
+              {supervisorTasks.length === 0 && (
+                <div className="px-5 py-8 text-center text-muted-foreground text-sm">
+                  {t("dashboard.noTasksAssigned")}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
