@@ -673,7 +673,7 @@ export function EditProjectPage() {
       };
 
       await apiRequest(`/api/projects/${existingProject.dbId}`, {
-        method: "PUT",
+        method: "PATCH",
         body: requestBody,
       });
       

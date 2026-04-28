@@ -29,7 +29,7 @@ import {
   Package,
   FileText,
 } from "lucide-react";
-import { fetchLiveProjects, fetchLiveUsers } from "@/lib/live-api";
+import { fetchLiveProjects, fetchLiveUsers, fetchRequestHistory } from "@/lib/live-api";
 import { apiRequest } from "@/lib/api";
 import { executeWorkflowAction } from "@/lib/workflow-actions";
 import { Timeline } from "@/components/common/Timeline";
@@ -89,6 +89,16 @@ export function ProjectDetailPage() {
             setMaterialCost(found.materialCost.toString());
           if (found.laborCost) setLaborCost(found.laborCost.toString());
           if (found.partsUsed) setPartsUsed(found.partsUsed);
+
+          // Fetch real timeline from backend
+          if (found.dbId) {
+            try {
+              const history = await fetchRequestHistory("PROJECT", found.dbId, liveUsers);
+              if (history.length > 0) {
+                setProjectItem({ ...found, timeline: history });
+              }
+            } catch { /* keep default */ }
+          }
           
           // Fetch uploaded files from backend
           if (found.dbId) {
