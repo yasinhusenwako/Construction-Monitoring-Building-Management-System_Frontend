@@ -3,6 +3,7 @@
 import React from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { divisions } from "@/types/models";
 import {
   fetchLiveMaintenance,
   fetchLiveUsers,
@@ -22,7 +23,7 @@ export function TeamOverviewPage() {
 
   // Get current user's division
   const userDivision = currentUser?.divisionId;
-  const divisionName = currentUser?.department || "General";
+  const divisionName = divisions.find((d) => d.id === userDivision)?.name || "Division";
 
   React.useEffect(() => {
     const refresh = async () => {

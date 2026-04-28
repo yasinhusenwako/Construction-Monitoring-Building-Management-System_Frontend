@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { divisions } from "@/types/models";
 import {
   fetchLiveBookings,
   fetchLiveMaintenance,
@@ -76,7 +77,7 @@ export function TaskManagementPage() {
 
   // Get current user's division
   const userDivision = currentUser?.divisionId;
-  const divisionName = currentUser?.department || "General";
+  const divisionName = divisions.find((d) => d.id === userDivision)?.name || "Division";
 
   const supervisorTrackedStatuses = [
     "Assigned to Supervisor",
