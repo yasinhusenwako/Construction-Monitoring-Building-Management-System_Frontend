@@ -458,89 +458,69 @@ export function MaintenancePage() {
       </div>
 
       {/* List View */}
-      <div className="space-y-3">
+      <div>
         {filtered.length === 0 ? (
           <div className="bg-white rounded-xl border border-border p-16 text-center">
-            <Wrench
-              size={48}
-              className="mx-auto text-muted-foreground/40 mb-3"
-            />
-            <h3 className="text-[#0E2271]">
-              {t("maintenance.noTicketsFound")}
-            </h3>
-            <p className="text-muted-foreground text-sm">
-              {t("maintenance.noTicketsMatch")}
-            </p>
+            <Wrench size={48} className="mx-auto text-muted-foreground/40 mb-3" />
+            <h3 className="text-[#0E2271]">{t("maintenance.noTicketsFound")}</h3>
+            <p className="text-muted-foreground text-sm">{t("maintenance.noTicketsMatch")}</p>
           </div>
         ) : (
-          filtered.map((m) => {
-            return (
-              <MaintenanceListItem
-                key={m.id}
-                m={m}
-                role={role}
-                tech={undefined}
-                onCopyId={copyId}
-                copiedId={copied}
-                onAssign={(id) =>
-                  setAssignTarget(assignTarget === id ? null : id)
-                }
-                onStartReview={(m) =>
-                  applyTransition(
-                    m,
-                    "Under Review",
-                    "admin",
-                    t("maintenance.reviewStarted"),
-                  )
-                }
-                onCreateWorkOrder={handleCreateWorkOrder}
-                onStartWork={(m) =>
-                  applyTransition(
-                    m,
-                    "In Progress",
-                    "professional",
-                    t("maintenance.taskStarted"),
-                  )
-                }
-                onCompleteWork={(m) =>
-                  applyTransition(
-                    m,
-                    "Completed",
-                    "professional",
-                    t("maintenance.workSubmitted"),
-                  )
-                }
-                onApprove={(m) =>
-                  applyTransition(
-                    m,
-                    "Reviewed",
-                    "supervisor",
-                    t("maintenance.reviewSubmitted"),
-                  )
-                }
-                onFinalApprove={(m) =>
-                  applyTransition(m, "Approved", "admin", t("status.approved"))
-                }
-                onReject={(m) =>
-                  applyTransition(m, "Rejected", "admin", t("status.rejected"))
-                }
-                onClose={(m) =>
-                  applyTransition(m, "Closed", "admin", t("status.closed"))
-                }
-                onDelete={handleDeleteRequest}
-                assignTarget={assignTarget}
-                selectedTech={selectedTech}
-                onSelectTech={setSelectedTech}
-                onConfirmAssign={handleAssignConfirm}
-                onCancelAssign={() => {
-                  setAssignTarget(null);
-                  setSelectedTech("");
-                }}
-                filteredProfessionals={getFilteredProfessionals(m)}
-                currentUserId={currentUser?.id}
-              />
-            );
-          })
+          <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/50">
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">{t("maintenance.ticketID")}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("form.title")}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("maintenance.type")}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("form.status")}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("maintenance.priority")}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("form.location")}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("projects.updated")}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("projects.actions")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filtered.map((m) => (
+                    <MaintenanceListItem
+                      key={m.id}
+                      m={m}
+                      role={role}
+                      tech={undefined}
+                      onCopyId={copyId}
+                      copiedId={copied}
+                      onAssign={(id) => setAssignTarget(assignTarget === id ? null : id)}
+                      onStartReview={(m) => applyTransition(m, "Under Review", "admin", t("maintenance.reviewStarted"))}
+                      onCreateWorkOrder={handleCreateWorkOrder}
+                      onStartWork={(m) => applyTransition(m, "In Progress", "professional", t("maintenance.taskStarted"))}
+                      onCompleteWork={(m) => applyTransition(m, "Completed", "professional", t("maintenance.workSubmitted"))}
+                      onApprove={(m) => applyTransition(m, "Reviewed", "supervisor", t("maintenance.reviewSubmitted"))}
+                      onFinalApprove={(m) => applyTransition(m, "Approved", "admin", t("status.approved"))}
+                      onReject={(m) => applyTransition(m, "Rejected", "admin", t("status.rejected"))}
+                      onClose={(m) => applyTransition(m, "Closed", "admin", t("status.closed"))}
+                      onDelete={handleDeleteRequest}
+                      assignTarget={assignTarget}
+                      selectedTech={selectedTech}
+                      onSelectTech={setSelectedTech}
+                      onConfirmAssign={handleAssignConfirm}
+                      onCancelAssign={() => { setAssignTarget(null); setSelectedTech(""); }}
+                      filteredProfessionals={getFilteredProfessionals(m)}
+                      currentUserId={currentUser?.id}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-4 py-3 border-t border-border bg-secondary/30 flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">{t("common.showing")} {filtered.length} {t("common.of")} {maintenanceItems.length} {t("nav.maintenance").toLowerCase()}</p>
+              <div className="flex items-center gap-1">
+                <button className="px-3 py-1 rounded border border-border text-xs hover:bg-secondary">{t("common.previous")}</button>
+                <button className="px-3 py-1 rounded bg-[#CC1F1A] text-white text-xs">1</button>
+                <button className="px-3 py-1 rounded border border-border text-xs hover:bg-secondary">{t("common.next")}</button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

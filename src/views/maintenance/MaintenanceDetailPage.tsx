@@ -419,18 +419,6 @@ export function MaintenanceDetailPage() {
         
         {/* Action Buttons */}
         <div className="flex gap-2">
-          {/* Edit Button - Only show if user is the creator and status is Submitted */}
-          {role === "user" && 
-           maint.requestedBy === currentUser?.id && 
-           maint.status === "Submitted" && (
-            <button
-              onClick={() => router.push(`/dashboard/maintenance/${maint.id}/edit`)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1A3580] text-white text-sm font-semibold hover:bg-[#0E2271] transition-all"
-            >
-              <FileText size={16} />
-              {t("action.edit") || "Edit Request"}
-            </button>
-          )}
         </div>
       </div>
 
