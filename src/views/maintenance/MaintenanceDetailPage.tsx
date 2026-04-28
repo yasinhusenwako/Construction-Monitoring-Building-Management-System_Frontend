@@ -374,7 +374,7 @@ export function MaintenanceDetailPage() {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    if (!maint.dbId) {
+    if (!maint.id) {
       alert("Cannot upload files: Maintenance request ID is missing");
       return;
     }
@@ -385,9 +385,11 @@ export function MaintenanceDetailPage() {
       files.forEach((file) => {
         formData.append("files", file);
       });
+      formData.append("entityType", "maintenance");
+      formData.append("entityId", maint.id); // Use business ID, not dbId
 
-      const uploadedFileData = await apiRequest<any[]>(
-        `/api/files/upload/MAINTENANCE/${maint.dbId}`,
+      const uploadedFileData = await apiRequest<any>(
+        `/api/files/upload`,
         {
           method: "POST",
           body: formData,
@@ -593,16 +595,17 @@ export function MaintenanceDetailPage() {
               />
               
               {/* Professional can upload proof */}
-              {role === "professional" && maint.status === "In Progress" && (
+              {role === "professional" && (maint.status === "In Progress" || maint.status === "Assigned to Professionals") && (
                 <div className="mt-5 border border-dashed border-slate-300 rounded-xl p-5 bg-slate-50">
                   <p className="text-[11px] font-bold text-[#CC1F1A] uppercase tracking-wider mb-3 flex items-center gap-2">
                     <Upload size={14} />{" "}
-                    {t("maintenance.uploadCompletionProof")}
+                    {t("maintenance.uploadCompletionProof") || "UPLOAD COMPLETION PROOF"}
                   </p>
                   <input
                     id="pro-upload"
                     type="file"
                     multiple
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
                     className="hidden"
                     onChange={handleFileUpload}
                   />
@@ -620,10 +623,10 @@ export function MaintenanceDetailPage() {
                         />
                       </div>
                       <p className="text-sm font-bold text-[#0E2271] group-hover:text-[#CC1F1A] transition-colors">
-                        {t("maintenance.uploadPhotos")}
+                        {t("maintenance.uploadPhotos") || "Upload Photos"}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {t("maintenance.beforeAfterImages")}
+                        {t("maintenance.beforeAfterImages") || "Before / After repair images"}
                       </p>
                     </div>
                     <div
@@ -639,13 +642,20 @@ export function MaintenanceDetailPage() {
                         />
                       </div>
                       <p className="text-sm font-bold text-[#0E2271] group-hover:text-[#CC1F1A] transition-colors">
-                        {t("maintenance.uploadDocs")}
+                        {t("maintenance.uploadDocs") || "Upload Documents"}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {t("maintenance.receiptsManuals")}
+                        {t("maintenance.receiptsManuals") || "Receipts, manuals, or reports"}
                       </p>
                     </div>
                   </div>
+                  {uploadedFiles.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-dashed border-slate-300">
+                      <p className="text-xs font-semibold text-muted-foreground mb-2">
+                        {uploadedFiles.length} file(s) uploaded
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

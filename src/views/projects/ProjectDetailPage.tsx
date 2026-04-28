@@ -695,82 +695,84 @@ export function ProjectDetailPage() {
           
           {/* Combined Card for Description, Details, Contact, and Scope */}
           <div className="bg-white rounded-xl border border-border p-5 shadow-sm space-y-8">
-            {/* Request Summary */}
-            <div>
-              <h3 className="text-sm font-semibold text-[#0E2271] mb-4">
-                Request Summary
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {[
-                  { icon: <FileText size={16} />, label: "Request ID", value: project.id || "-" },
-                  { icon: <Layers size={16} />, label: "Request Mode", value: requestModeLabel },
-                  { icon: <Package size={16} />, label: "Classification", value: project.classification || "-" },
-                  { icon: <FileText size={16} />, label: "Title", value: project.title || "-" },
-                  { icon: <MapPin size={16} />, label: "Location", value: actualLocation },
-                  { icon: <MapPin size={16} />, label: "Block", value: block },
-                  { icon: <MapPin size={16} />, label: "Floor", value: floor },
-                  { icon: <Briefcase size={16} />, label: "Department", value: project.department || "-" },
-                  {
-                    icon: <User size={16} />,
-                    label: "Requested By",
-                    value: requester?.name || project.requestedBy || "-",
-                  },
-                  { icon: <Phone size={16} />, label: "Contact", value: contactSummary || "-" },
-                  {
-                    icon: <Info size={16} />,
-                    label: "Site Condition",
-                    value: project.siteCondition || "-",
-                  },
-                  {
-                    icon: <DollarSign size={16} />,
-                    label: "Budget",
-                    value: `ETB ${project.budget.toLocaleString()}`,
-                  },
-                  { icon: <Calendar size={16} />, label: "Timeline", value: timelineRange },
-                  { icon: <UserPlus size={16} />, label: "Auto-Assign To", value: autoAssignTo },
-                  ...summaryScopeItems.map(item => ({
-                    icon: <Package size={16} />,
-                    ...item
-                  })),
-                  {
-                    icon: <Layers size={16} />,
-                    label: "Linked Project",
-                    value: project.linkedProjectId || "-",
-                  },
-                ].map((item) => (
-                  <div key={item.label} className="flex items-start gap-3">
+            {/* Request Summary - Hidden for A5/A6 existing projects */}
+            {!(["A5", "A6"].includes(classificationCode) && project.requestMode === "existing") && (
+              <div>
+                <h3 className="text-sm font-semibold text-[#0E2271] mb-4">
+                  Request Summary
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    { icon: <FileText size={16} />, label: "Request ID", value: project.id || "-" },
+                    { icon: <Layers size={16} />, label: "Request Mode", value: requestModeLabel },
+                    { icon: <Package size={16} />, label: "Classification", value: project.classification || "-" },
+                    { icon: <FileText size={16} />, label: "Title", value: project.title || "-" },
+                    { icon: <MapPin size={16} />, label: "Location", value: actualLocation },
+                    { icon: <MapPin size={16} />, label: "Block", value: block },
+                    { icon: <MapPin size={16} />, label: "Floor", value: floor },
+                    { icon: <Briefcase size={16} />, label: "Department", value: project.department || "-" },
+                    {
+                      icon: <User size={16} />,
+                      label: "Requested By",
+                      value: requester?.name || project.requestedBy || "-",
+                    },
+                    { icon: <Phone size={16} />, label: "Contact", value: contactSummary || "-" },
+                    {
+                      icon: <Info size={16} />,
+                      label: "Site Condition",
+                      value: project.siteCondition || "-",
+                    },
+                    {
+                      icon: <DollarSign size={16} />,
+                      label: "Budget",
+                      value: `ETB ${project.budget.toLocaleString()}`,
+                    },
+                    { icon: <Calendar size={16} />, label: "Timeline", value: timelineRange },
+                    { icon: <UserPlus size={16} />, label: "Auto-Assign To", value: autoAssignTo },
+                    ...summaryScopeItems.map(item => ({
+                      icon: <Package size={16} />,
+                      ...item
+                    })),
+                    {
+                      icon: <Layers size={16} />,
+                      label: "Linked Project",
+                      value: project.linkedProjectId || "-",
+                    },
+                  ].map((item) => (
+                    <div key={item.label} className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-[#EEF2FF] flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-[#1A3580]">{item.icon}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">
+                          {item.label}
+                        </p>
+                        <p className="text-sm font-medium text-foreground break-words">{item.value}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Functional Description - Full Width */}
+                <div className="mt-4 pt-4 border-t border-border">
+                  <div className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-full bg-[#EEF2FF] flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-[#1A3580]">{item.icon}</span>
+                      <span className="text-[#1A3580]">
+                        <MessageSquare size={16} />
+                      </span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">
-                        {item.label}
+                        Functional Description
                       </p>
-                      <p className="text-sm font-medium text-foreground break-words">{item.value}</p>
+                      <p className="text-sm font-medium text-foreground break-words leading-relaxed">
+                        {project.description || "-"}
+                      </p>
                     </div>
-                  </div>
-                ))}
-              </div>
-              
-              {/* Functional Description - Full Width */}
-              <div className="mt-4 pt-4 border-t border-border">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#EEF2FF] flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-[#1A3580]">
-                      <MessageSquare size={16} />
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">
-                      Functional Description
-                    </p>
-                    <p className="text-sm font-medium text-foreground break-words leading-relaxed">
-                      {project.description || "-"}
-                    </p>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Cost Information Display - For Supervisor and Admin (Read-only) */}
             {(role === "supervisor" || role === "admin") &&

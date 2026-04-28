@@ -74,6 +74,10 @@ export function MaintenancePage() {
       }
     };
     void refresh();
+
+    // Auto-refresh every 15 seconds to show newly assigned tasks
+    const refreshInterval = setInterval(refresh, 15000);
+    return () => clearInterval(refreshInterval);
   }, [role]);
 
   const getFilteredProfessionals = (m?: Maintenance) => {

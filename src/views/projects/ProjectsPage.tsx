@@ -50,6 +50,10 @@ export function ProjectsPage() {
       }
     };
     void refresh();
+
+    // Auto-refresh every 15 seconds to show updates
+    const refreshInterval = setInterval(refresh, 15000);
+    return () => clearInterval(refreshInterval);
   }, []);
 
   const statuses = ["All", ...WORKFLOW_STATUSES];

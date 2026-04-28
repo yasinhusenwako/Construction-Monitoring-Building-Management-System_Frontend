@@ -78,7 +78,7 @@ export function TaskManagementPage() {
     // Keep supervisor board in sync with professional updates.
     const refreshInterval = setInterval(refresh, 15000);
     return () => clearInterval(refreshInterval);
-  }, []);
+  }, [currentUser?.divisionId, uid]);
 
   // Get current user's division
   const userDivision = currentUser?.divisionId;

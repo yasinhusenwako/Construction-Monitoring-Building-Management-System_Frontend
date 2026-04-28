@@ -17,6 +17,7 @@ import {
   Copy,
   ExternalLink,
   Trash2,
+  RefreshCw,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { fetchLiveProjects, fetchLiveMaintenance } from "@/lib/live-api";
@@ -34,6 +35,7 @@ export function DivisionsPage() {
   const [loading, setLoading] = useState(true);
   const [expandedDivision, setExpandedDivision] = useState<string | null>(null);
   const [copied, setCopied] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -51,6 +53,10 @@ export function DivisionsPage() {
       }
     };
     fetchData();
+
+    // Auto-refresh every 15 seconds to show newly assigned tasks
+    const refreshInterval = setInterval(fetchData, 15000);
+    return () => clearInterval(refreshInterval);
   }, []);
 
   const divisionStats = useMemo(() => {
@@ -118,6 +124,22 @@ export function DivisionsPage() {
     }
   };
 
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const [liveProjects, liveMaintenance] = await Promise.all([
+        fetchLiveProjects(),
+        fetchLiveMaintenance(),
+      ]);
+      setProjects(liveProjects);
+      setMaintenance(liveMaintenance);
+    } catch (error) {
+      console.error("Failed to refresh division data:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -139,6 +161,14 @@ export function DivisionsPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <button 
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            className="px-4 py-2.5 bg-white dark:bg-gray-800 border-2 border-[#7C3AED] text-[#7C3AED] rounded-xl text-sm font-semibold hover:bg-[#7C3AED] hover:text-white transition-all shadow-sm hover:shadow-md flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} /> 
+            {refreshing ? "Refreshing..." : "Refresh Data"}
+          </button>
           <button className="px-4 py-2.5 bg-[#7C3AED] text-white rounded-xl text-sm font-semibold hover:bg-[#6D28D9] transition-all shadow-sm hover:shadow-md flex items-center gap-2">
             <BarChart2 size={16} /> Division Analytics
           </button>
