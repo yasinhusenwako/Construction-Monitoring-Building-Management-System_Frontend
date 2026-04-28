@@ -41,7 +41,7 @@ type SessionUser = User & {
   backendDivisionId?: number | null;
 };
 
-interface AuthContextType {
+export interface AuthContextType {
   currentUser: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -344,6 +344,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  if (!ctx) {
+    // Return a safe default during SSR before providers hydrate
+    return {
+      currentUser: null,
+      isAuthenticated: false,
+      isLoading: true,
+      login: async () => ({ success: false, error: "Not initialized" }),
+      logout: () => {},
+      register: async () => ({ success: false, error: "Not initialized" }),
+      forgotPassword: async () => ({ success: false, error: "Not initialized" }),
+      updateUser: () => {},
+    } as AuthContextType;
+  }
   return ctx;
 }

@@ -1,7 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-// Translation context for multi-language support
 import React, {
   createContext,
   useContext,
@@ -9,9 +7,6 @@ import React, {
   useEffect,
   ReactNode,
 } from "react";
-
-import en from "@/locales/en.json";
-import am from "@/locales/am.json";
 
 type Language = "en" | "am";
 
@@ -21,47 +16,47 @@ interface LanguageContextType {
   t: (key: string, args?: Record<string, string | number>) => string;
 }
 
-const LanguageContext = createContext<LanguageContextType | undefined>(
-  undefined,
-);
+const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-const translations: Record<string, Record<string, string>> = {
-  en: en as Record<string, string>,
-  am: am as Record<string, string>,
+// Flat JSON message store
+const messageCache: Record<Language, Record<string, string>> = {
+  en: {},
+  am: {},
 };
 
+function resolve(messages: Record<string, string>, key: string, args?: Record<string, string | number>): string {
+  const val = messages[key];
+  if (!val) return key;
+  if (!args) return val;
+  return val.replace(/\{(\w+)\}/g, (_, k) => String(args[k] ?? `{${k}}`));
+}
+
+async function loadMessages(lang: Language): Promise<Record<string, string>> {
+  if (Object.keys(messageCache[lang]).length > 0) return messageCache[lang];
+  const mod = await import(`../locales/${lang}.json`);
+  messageCache[lang] = mod.default as Record<string, string>;
+  return messageCache[lang];
+}
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<Language>("en");
-  const [mounted, setMounted] = useState(false);
+  const [language, setLang] = useState<Language>("en");
+  const [messages, setMessages] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    setMounted(true);
-    const stored = localStorage.getItem("insa-buildms-language");
-    if (stored === "am" || stored === "en") {
-      setLanguageState(stored);
-    }
+    const stored = (localStorage.getItem("locale") as Language) || "en";
+    const lang: Language = stored === "am" ? "am" : "en";
+    setLang(lang);
+    loadMessages(lang).then(setMessages);
   }, []);
 
-  useEffect(() => {
-    if (mounted) {
-      localStorage.setItem("insa-buildms-language", language);
-      // Update HTML lang attribute for accessibility
-      document.documentElement.lang = language === "am" ? "am" : "en";
-    }
-  }, [language, mounted]);
-
   const setLanguage = (lang: Language) => {
-    setLanguageState(lang);
+    setLang(lang);
+    localStorage.setItem("locale", lang);
+    loadMessages(lang).then(setMessages);
   };
 
   const t = (key: string, args?: Record<string, string | number>): string => {
-    let str = translations[language][key] || key;
-    if (args) {
-      Object.entries(args).forEach(([k, v]) => {
-        str = str.replace(`{${k}}`, String(v));
-      });
-    }
-    return str;
+    return resolve(messages, key, args);
   };
 
   return (
@@ -73,8 +68,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
 export function useLanguage() {
   const context = useContext(LanguageContext);
-  if (!context) {
-    throw new Error("useLanguage must be used within LanguageProvider");
-  }
+  if (!context) throw new Error("useLanguage must be used within LanguageProvider");
   return context;
 }
