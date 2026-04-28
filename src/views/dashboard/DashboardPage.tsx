@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -71,6 +72,13 @@ export function DashboardPage() {
   const { t } = useLanguage();
   const role = currentUser?.role;
   const uid = currentUser?.id;
+
+  // Redirect supervisors to their dedicated dashboard
+  useEffect(() => {
+    if (role === "supervisor") {
+      router.push("/dashboard/supervisor");
+    }
+  }, [role, router]);
 
   // Token is automatically sent via httpOnly cookie
   const { data, isLoading, isError, error, refetch } = useDashboardData();
@@ -236,112 +244,10 @@ export function DashboardPage() {
         <AdminDashboard adminName={currentUser?.name || "Administrator"} />
       )}
 
-      {/* Supervisor Dashboard Section */}
+      {/* Supervisor redirects to dedicated dashboard - handled by useEffect above */}
       {role === "supervisor" && (
-        <div className="space-y-6">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <h1 className="text-[#0E2271]">
-                {getGreeting()}, {currentUser?.name?.split(" ")[0]}!
-              </h1>
-              <p className="text-muted-foreground text-sm mt-0.5">
-                {t("dashboard.divisionSupervisor")} ·{" "}
-                {t("dashboard.manageAssignedTasks")}
-              </p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard
-              icon={<Wrench size={20} />}
-              label={t("dashboard.assignedToDivision")}
-              value={supervisorTasks.length}
-              sub={t("dashboard.totalAssignedTasks")}
-              color="#1A3580"
-              onClick={() => router.push("/dashboard/maintenance")}
-            />
-            <StatCard
-              icon={<Activity size={20} />}
-              label={t("dashboard.activeOperations")}
-              value={
-                supervisorTasks.filter((m) =>
-                  ["Assigned to Professionals", "In Progress"].includes(
-                    m.status,
-                  ),
-                ).length
-              }
-              sub={t("dashboard.inExecution")}
-              color="#EA580C"
-              onClick={() => router.push("/dashboard/maintenance")}
-            />
-            <StatCard
-              icon={<CheckCircle size={20} />}
-              label={t("dashboard.pendingReview")}
-              value={
-                supervisorTasks.filter((m) => m.status === "Completed").length
-              }
-              sub={t("dashboard.awaitingReview")}
-              color="#0D9488"
-              onClick={() => router.push("/dashboard/maintenance")}
-            />
-            <StatCard
-              icon={<TrendingUp size={20} />}
-              label={t("dashboard.processed")}
-              value={
-                supervisorTasks.filter((m) => m.status === "Reviewed").length
-              }
-              sub={t("dashboard.processed")}
-              color="#10B981"
-              onClick={() => router.push("/dashboard/maintenance")}
-            />
-          </div>
-
-          {/* Recent Tasks */}
-          <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-[#0E2271] flex items-center gap-2">
-                <ClipboardList size={16} />
-                {t("dashboard.recentTasks")}
-              </h3>
-              <button
-                onClick={() => router.push("/dashboard/maintenance")}
-                className="text-xs text-[#1A3580] hover:underline flex items-center gap-1"
-              >
-                {t("action.viewAll")} <ArrowRight size={12} />
-              </button>
-            </div>
-            <div className="divide-y divide-border">
-              {supervisorTasks.slice(0, 5).map((task) => (
-                <div
-                  key={task.id}
-                  onClick={() => router.push(`/dashboard/maintenance/${task.id}`)}
-                  className="px-5 py-3 hover:bg-secondary/50 cursor-pointer transition-colors flex items-center gap-3"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
-                    <Wrench size={14} className="text-orange-700" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {task.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {task.id} · {task.type}
-                    </p>
-                  </div>
-                  <StatusBadge
-                    status={getUserFacingStatus(
-                      task.status,
-                      "supervisor" as WorkflowRole,
-                    )}
-                  />
-                </div>
-              ))}
-              {supervisorTasks.length === 0 && (
-                <div className="px-5 py-8 text-center text-muted-foreground text-sm">
-                  {t("dashboard.noTasksAssigned")}
-                </div>
-              )}
-            </div>
-          </div>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1A3580]"></div>
         </div>
       )}
 
