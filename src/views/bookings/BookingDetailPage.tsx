@@ -184,20 +184,36 @@ export default function BookingDetailPage({ id }: { id: string }) {
       return;
     }
 
+    const now = new Date().toISOString();
+    const newEvent = {
+      id: `EV-${Math.random().toString(36).substr(2, 9)}`,
+      action: nextStatus,
+      actor: currentUser?.name || actorRole,
+      timestamp: now,
+      note: "",
+    };
+
     const updated = {
       ...booking,
       ...extraUpdates,
       status: nextStatus,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
+      timeline: [...(booking.timeline || []), newEvent],
     };
 
     setBooking(updated);
 
-    // Re-sync after action
+    // Re-sync after action — merge backend data but keep optimistic timeline event
     try {
       const liveBookings = await fetchLiveBookings(id);
       const found = liveBookings.find((b) => b.id === id);
-      if (found) setBooking(found);
+      if (found) {
+        const mergedTimeline = [
+          ...found.timeline.filter((e) => e.id !== newEvent.id),
+          newEvent,
+        ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        setBooking({ ...found, timeline: mergedTimeline });
+      }
     } catch (err) {
       console.error("Failed to re-sync booking after action", err);
     }
@@ -418,10 +434,10 @@ export default function BookingDetailPage({ id }: { id: string }) {
 
           {/* Activity Timeline */}
           <div className="glass-card rounded-2xl p-6 shadow-modern">
-            <Timeline 
-              events={booking.timeline} 
+            <Timeline
+              events={booking.timeline}
               title={t("bookings.activityTimeline") || "Activity Timeline"}
-              emptyMessage={t("bookings.noActivityYet") || "No activity yet"}
+              emptyMessage={t("bookings.noActivityYet") || "No activity recorded yet"}
             />
           </div>
         </div>

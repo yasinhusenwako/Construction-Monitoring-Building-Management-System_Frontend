@@ -437,20 +437,36 @@ export function ProjectDetailPage() {
       return;
     }
 
+    const now = new Date().toISOString();
+    const newEvent = {
+      id: `EV-${Math.random().toString(36).substr(2, 9)}`,
+      action: action,
+      actor: currentUser?.name || actorRole,
+      timestamp: now,
+      note: "",
+    };
+
     const updated = {
       ...project,
       ...extraUpdates,
       status: action,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
+      timeline: [...(project.timeline || []), newEvent],
     };
     setProjectItem(updated);
 
-    // Re-sync after a short delay or immediately
+    // Re-sync after action — merge backend data but keep optimistic timeline event
     try {
       // Token is automatically sent via httpOnly cookie
       const liveProjects = await fetchLiveProjects(id);
       const found = liveProjects.find((p) => p.id === id);
-      if (found) setProjectItem(found);
+      if (found) {
+        const mergedTimeline = [
+          ...found.timeline.filter((e) => e.id !== newEvent.id),
+          newEvent,
+        ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        setProjectItem({ ...found, timeline: mergedTimeline });
+      }
     } catch (err) {
       console.error("Failed to re-sync after action", err);
     }
@@ -930,53 +946,11 @@ export function ProjectDetailPage() {
 
           {/* Timeline */}
           <div className="glass-card rounded-2xl p-6 shadow-modern">
-            <h3 className="text-sm font-bold text-[#0E2271] mb-6 flex items-center gap-2">
-              <span className="bg-indigo-50 p-1.5 rounded-md border border-indigo-100">
-                <Clock size={16} className="text-indigo-600" />
-              </span>
-              {t("projects.activityTimeline")}
-            </h3>
-            <div className="space-y-6">
-              {project.timeline.map((event, i) => (
-                <div key={event.id} className="flex gap-4 group">
-                  <div className="flex flex-col items-center">
-                    <div className="w-9 h-9 rounded-full bg-white border-[3px] border-[#1A3580]/20 flex items-center justify-center flex-shrink-0 group-hover:border-[#1A3580] transition-colors shadow-sm">
-                      <div className="w-2.5 h-2.5 rounded-full bg-[#1A3580]"></div>
-                    </div>
-                    {i < project.timeline.length - 1 && (
-                      <div className="w-0.5 flex-1 bg-border mt-2 mb-2 group-hover:bg-[#1A3580]/30 transition-colors" />
-                    )}
-                  </div>
-                  <div className="pb-2 flex-1 pt-1.5">
-                    <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
-                      <div className="flex items-center gap-3">
-                        <StatusBadge status={event.action} />
-                        <span className="text-sm text-foreground font-medium">
-                          {event.action}
-                        </span>
-                      </div>
-                      <span className="text-xs font-semibold text-muted-foreground bg-secondary px-2.5 py-1 rounded-md">
-                        {new Date(event.timestamp).toLocaleString()}
-                      </span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1.5">
-                      by{" "}
-                      <span className="font-bold text-[#0E2271]">
-                        {event.actor}
-                      </span>
-                    </p>
-                    {event.note && (
-                      <div className="mt-3 bg-secondary/50 border border-border rounded-lg p-3 relative">
-                        <div className="absolute -top-1.5 left-4 w-3 h-3 bg-secondary/50 border-t border-l border-border transform rotate-45"></div>
-                        <p className="text-sm text-foreground">
-                          {event.note}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <Timeline
+              events={project.timeline}
+              title={t("projects.activityTimeline")}
+              emptyMessage={t("projects.noActivityYet") || "No activity recorded yet"}
+            />
           </div>
         </div>
 

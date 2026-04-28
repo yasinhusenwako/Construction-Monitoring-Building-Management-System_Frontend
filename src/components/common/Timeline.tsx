@@ -1,6 +1,22 @@
 "use client";
 
-import { Clock, User, MessageSquare } from "lucide-react";
+import {
+  Clock,
+  User,
+  MessageSquare,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Send,
+  Eye,
+  Wrench,
+  UserCheck,
+  Archive,
+  FileText,
+  StickyNote,
+  DollarSign,
+  ShieldCheck,
+} from "lucide-react";
 
 export interface TimelineEvent {
   id: string;
@@ -14,138 +30,260 @@ interface TimelineProps {
   events: TimelineEvent[];
   title?: string;
   emptyMessage?: string;
+  accentColor?: string;
 }
 
-export function Timeline({ events, title = "Activity Timeline", emptyMessage = "No activity yet" }: TimelineProps) {
-  if (!events || events.length === 0) {
-    return (
-      <div className="glass-card rounded-2xl p-6 shadow-modern">
-        <h3 className="text-sm font-semibold text-[#0E2271] mb-4 flex items-center gap-2">
-          <Clock size={16} className="text-[#1A3580]" />
-          {title}
-        </h3>
-        <div className="text-center py-8">
+// ── Status config: icon + colors per action ──────────────────────────────────
+function getStatusConfig(action: string): {
+  icon: React.ReactNode;
+  dotColor: string;
+  badgeBg: string;
+  badgeText: string;
+  borderColor: string;
+} {
+  const a = action.toLowerCase();
+
+  if (a.includes("submitted"))
+    return {
+      icon: <Send size={14} />,
+      dotColor: "bg-blue-500",
+      badgeBg: "bg-blue-50",
+      badgeText: "text-blue-700",
+      borderColor: "border-blue-200",
+    };
+  if (a.includes("under review") || (a.includes("review") && !a.includes("reviewed")))
+    return {
+      icon: <Eye size={14} />,
+      dotColor: "bg-amber-500",
+      badgeBg: "bg-amber-50",
+      badgeText: "text-amber-700",
+      borderColor: "border-amber-200",
+    };
+  if (a.includes("assigned to supervisor"))
+    return {
+      icon: <UserCheck size={14} />,
+      dotColor: "bg-violet-500",
+      badgeBg: "bg-violet-50",
+      badgeText: "text-violet-700",
+      borderColor: "border-violet-200",
+    };
+  if (a.includes("workorder") || a.includes("work order"))
+    return {
+      icon: <FileText size={14} />,
+      dotColor: "bg-indigo-500",
+      badgeBg: "bg-indigo-50",
+      badgeText: "text-indigo-700",
+      borderColor: "border-indigo-200",
+    };
+  if (a.includes("assigned to professional") || a.includes("assigned to tech"))
+    return {
+      icon: <Wrench size={14} />,
+      dotColor: "bg-purple-500",
+      badgeBg: "bg-purple-50",
+      badgeText: "text-purple-700",
+      borderColor: "border-purple-200",
+    };
+  if (a.includes("assigned"))
+    return {
+      icon: <UserCheck size={14} />,
+      dotColor: "bg-purple-400",
+      badgeBg: "bg-purple-50",
+      badgeText: "text-purple-700",
+      borderColor: "border-purple-200",
+    };
+  if (a.includes("in progress"))
+    return {
+      icon: <Wrench size={14} />,
+      dotColor: "bg-orange-500",
+      badgeBg: "bg-orange-50",
+      badgeText: "text-orange-700",
+      borderColor: "border-orange-200",
+    };
+  if (a === "completed" || a.includes("completed"))
+    return {
+      icon: <CheckCircle size={14} />,
+      dotColor: "bg-teal-500",
+      badgeBg: "bg-teal-50",
+      badgeText: "text-teal-700",
+      borderColor: "border-teal-200",
+    };
+  if (a.includes("reviewed"))
+    return {
+      icon: <ShieldCheck size={14} />,
+      dotColor: "bg-cyan-500",
+      badgeBg: "bg-cyan-50",
+      badgeText: "text-cyan-700",
+      borderColor: "border-cyan-200",
+    };
+  if (a.includes("approved"))
+    return {
+      icon: <CheckCircle size={14} />,
+      dotColor: "bg-green-500",
+      badgeBg: "bg-green-50",
+      badgeText: "text-green-700",
+      borderColor: "border-green-200",
+    };
+  if (a.includes("rejected"))
+    return {
+      icon: <XCircle size={14} />,
+      dotColor: "bg-red-500",
+      badgeBg: "bg-red-50",
+      badgeText: "text-red-700",
+      borderColor: "border-red-200",
+    };
+  if (a.includes("closed"))
+    return {
+      icon: <Archive size={14} />,
+      dotColor: "bg-slate-500",
+      badgeBg: "bg-slate-100",
+      badgeText: "text-slate-600",
+      borderColor: "border-slate-200",
+    };
+  if (a.includes("note"))
+    return {
+      icon: <StickyNote size={14} />,
+      dotColor: "bg-indigo-400",
+      badgeBg: "bg-indigo-50",
+      badgeText: "text-indigo-700",
+      borderColor: "border-indigo-200",
+    };
+  if (a.includes("cost") || a.includes("material") || a.includes("labor"))
+    return {
+      icon: <DollarSign size={14} />,
+      dotColor: "bg-emerald-500",
+      badgeBg: "bg-emerald-50",
+      badgeText: "text-emerald-700",
+      borderColor: "border-emerald-200",
+    };
+
+  return {
+    icon: <AlertCircle size={14} />,
+    dotColor: "bg-slate-400",
+    badgeBg: "bg-slate-100",
+    badgeText: "text-slate-600",
+    borderColor: "border-slate-200",
+  };
+}
+
+function formatTimestamp(ts: string): { date: string; time: string } {
+  const d = new Date(ts);
+  return {
+    date: d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
+    time: d.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+  };
+}
+
+export function Timeline({
+  events,
+  title = "Activity Timeline",
+  emptyMessage = "No activity recorded yet",
+}: TimelineProps) {
+  // Sort oldest → newest so the timeline reads top-to-bottom chronologically
+  const sorted = [...(events ?? [])].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+  );
+
+  return (
+    <div>
+      {/* Header */}
+      <h3 className="text-sm font-bold text-[#0E2271] mb-6 flex items-center gap-2">
+        <span className="bg-indigo-50 p-1.5 rounded-md border border-indigo-100">
+          <Clock size={16} className="text-indigo-600" />
+        </span>
+        {title}
+        {sorted.length > 0 && (
+          <span className="ml-auto text-xs font-semibold text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
+            {sorted.length} {sorted.length === 1 ? "event" : "events"}
+          </span>
+        )}
+      </h3>
+
+      {sorted.length === 0 ? (
+        <div className="text-center py-10">
           <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
             <Clock size={20} className="text-slate-400" />
           </div>
           <p className="text-sm text-muted-foreground">{emptyMessage}</p>
         </div>
-      </div>
-    );
-  }
+      ) : (
+        <div className="space-y-0">
+          {sorted.map((event, i) => {
+            const cfg = getStatusConfig(event.action);
+            const { date, time } = formatTimestamp(event.timestamp);
+            const isLast = i === sorted.length - 1;
 
-  // Sort events by timestamp (newest first)
-  const sortedEvents = [...events].sort((a, b) => 
-    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-  );
-
-  return (
-    <div className="glass-card rounded-2xl p-6 shadow-modern">
-      <h3 className="text-sm font-semibold text-[#0E2271] mb-6 flex items-center gap-2">
-        <Clock size={16} className="text-[#1A3580]" />
-        {title}
-        <span className="ml-auto text-xs font-normal text-muted-foreground">
-          {events.length} {events.length === 1 ? "event" : "events"}
-        </span>
-      </h3>
-      
-      <div className="relative">
-        {/* Timeline line */}
-        <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gradient-to-b from-[#1A3580] via-[#1A3580]/50 to-transparent" />
-        
-        <div className="space-y-6">
-          {sortedEvents.map((event, index) => (
-            <div key={event.id} className="relative pl-12">
-              {/* Timeline dot */}
-              <div className="absolute left-0 top-1 w-8 h-8 rounded-full bg-white border-2 border-[#1A3580] flex items-center justify-center shadow-sm">
-                <div className="w-3 h-3 rounded-full bg-[#1A3580]" />
-              </div>
-              
-              {/* Event content */}
-              <div className="bg-white rounded-lg border border-border p-4 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div className="flex-1">
-                    <h4 className="text-sm font-bold text-[#0E2271] mb-1">
-                      {event.action}
-                    </h4>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <User size={12} />
-                      <span className="font-medium">{event.actor}</span>
-                      <span className="text-border">•</span>
-                      <Clock size={12} />
-                      <span>
-                        {new Date(event.timestamp).toLocaleString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    </div>
+            return (
+              <div key={event.id} className="flex gap-4 group">
+                {/* Left: dot + connector */}
+                <div className="flex flex-col items-center flex-shrink-0">
+                  <div
+                    className={`w-9 h-9 rounded-full bg-white border-2 flex items-center justify-center shadow-sm transition-all group-hover:scale-110 ${cfg.borderColor} ${isLast ? "ring-2 ring-offset-1 ring-opacity-40 " + cfg.dotColor.replace("bg-", "ring-") : ""}`}
+                  >
+                    <span className={cfg.badgeText}>{cfg.icon}</span>
                   </div>
-                  
-                  {/* Status badge based on action */}
-                  <span className={`text-xs px-2 py-1 rounded-full font-semibold ${getActionColor(event.action)}`}>
-                    {event.action}
-                  </span>
+                  {!isLast && (
+                    <div className="w-0.5 flex-1 bg-border my-1 group-hover:bg-slate-300 transition-colors min-h-[20px]" />
+                  )}
                 </div>
-                
-                {/* Note if present */}
-                {event.note && event.note.trim() && (
-                  <div className="mt-3 pt-3 border-t border-border">
-                    <div className="flex items-start gap-2">
-                      <MessageSquare size={14} className="text-[#CC1F1A] mt-0.5 flex-shrink-0" />
-                      <p className="text-sm text-foreground leading-relaxed">
-                        {event.note}
-                      </p>
+
+                {/* Right: content */}
+                <div className={`pb-5 flex-1 pt-1 ${isLast ? "pb-0" : ""}`}>
+                  {/* Action badge + timestamp */}
+                  <div className="flex items-start justify-between gap-2 flex-wrap mb-1.5">
+                    <span
+                      className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border ${cfg.badgeBg} ${cfg.badgeText} ${cfg.borderColor}`}
+                    >
+                      {cfg.icon}
+                      {event.action}
+                    </span>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-md flex-shrink-0">
+                      <Clock size={11} />
+                      <span>{date}</span>
+                      <span className="text-border">·</span>
+                      <span className="font-semibold">{time}</span>
                     </div>
                   </div>
-                )}
+
+                  {/* Actor */}
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+                    <User size={11} />
+                    <span>
+                      by{" "}
+                      <span className="font-semibold text-[#0E2271]">
+                        {event.actor}
+                      </span>
+                    </span>
+                  </div>
+
+                  {/* Note */}
+                  {event.note && event.note.trim() && (
+                    <div className="mt-2 bg-secondary/60 border border-border rounded-lg p-3 relative">
+                      <div className="absolute -top-1.5 left-4 w-3 h-3 bg-secondary/60 border-t border-l border-border rotate-45" />
+                      <div className="flex items-start gap-2">
+                        <MessageSquare
+                          size={13}
+                          className="text-[#CC1F1A] mt-0.5 flex-shrink-0"
+                        />
+                        <p className="text-sm text-foreground leading-relaxed">
+                          {event.note}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
-// Helper function to get color classes based on action
-function getActionColor(action: string): string {
-  const actionLower = action.toLowerCase();
-  
-  if (actionLower.includes("submitted")) {
-    return "bg-blue-100 text-blue-700 border border-blue-200";
-  }
-  if (actionLower.includes("review") || actionLower.includes("under review")) {
-    return "bg-yellow-100 text-yellow-700 border border-yellow-200";
-  }
-  if (actionLower.includes("assigned")) {
-    return "bg-purple-100 text-purple-700 border border-purple-200";
-  }
-  if (actionLower.includes("progress") || actionLower.includes("in progress")) {
-    return "bg-orange-100 text-orange-700 border border-orange-200";
-  }
-  if (actionLower.includes("completed")) {
-    return "bg-teal-100 text-teal-700 border border-teal-200";
-  }
-  if (actionLower.includes("reviewed")) {
-    return "bg-cyan-100 text-cyan-700 border border-cyan-200";
-  }
-  if (actionLower.includes("approved")) {
-    return "bg-green-100 text-green-700 border border-green-200";
-  }
-  if (actionLower.includes("rejected")) {
-    return "bg-red-100 text-red-700 border border-red-200";
-  }
-  if (actionLower.includes("closed")) {
-    return "bg-slate-100 text-slate-700 border border-slate-200";
-  }
-  if (actionLower.includes("note")) {
-    return "bg-indigo-100 text-indigo-700 border border-indigo-200";
-  }
-  
-  // Default
-  return "bg-slate-100 text-slate-700 border border-slate-200";
-}
