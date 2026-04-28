@@ -180,16 +180,35 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
           transition={{ type: "spring", stiffness: 100, damping: 20 }}
           className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col p-12 text-white z-20 shadow-2xl"
         >
-          {/* Background Image */}
-          <div className="absolute inset-0 z-0">
-            <Image
-              src={authBg}
-              alt="Background"
-              fill
-              className="object-cover"
-              priority
-            />
-          </div>
+          {/* Background Image with Motion */}
+          <motion.div
+            className="absolute inset-0 z-0"
+            initial={{ scale: 1.1, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+          >
+            <motion.div
+              className="w-full h-full"
+              animate={{
+                scale: [1, 1.05, 1],
+                x: [0, -10, 0],
+                y: [0, -5, 0],
+              }}
+              transition={{
+                duration: 20,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            >
+              <Image
+                src={authBg}
+                alt="Background"
+                fill
+                className="object-cover"
+                priority
+              />
+            </motion.div>
+          </motion.div>
 
           <div className="relative z-10 flex flex-col h-full">
             {/* Logo Section */}

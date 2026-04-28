@@ -349,7 +349,6 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
       label: t("users.title"),
       icon: <UserCog size={18} />,
       desc: t("admin.usersDesc"),
-
       path: "/admin/users",
       color: "#0E2271",
       badge: null,
@@ -358,7 +357,6 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
       label: t("admin.allUserRequests"),
       icon: <Inbox size={18} />,
       desc: t("admin.allRequestsDesc"),
-
       path: "/admin/requests",
       color: "#1A3580",
       badge:
@@ -371,43 +369,14 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
       label: t("nav.config"),
       icon: <Settings size={18} />,
       desc: t("admin.configDesc"),
-
       path: "/admin/config",
       color: "#7C3AED",
       badge: null,
     },
     {
-      label: t("projects.title"),
-      icon: <FolderOpen size={18} />,
-      desc: t("admin.projectsDesc"),
-
-      path: "/dashboard/projects",
-      color: "#1A3580",
-      badge: pendingProjects.length || null,
-    },
-    {
-      label: t("module.bookings"),
-      icon: <Calendar size={18} />,
-      desc: t("admin.bookingsDesc"),
-
-      path: "/dashboard/bookings",
-      color: "#7C3AED",
-      badge: pendingBookings.length || null,
-    },
-    {
-      label: t("maintenance.assignTechnician"),
-      icon: <Wrench size={18} />,
-      desc: t("admin.maintenanceDesc"),
-
-      path: "/dashboard/maintenance",
-      color: "#CC1F1A",
-      badge: unassignedTickets.length || null,
-    },
-    {
       label: t("nav.reports"),
       icon: <BarChart3 size={18} />,
       desc: t("admin.reportsDesc"),
-
       path: "/dashboard/reports",
       color: "#16A34A",
       badge: null,
@@ -555,11 +524,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
               icon={<Wrench size={18} />}
               label={t("admin.maintenanceTickets")}
               color="#DC2626"
-              value={
-                openTickets.length +
-                pendingProjects.length +
-                pendingBookings.length
-              }
+              value={openTickets.length}
               sub={`${unassignedTickets.length} ${t("admin.new")} · ${criticalTickets.length} ${t("admin.critical")}`}
               trend={{
                 val:
@@ -570,7 +535,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                       : t("admin.ok"),
                 up: criticalTickets.length === 0,
               }}
-              onClick={() => router.push("/admin/requests")}
+              onClick={() => router.push("/dashboard/maintenance")}
             />
             <KpiCard
               icon={<Target size={18} />}
@@ -620,7 +585,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
               sub={t("admin.navigateToKeyAreas")}
               icon={<Zap size={15} />}
             />
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {controlActions.map((a) => (
                 <button
                   key={a.path}
