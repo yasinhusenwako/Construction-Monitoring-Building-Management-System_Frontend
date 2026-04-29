@@ -10,6 +10,7 @@ interface DatePickerProps {
   hasError?: boolean;
   minDate?: string; // YYYY-MM-DD
   label?: string;
+  bookedDates?: string[]; // Array of booked dates in YYYY-MM-DD format
 }
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -53,6 +54,7 @@ export function DatePicker({
   placeholder = "Select date",
   hasError,
   minDate,
+  bookedDates = [],
 }: DatePickerProps) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -141,6 +143,11 @@ export function DatePicker({
     const d = new Date(viewYear, viewMonth, day);
     d.setHours(0, 0, 0, 0);
     return d < minD;
+  };
+
+  const isBooked = (day: number) => {
+    const dateStr = toYMD(new Date(viewYear, viewMonth, day));
+    return bookedDates.includes(dateStr);
   };
 
   const daysInMonth = getDaysInMonth(viewYear, viewMonth);
@@ -296,6 +303,7 @@ export function DatePicker({
               const disabled = isDisabled(day);
               const selected = isSelected(day);
               const todayDay = isToday(day);
+              const booked = isBooked(day);
               return (
                 <button
                   key={day}
@@ -307,9 +315,11 @@ export function DatePicker({
                       ? "bg-[#1A3580] text-white shadow-sm"
                       : disabled
                         ? "text-muted-foreground/30 cursor-not-allowed"
-                        : todayDay
-                          ? "border border-[#1A3580] text-[#1A3580] hover:bg-[#1A3580]/10"
-                          : "text-foreground hover:bg-[#1A3580]/8 hover:text-[#1A3580]"
+                        : booked
+                          ? "bg-red-100 text-red-700 border border-red-300 hover:bg-red-200"
+                          : todayDay
+                            ? "border border-[#1A3580] text-[#1A3580] hover:bg-[#1A3580]/10"
+                            : "text-foreground hover:bg-[#1A3580]/8 hover:text-[#1A3580]"
                   }`}
                 >
                   {day}
@@ -342,6 +352,18 @@ export function DatePicker({
               </button>
             )}
           </div>
+
+          {/* Legend for booked dates */}
+          {bookedDates.length > 0 && (
+            <div className="border-t border-border px-3 py-2 bg-gray-50">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded bg-red-100 border border-red-300"></div>
+                  <span>Booked dates</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

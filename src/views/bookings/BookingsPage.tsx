@@ -392,6 +392,11 @@ export function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Calendar state
+  const today = new Date();
+  const [calendarYear, setCalendarYear] = useState(today.getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState(today.getMonth()); // 0-11
 
   useEffect(() => {
     const refresh = async () => {
@@ -686,10 +691,38 @@ export function BookingsPage() {
     {} as Record<string, Booking[]>,
   );
 
-  const calendarDays = Array.from(
-    { length: 31 },
-    (_, i) => `2024-04-${String(i + 1).padStart(2, "0")}`,
-  );
+  // Generate calendar days for current month
+  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+  
+  const daysInMonth = getDaysInMonth(calendarYear, calendarMonth);
+  const firstDayOfWeek = getFirstDayOfMonth(calendarYear, calendarMonth);
+  
+  const calendarDays = Array.from({ length: daysInMonth }, (_, i) => {
+    const day = i + 1;
+    const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    return dateStr;
+  });
+
+  const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  
+  const prevMonth = () => {
+    if (calendarMonth === 0) {
+      setCalendarMonth(11);
+      setCalendarYear(y => y - 1);
+    } else {
+      setCalendarMonth(m => m - 1);
+    }
+  };
+  
+  const nextMonth = () => {
+    if (calendarMonth === 11) {
+      setCalendarMonth(0);
+      setCalendarYear(y => y + 1);
+    } else {
+      setCalendarMonth(m => m + 1);
+    }
+  };
 
   const statuses = ["All", ...WORKFLOW_STATUSES];
 
@@ -927,13 +960,21 @@ export function BookingsPage() {
       {view === "calendar" && (
         <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-            <h3 className="font-semibold text-[#0E2271]">April 2024</h3>
+            <h3 className="font-semibold text-[#0E2271]">
+              {MONTHS[calendarMonth]} {calendarYear}
+            </h3>
             <div className="flex gap-2 text-sm text-muted-foreground">
-              <button className="px-3 py-1 rounded border border-border hover:bg-secondary">
-                ← Mar
+              <button 
+                onClick={prevMonth}
+                className="px-3 py-1 rounded border border-border hover:bg-secondary"
+              >
+                ← {t("bookings.prevMonth") || "Prev"}
               </button>
-              <button className="px-3 py-1 rounded border border-border hover:bg-secondary">
-                May →
+              <button 
+                onClick={nextMonth}
+                className="px-3 py-1 rounded border border-border hover:bg-secondary"
+              >
+                {t("bookings.nextMonth") || "Next"} →
               </button>
             </div>
           </div>
@@ -948,18 +989,35 @@ export function BookingsPage() {
             ))}
           </div>
           <div className="grid grid-cols-7">
-            <div className="border-r border-b border-border p-1 min-h-[80px]" />
-            {calendarDays.slice(0, 30).map((date, i) => {
+            {/* Empty cells for first day offset */}
+            {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+              <div key={`empty-${i}`} className="border-r border-b border-border p-1 min-h-[80px] bg-gray-50/50" />
+            ))}
+            
+            {calendarDays.map((date, i) => {
               const dayBookings = calendarBookings[date] || [];
-              const isToday = date === "2024-04-18";
+              const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+              const isToday = date === todayStr;
+              const hasBookings = dayBookings.length > 0;
+              
               return (
                 <div
                   key={date}
-                  className={`border-r border-b border-border p-1 min-h-[80px] ${isToday ? "bg-blue-50" : "hover:bg-secondary/30"} transition-colors`}
+                  className={`border-r border-b border-border p-1 min-h-[80px] transition-colors ${
+                    isToday 
+                      ? "bg-blue-50" 
+                      : hasBookings 
+                        ? "bg-red-50 hover:bg-red-100" 
+                        : "hover:bg-secondary/30"
+                  }`}
                 >
                   <p
                     className={`text-xs font-semibold mb-1 w-6 h-6 flex items-center justify-center rounded-full ${
-                      isToday ? "bg-[#1A3580] text-white" : "text-foreground"
+                      isToday 
+                        ? "bg-[#1A3580] text-white" 
+                        : hasBookings
+                          ? "bg-red-500 text-white"
+                          : "text-foreground"
                     }`}
                   >
                     {i + 1}
@@ -967,28 +1025,50 @@ export function BookingsPage() {
                   {dayBookings.slice(0, 2).map((b) => (
                     <div
                       key={b.id}
-                      className={`text-xs px-1 py-0.5 rounded mb-0.5 truncate ${
+                      className={`text-xs px-1 py-0.5 rounded mb-0.5 cursor-pointer hover:opacity-80 ${
                         b.status === "Approved"
-                          ? "bg-green-100 text-green-800"
+                          ? "bg-green-100 text-green-800 border border-green-300"
                           : ["Submitted", "Under Review"].includes(b.status)
-                            ? "bg-amber-100 text-amber-800"
+                            ? "bg-amber-100 text-amber-800 border border-amber-300"
                             : b.status === "Rejected"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-blue-100 text-blue-800"
+                              ? "bg-red-100 text-red-800 border border-red-300"
+                              : "bg-blue-100 text-blue-800 border border-blue-300"
                       }`}
-                      title={b.title}
+                      title={`${b.title} - ${b.space}\n${b.startTime} - ${b.endTime}`}
+                      onClick={() => router.push(`/dashboard/bookings/${b.id}`)}
                     >
-                      {b.startTime} {b.space.split(" ").slice(0, 2).join(" ")}
+                      <div className="truncate font-medium">{b.startTime}-{b.endTime}</div>
+                      <div className="truncate text-[10px] opacity-90">{b.space.split(" ").slice(0, 2).join(" ")}</div>
                     </div>
                   ))}
                   {dayBookings.length > 2 && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground font-medium">
                       +{dayBookings.length - 2} more
                     </p>
                   )}
                 </div>
               );
             })}
+          </div>
+          
+          {/* Calendar Legend */}
+          <div className="px-5 py-3 border-t border-border bg-gray-50 flex items-center gap-4 text-xs">
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded-full bg-[#1A3580]"></div>
+              <span className="text-muted-foreground">{t("bookings.today") || "Today"}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded-full bg-red-500"></div>
+              <span className="text-muted-foreground">{t("bookings.hasBookings") || "Has Bookings"}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded bg-green-100 border border-green-300"></div>
+              <span className="text-muted-foreground">{t("status.approved")}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded bg-amber-100 border border-amber-300"></div>
+              <span className="text-muted-foreground">{t("status.pending")}</span>
+            </div>
           </div>
         </div>
       )}

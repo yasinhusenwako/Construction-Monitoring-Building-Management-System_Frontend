@@ -200,6 +200,14 @@ export function NewBookingPage() {
       );
     });
 
+  // Calculate booked dates for the selected space (for calendar highlighting)
+  const bookedDatesForSpace = bookingType === "B2" && selectedSpace
+    ? liveBookings
+        .filter((b) => b.space === selectedSpace.name)
+        .map((b) => b.date)
+        .filter((date, index, self) => self.indexOf(date) === index) // Remove duplicates
+    : [];
+
   const B1_STEPS = [
     t("bookings.step.classification"),
     t("bookings.step.officeDetails"),
@@ -377,6 +385,9 @@ export function NewBookingPage() {
             dateTime: isOfficeAllocation
               ? new Date().toISOString()
               : `${b2Form.date}T${b2Form.startTime}:00`,
+            endTime: isOfficeAllocation
+              ? new Date().toISOString()
+              : `${b2Form.date}T${b2Form.endTime}:00`,
             capacity: Number.isFinite(attendees) ? attendees : 0,
             layout: isOfficeAllocation
               ? b1Form.preferredLocation || "Office"
@@ -927,27 +938,16 @@ export function NewBookingPage() {
               {spaces.map((space) => (
                 <button
                   key={space.id}
-                  onClick={() =>
-                    !(space as any).available
-                      ? undefined
-                      : updateB2("space", space.id)
-                  }
-                  disabled={!(space as any).available}
+                  onClick={() => updateB2("space", space.id)}
                   className={`text-left border-2 rounded-2xl p-5 transition-all modern-card ${
-                    !(space as any).available
-                      ? "opacity-50 cursor-not-allowed border-gray-200 bg-gray-50/50"
-                      : b2Form.space === space.id
-                        ? "border-green-500 bg-green-50 selected"
-                        : "border-border hover:border-green-300 hover:bg-green-50/50 glass-effect"
+                    b2Form.space === space.id
+                      ? "border-green-500 bg-green-50 selected"
+                      : "border-border hover:border-green-300 hover:bg-green-50/50 glass-effect"
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${(space as any).available ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}
-                    >
-                      {(space as any).available
-                        ? t("bookings.available_dot")
-                        : t("bookings.booked_dot")}
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-green-50 text-green-700">
+                      {t("bookings.available_dot")}
                     </span>
                     {b2Form.space === space.id && (
                       <CheckCircle size={16} className="text-green-500" />
@@ -968,6 +968,15 @@ export function NewBookingPage() {
                   </div>
                 </button>
               ))}
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
+              <p className="flex items-center gap-2">
+                <Clock size={14} />
+                <span className="font-medium">{t("bookings.availabilityNote") || "Note:"}</span>
+              </p>
+              <p className="text-xs text-blue-700 mt-1">
+                {t("bookings.availabilityCheckMessage") || "Availability will be checked after you select your preferred date and time in the next step."}
+              </p>
             </div>
           </div>
         )}
@@ -1004,6 +1013,7 @@ export function NewBookingPage() {
                 onChange={(val) => updateB2("date", val)}
                 placeholder={t("bookings.placeholder.date")}
                 hasError={!!errors.date}
+                bookedDates={bookedDatesForSpace}
               />
               {errors.date && (
                 <p className="text-red-500 text-xs mt-1">{errors.date}</p>

@@ -1040,6 +1040,7 @@ export async function updateBooking(bookingId: string, updates: Partial<Booking>
     body: {
       type: updates.type?.toUpperCase(),
       dateTime: updates.date && updates.startTime ? `${updates.date}T${updates.startTime}:00` : undefined,
+      endTime: updates.date && updates.endTime ? `${updates.date}T${updates.endTime}:00` : undefined,
       capacity: updates.attendees,
       layout: updates.space,
       amenities: updates.requirements,
