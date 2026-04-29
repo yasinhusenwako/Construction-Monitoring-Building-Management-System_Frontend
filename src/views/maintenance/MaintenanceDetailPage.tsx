@@ -27,7 +27,7 @@ import {
   Info,
   Calendar,
 } from "lucide-react";
-import { fetchLiveMaintenance, fetchLiveUsers } from "@/lib/live-api";
+import { fetchLiveMaintenance, fetchLiveUsers, fetchRequestHistory } from "@/lib/live-api";
 import { apiRequest } from "@/lib/api";
 import { executeWorkflowAction } from "@/lib/workflow-actions";
 import { FileViewer } from "@/components/common/FileViewer";
@@ -138,6 +138,16 @@ export function MaintenanceDetailPage() {
           // Auto-set assign mode based on role for maintenance
           if (role === "admin") setAssignMode("team");
           else if (role === "supervisor") setAssignMode("professional");
+
+          // Fetch real timeline from backend
+          if (found.dbId) {
+            try {
+              const history = await fetchRequestHistory("MAINTENANCE", found.dbId, liveUsers);
+              if (history.length > 0) {
+                setMaintenanceItem({ ...found, timeline: history });
+              }
+            } catch { /* keep default */ }
+          }
           
           // Fetch uploaded files from backend
           if (found.dbId) {

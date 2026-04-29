@@ -1125,3 +1125,52 @@ export async function markScheduleCompleted(id: number): Promise<PreventiveSched
     method: "POST",
   });
 }
+
+export interface BackendHistoryEvent {
+  id: number;
+  requestId: number;
+  requestType: string;
+  action: string;
+  status: string | null;
+  actorName: string;
+  actorId: number | null;
+  note: string | null;
+  createdAt: string;
+}
+
+export async function fetchRequestHistory(
+  type: "PROJECT" | "MAINTENANCE" | "BOOKING",
+  dbId: number | string,
+  users?: Array<{ id: string; role: string }>,
+) {
+  try {
+    const events = await apiRequest<BackendHistoryEvent[]>(
+      `/api/history/${type}/${dbId}`,
+    );
+
+    const roleLabel = (actorId: number | null): string => {
+      if (!actorId || !users) return "System";
+      const uid = `USR-${String(actorId).padStart(3, "0")}`;
+      const user = users.find((u) => u.id === uid);
+      if (!user) return "System";
+      switch (user.role) {
+        case "admin": return "Admin";
+        case "supervisor": return "Supervisor";
+        case "professional": return "Professional";
+        case "user": return "User";
+        default: return "System";
+      }
+    };
+
+    // Map to TimelineEvent format (reverse so oldest first)
+    return [...events].reverse().map((e) => ({
+      id: `EV-${e.id}`,
+      action: e.action === "Status Updated" && e.status ? e.status : e.action,
+      actor: roleLabel(e.actorId),
+      timestamp: e.createdAt,
+      note: e.note || "",
+    }));
+  } catch {
+    return [];
+  }
+}
