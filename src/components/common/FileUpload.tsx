@@ -1,7 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Upload, X, FileText, Image as ImageIcon, AlertCircle } from "lucide-react";
+import Image from "next/image";
+import {
+  Upload,
+  X,
+  FileText,
+  Image as ImageIcon,
+  AlertCircle,
+} from "lucide-react";
 import { useSystemSettings } from "@/context/SystemSettingsContext";
 
 export interface UploadedFile {
@@ -80,7 +87,7 @@ export function FileUpload({
 
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
-      
+
       // Validate file
       const validationError = validateFile(file);
       if (validationError) {
@@ -198,9 +205,7 @@ export function FileUpload({
           </div>
 
           <div>
-            <p className="text-sm font-semibold text-[#0E2271] mb-1">
-              {label}
-            </p>
+            <p className="text-sm font-semibold text-[#0E2271] mb-1">{label}</p>
             <p className="text-xs text-muted-foreground">{description}</p>
           </div>
 
@@ -238,10 +243,13 @@ export function FileUpload({
                 {/* Preview or Icon */}
                 <div className="flex-shrink-0">
                   {file.preview ? (
-                    <img
+                    <Image
                       src={file.preview}
                       alt={file.name}
+                      width={48}
+                      height={48}
                       className="w-12 h-12 object-cover rounded-md border border-border"
+                      unoptimized
                     />
                   ) : (
                     <div className="w-12 h-12 flex items-center justify-center bg-slate-100 rounded-md">

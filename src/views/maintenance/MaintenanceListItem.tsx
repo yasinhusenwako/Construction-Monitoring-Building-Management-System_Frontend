@@ -164,8 +164,8 @@ export function MaintenanceListItem({
                 <option value="">
                   {role === "admin" ? t("maintenance.selectSupervisor") : t("maintenance.selectProfessional")}
                 </option>
-                {filteredProfessionals.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                {filteredProfessionals.map((p, index) => (
+                  <option key={p.id || p.email || `prof-${index}`} value={p.id}>{p.name}</option>
                 ))}
               </select>
               <button onClick={() => onConfirmAssign(m)} disabled={!selectedTech} className="px-4 py-1.5 bg-[#1A3580] text-white text-sm rounded-lg disabled:opacity-50">

@@ -6,6 +6,7 @@ import { apiRequest } from "@/lib/api";
 import { fetchLiveBookings } from "@/lib/live-api";
 import { getSpaces } from "@/lib/spaces-storage";
 import { useLanguage } from "@/context/LanguageContext";
+import { useAuth } from "@/context/AuthContext";
 import { DatePicker } from "@/components/common/DatePicker";
 import type { Booking, Space } from "@/types/models";
 import {
@@ -56,6 +57,7 @@ function Toggle({
 export function NewBookingPage() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { currentUser } = useAuth();
 
   const allocationReasons = [
     t("bookings.allocationReasons.newHire"),
@@ -108,7 +110,8 @@ export function NewBookingPage() {
     };
 
     window.addEventListener("spacesUpdated", handleSpacesUpdate);
-    return () => window.removeEventListener("spacesUpdated", handleSpacesUpdate);
+    return () =>
+      window.removeEventListener("spacesUpdated", handleSpacesUpdate);
   }, []);
 
   useEffect(() => {
@@ -201,12 +204,13 @@ export function NewBookingPage() {
     });
 
   // Calculate booked dates for the selected space (for calendar highlighting)
-  const bookedDatesForSpace = bookingType === "B2" && selectedSpace
-    ? liveBookings
-        .filter((b) => b.space === selectedSpace.name)
-        .map((b) => b.date)
-        .filter((date, index, self) => self.indexOf(date) === index) // Remove duplicates
-    : [];
+  const bookedDatesForSpace =
+    bookingType === "B2" && selectedSpace
+      ? liveBookings
+          .filter((b) => b.space === selectedSpace.name)
+          .map((b) => b.date)
+          .filter((date, index, self) => self.indexOf(date) === index) // Remove duplicates
+      : [];
 
   const B1_STEPS = [
     t("bookings.step.classification"),
@@ -287,19 +291,10 @@ export function NewBookingPage() {
   const handleSubmit = async () => {
     const prefix = bookingType === "B1" ? "ALLOC" : "BKG";
     const id = `${prefix}-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900) + 100)}`;
-    const storedUser = sessionStorage.getItem("insa_user");
-    const parsedUser = storedUser ? JSON.parse(storedUser) : null;
-    const rawUserId = parsedUser?.id ?? parsedUser?.userId ?? "";
-    const requesterId =
-      typeof parsedUser?.userId === "number"
-        ? parsedUser.userId
-        : Number(String(rawUserId).replace(/[^\d]/g, "")) || 1;
-    const parsedDivisionId =
-      typeof parsedUser?.backendDivisionId === "number"
-        ? parsedUser.backendDivisionId
-        : Number(String(parsedUser?.divisionId ?? "").replace(/[^\d]/g, "")) ||
-          null;
-    const requestedBy = rawUserId ? String(rawUserId) : "USR-000";
+    const requestedBy =
+      currentUser?.email || currentUser?.id || "keycloak-user";
+    const requester = requestedBy;
+    const divisionId = currentUser?.divisionId ?? null;
     const now = new Date().toISOString();
     const finalB1Reason =
       b1Form.reason === t("common.other") ? b1Form.otherReason : b1Form.reason;
@@ -381,7 +376,7 @@ export function NewBookingPage() {
           body: {
             bookingId: id,
             type: isOfficeAllocation ? "OFFICE" : "HALL",
-            requester: requesterId,
+            requester,
             dateTime: isOfficeAllocation
               ? new Date().toISOString()
               : `${b2Form.date}T${b2Form.startTime}:00`,
@@ -393,7 +388,7 @@ export function NewBookingPage() {
               ? b1Form.preferredLocation || "Office"
               : selectedSpace?.name || b2Form.space || "Hall",
             amenities: structuredAmenities,
-            divisionId: parsedDivisionId,
+            divisionId,
           },
         },
       );
@@ -972,10 +967,13 @@ export function NewBookingPage() {
             <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
               <p className="flex items-center gap-2">
                 <Clock size={14} />
-                <span className="font-medium">{t("bookings.availabilityNote") || "Note:"}</span>
+                <span className="font-medium">
+                  {t("bookings.availabilityNote") || "Note:"}
+                </span>
               </p>
               <p className="text-xs text-blue-700 mt-1">
-                {t("bookings.availabilityCheckMessage") || "Availability will be checked after you select your preferred date and time in the next step."}
+                {t("bookings.availabilityCheckMessage") ||
+                  "Availability will be checked after you select your preferred date and time in the next step."}
               </p>
             </div>
           </div>

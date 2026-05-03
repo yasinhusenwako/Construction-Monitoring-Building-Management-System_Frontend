@@ -3,7 +3,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { LanguageProvider } from "@/context/LanguageContext";
-import { AuthProvider } from "@/context/AuthContext";
+import { KeycloakAuthProvider } from "@/contexts/KeycloakAuthContext";
 import { SystemSettingsProvider } from "@/context/SystemSettingsContext";
 import { DynamicMetadata } from "@/components/common/DynamicMetadata";
 import { Toaster } from "@/components/ui/sonner";
@@ -17,12 +17,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <LanguageProvider>
           <SystemSettingsProvider>
             <DynamicMetadata />
-            <AuthProvider>
+            <KeycloakAuthProvider>
               <ErrorBoundary>
                 {children}
               </ErrorBoundary>
               <Toaster />
-            </AuthProvider>
+            </KeycloakAuthProvider>
           </SystemSettingsProvider>
         </LanguageProvider>
       </ThemeProvider>

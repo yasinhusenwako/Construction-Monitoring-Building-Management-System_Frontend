@@ -2,14 +2,22 @@
 
 import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from '@/context/AuthContext';
-import { useLanguage } from '@/context/LanguageContext';
+import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import {
   fetchLiveBookings,
   fetchLiveMaintenance,
   fetchLiveProjects,
 } from "@/lib/live-api";
-import { Search, Filter, FolderOpen, Calendar, Wrench, ExternalLink, Pencil } from "lucide-react";
+import {
+  Search,
+  Filter,
+  FolderOpen,
+  Calendar,
+  Wrench,
+  ExternalLink,
+  Pencil,
+} from "lucide-react";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { getUserFacingStatus } from "@/lib/workflow";
 
@@ -29,12 +37,11 @@ export function MyRequestsPage() {
   React.useEffect(() => {
     const refresh = async () => {
       setLoading(true);
-      const token = sessionStorage.getItem("insa_token") ?? undefined;
       try {
         const [projects, bookings, maintenance] = await Promise.all([
-          fetchLiveProjects(token),
-          fetchLiveBookings(token),
-          fetchLiveMaintenance(token),
+          fetchLiveProjects(),
+          fetchLiveBookings(),
+          fetchLiveMaintenance(),
         ]);
 
         const myProjects = projects
@@ -114,9 +121,11 @@ export function MyRequestsPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#0E2271]">{t('nav.myRequests')}</h1>
+          <h1 className="text-2xl font-bold text-[#0E2271]">
+            {t("nav.myRequests")}
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {t('requests.myRequestsDesc')}
+            {t("requests.myRequestsDesc")}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -246,14 +255,14 @@ export function MyRequestsPage() {
                           onClick={() => router.push(req.path)}
                           className="p-2 hover:bg-blue-50 rounded-lg text-blue-600 transition-colors inline-flex items-center gap-1 font-medium"
                         >
-                          {t('action.view')} <ExternalLink size={14} />
+                          {t("action.view")} <ExternalLink size={14} />
                         </button>
                         {req.status === "Submitted" && (
                           <button
                             onClick={() => router.push(req.editPath)}
                             className="px-3 py-2 border-2 border-green-600 rounded-lg text-green-600 transition-all hover:bg-green-50 inline-flex items-center gap-1.5 font-semibold text-sm"
                           >
-                            <Pencil size={14} /> {t('action.edit')}
+                            <Pencil size={14} /> {t("action.edit")}
                           </button>
                         )}
                       </div>

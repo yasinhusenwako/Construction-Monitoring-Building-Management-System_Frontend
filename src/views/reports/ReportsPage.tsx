@@ -109,17 +109,20 @@ export function ReportsPage() {
   const { t } = useLanguage();
   const { currentUser } = useAuth();
   const isAdmin = currentUser?.role === "admin";
-  
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [maintenanceItems, setMaintenanceItems] = useState<Maintenance[]>([]);
-  const [preventiveSchedule, setPreventiveSchedule] = useState<PreventiveSchedule[]>([]);
+  const [preventiveSchedule, setPreventiveSchedule] = useState<
+    PreventiveSchedule[]
+  >([]);
   const [professionals, setProfessionals] = useState<any[]>([]);
-  
+
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedSchedule, setSelectedSchedule] = useState<PreventiveSchedule | null>(null);
+  const [selectedSchedule, setSelectedSchedule] =
+    useState<PreventiveSchedule | null>(null);
   const [formData, setFormData] = useState({
     system: "",
     frequency: "",
@@ -151,38 +154,46 @@ export function ReportsPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        console.log("🔄 Loading reports data...");
+        // console.log("🔄 Loading reports data...");
         // Token is automatically sent via httpOnly cookie
-        const [liveProjects, liveBookings, liveMaintenance, reportBundle, schedules, users] =
-          await Promise.all([
-            fetchLiveProjects(),
-            fetchLiveBookings(),
-            fetchLiveMaintenance(),
-            fetchLiveReports(),
-            fetchPreventiveSchedules(),
-            fetchLiveUsers(),
-          ]);
+        const [
+          liveProjects,
+          liveBookings,
+          liveMaintenance,
+          reportBundle,
+          schedules,
+          users,
+        ] = await Promise.all([
+          fetchLiveProjects(),
+          fetchLiveBookings(),
+          fetchLiveMaintenance(),
+          fetchLiveReports(),
+          fetchPreventiveSchedules(),
+          fetchLiveUsers(),
+        ]);
 
-        console.log("📊 Data loaded:", {
-          projects: liveProjects.length,
-          bookings: liveBookings.length,
-          maintenance: liveMaintenance.length,
-          schedules: schedules.length,
-        });
+        // console.log("📊 Data loaded:", {
+        //   projects: liveProjects.length,
+        //   bookings: liveBookings.length,
+        //   maintenance: liveMaintenance.length,
+        //   schedules: schedules.length,
+        // });
 
         setProjects(liveProjects);
         setBookings(liveBookings);
         setMaintenanceItems(liveMaintenance);
         setPreventiveSchedule(schedules);
-        setProfessionals(users.filter(u => u.role === "professional"));
+        setProfessionals(users.filter((u) => u.role === "professional"));
 
         // ─── Status Distribution (Combined from all modules) ────────────────
         const statusCounts: Record<string, number> = {};
-        
-        [...liveProjects, ...liveBookings, ...liveMaintenance].forEach((item) => {
-          const status = item.status || "Unknown";
-          statusCounts[status] = (statusCounts[status] || 0) + 1;
-        });
+
+        [...liveProjects, ...liveBookings, ...liveMaintenance].forEach(
+          (item) => {
+            const status = item.status || "Unknown";
+            statusCounts[status] = (statusCounts[status] || 0) + 1;
+          },
+        );
 
         const statusColors: Record<string, string> = {
           Submitted: "#1A3580",
@@ -203,7 +214,20 @@ export function ReportsPage() {
 
         // ─── Request Volume Over Time (Last 6 months) ───────────────────────
         const now = new Date();
-        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthNames = [
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
+          "Oct",
+          "Nov",
+          "Dec",
+        ];
         const last6Months = Array.from({ length: 6 }, (_, i) => {
           const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
           return {
@@ -216,17 +240,26 @@ export function ReportsPage() {
         const requestVolume = last6Months.map(({ month, year, monthIndex }) => {
           const projectCount = liveProjects.filter((p) => {
             const created = new Date(p.createdAt);
-            return created.getFullYear() === year && created.getMonth() === monthIndex;
+            return (
+              created.getFullYear() === year &&
+              created.getMonth() === monthIndex
+            );
           }).length;
 
           const bookingCount = liveBookings.filter((b) => {
             const created = new Date(b.createdAt);
-            return created.getFullYear() === year && created.getMonth() === monthIndex;
+            return (
+              created.getFullYear() === year &&
+              created.getMonth() === monthIndex
+            );
           }).length;
 
           const maintenanceCount = liveMaintenance.filter((m) => {
             const created = new Date(m.createdAt);
-            return created.getFullYear() === year && created.getMonth() === monthIndex;
+            return (
+              created.getFullYear() === year &&
+              created.getMonth() === monthIndex
+            );
           }).length;
 
           return {
@@ -239,20 +272,22 @@ export function ReportsPage() {
 
         // ─── MTTR Calculation (from maintenance data) ───────────────────────
         const completedMaintenance = liveMaintenance.filter(
-          (m) => m.status === "Closed" || m.status === "Completed"
+          (m) => m.status === "Closed" || m.status === "Completed",
         );
-        
+
         let avgMttrHours = 0;
         if (completedMaintenance.length > 0) {
           const totalHours = completedMaintenance.reduce((sum, m) => {
             const created = new Date(m.createdAt);
             const updated = new Date(m.updatedAt);
-            const hours = Math.abs(updated.getTime() - created.getTime()) / (1000 * 60 * 60);
+            const hours =
+              Math.abs(updated.getTime() - created.getTime()) /
+              (1000 * 60 * 60);
             return sum + hours;
           }, 0);
           avgMttrHours = totalHours / completedMaintenance.length;
         }
-        
+
         setAvgMTTR(Math.round(avgMttrHours));
 
         // ─── Space Utilization (from bookings) ──────────────────────────────
@@ -266,7 +301,8 @@ export function ReportsPage() {
         const spaceUtilization = Object.entries(spaceBookingCounts)
           .map(([space, count]) => ({
             space,
-            utilization: totalBookings > 0 ? Math.round((count / totalBookings) * 100) : 0,
+            utilization:
+              totalBookings > 0 ? Math.round((count / totalBookings) * 100) : 0,
           }))
           .sort((a, b) => b.utilization - a.utilization)
           .slice(0, 8); // Top 8 spaces
@@ -275,11 +311,20 @@ export function ReportsPage() {
         const costTracking = last6Months.map(({ month, year, monthIndex }) => {
           const monthProjects = liveProjects.filter((p) => {
             const created = new Date(p.createdAt);
-            return created.getFullYear() === year && created.getMonth() === monthIndex;
+            return (
+              created.getFullYear() === year &&
+              created.getMonth() === monthIndex
+            );
           });
 
-          const planned = monthProjects.reduce((sum, p) => sum + (p.budget || 0), 0);
-          const actual = monthProjects.reduce((sum, p) => sum + (p.totalCost || 0), 0);
+          const planned = monthProjects.reduce(
+            (sum, p) => sum + (p.budget || 0),
+            0,
+          );
+          const actual = monthProjects.reduce(
+            (sum, p) => sum + (p.totalCost || 0),
+            0,
+          );
 
           return { month, planned, actual };
         });
@@ -292,18 +337,18 @@ export function ReportsPage() {
           costTracking,
         });
 
-        console.log("✅ Report data set:", {
-          statusDistribution: dist.length,
-          requestVolume: requestVolume.length,
-          spaceUtilization: spaceUtilization.length,
-          costTracking: costTracking.length,
-        });
+        // console.log("✅ Report data set:", {
+        //   statusDistribution: dist.length,
+        //   requestVolume: requestVolume.length,
+        //   spaceUtilization: spaceUtilization.length,
+        //   costTracking: costTracking.length,
+        // });
       } catch (error) {
         console.error("❌ Failed to load live reports:", error);
       }
     };
     void load();
-  }, []); // Empty dependency array - only load once on mount
+  }, [t]);
 
   const totalBudget = projects.reduce((sum, p) => sum + (p.budget || 0), 0);
   const confirmedBookings = bookings.filter(
@@ -320,10 +365,10 @@ export function ReportsPage() {
   const teamPerformanceData = professionals.slice(0, 2).map((prof) => {
     const profId = prof.id;
     const assignedTasks = maintenanceItems.filter(
-      (m) => m.assignedTo === profId
+      (m) => m.assignedTo === profId,
     );
     const completedTasks = assignedTasks.filter(
-      (m) => m.status === "Closed" || m.status === "Completed"
+      (m) => m.status === "Closed" || m.status === "Completed",
     );
 
     // Calculate average MTTR for this professional
@@ -332,26 +377,28 @@ export function ReportsPage() {
       const totalHours = completedTasks.reduce((sum, m) => {
         const created = new Date(m.createdAt);
         const updated = new Date(m.updatedAt);
-        const hours = Math.abs(updated.getTime() - created.getTime()) / (1000 * 60 * 60);
+        const hours =
+          Math.abs(updated.getTime() - created.getTime()) / (1000 * 60 * 60);
         return sum + hours;
       }, 0);
       avgMTTR = Math.round(totalHours / completedTasks.length);
     }
 
     // Calculate satisfaction score (based on completion rate and response time)
-    const completionRate = assignedTasks.length > 0 
-      ? (completedTasks.length / assignedTasks.length) * 100 
-      : 0;
+    const completionRate =
+      assignedTasks.length > 0
+        ? (completedTasks.length / assignedTasks.length) * 100
+        : 0;
     const responseScore = avgMTTR > 0 ? Math.max(0, 100 - avgMTTR * 2) : 85;
-    const satisfaction = Math.round((completionRate * 0.6) + (responseScore * 0.4));
+    const satisfaction = Math.round(completionRate * 0.6 + responseScore * 0.4);
 
-    console.log(`👤 Professional: ${prof.name}`, {
-      profId,
-      assigned: assignedTasks.length,
-      completed: completedTasks.length,
-      avgMTTR,
-      satisfaction,
-    });
+    // console.log(`👤 Professional: ${prof.name}`, {
+    //   profId,
+    //   assigned: assignedTasks.length,
+    //   completed: completedTasks.length,
+    //   avgMTTR,
+    //   satisfaction,
+    // });
 
     return {
       name: prof.name,
@@ -362,30 +409,46 @@ export function ReportsPage() {
     };
   });
 
-  console.log("📊 Team Performance Data:", teamPerformanceData);
+  // console.log("📊 Team Performance Data:", teamPerformanceData);
 
   // Calculate radar chart data from real performance metrics
   const radarData = [
     {
       metric: "Response Speed",
       ...(teamPerformanceData[0] && {
-        [teamPerformanceData[0].name]: Math.max(0, 100 - teamPerformanceData[0].avgMTTR * 3),
+        [teamPerformanceData[0].name]: Math.max(
+          0,
+          100 - teamPerformanceData[0].avgMTTR * 3,
+        ),
       }),
       ...(teamPerformanceData[1] && {
-        [teamPerformanceData[1].name]: Math.max(0, 100 - teamPerformanceData[1].avgMTTR * 3),
+        [teamPerformanceData[1].name]: Math.max(
+          0,
+          100 - teamPerformanceData[1].avgMTTR * 3,
+        ),
       }),
     },
     {
       metric: "Completion Rate",
       ...(teamPerformanceData[0] && {
-        [teamPerformanceData[0].name]: teamPerformanceData[0].assigned > 0
-          ? Math.round((teamPerformanceData[0].completed / teamPerformanceData[0].assigned) * 100)
-          : 0,
+        [teamPerformanceData[0].name]:
+          teamPerformanceData[0].assigned > 0
+            ? Math.round(
+                (teamPerformanceData[0].completed /
+                  teamPerformanceData[0].assigned) *
+                  100,
+              )
+            : 0,
       }),
       ...(teamPerformanceData[1] && {
-        [teamPerformanceData[1].name]: teamPerformanceData[1].assigned > 0
-          ? Math.round((teamPerformanceData[1].completed / teamPerformanceData[1].assigned) * 100)
-          : 0,
+        [teamPerformanceData[1].name]:
+          teamPerformanceData[1].assigned > 0
+            ? Math.round(
+                (teamPerformanceData[1].completed /
+                  teamPerformanceData[1].assigned) *
+                  100,
+              )
+            : 0,
       }),
     },
     {
@@ -400,10 +463,16 @@ export function ReportsPage() {
     {
       metric: "Communication",
       ...(teamPerformanceData[0] && {
-        [teamPerformanceData[0].name]: Math.min(100, teamPerformanceData[0].satisfaction + 5),
+        [teamPerformanceData[0].name]: Math.min(
+          100,
+          teamPerformanceData[0].satisfaction + 5,
+        ),
       }),
       ...(teamPerformanceData[1] && {
-        [teamPerformanceData[1].name]: Math.min(100, teamPerformanceData[1].satisfaction - 5),
+        [teamPerformanceData[1].name]: Math.min(
+          100,
+          teamPerformanceData[1].satisfaction - 5,
+        ),
       }),
     },
     {
@@ -486,7 +555,7 @@ export function ReportsPage() {
 
   const handleDeleteSchedule = async (id: number) => {
     if (!confirm("Are you sure you want to delete this schedule?")) return;
-    
+
     try {
       await deletePreventiveSchedule(id);
       const schedules = await fetchPreventiveSchedules();
@@ -583,7 +652,10 @@ export function ReportsPage() {
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={reportData.requestVolume}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6B7BA4" }} />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 11, fill: "#6B7BA4" }}
+                />
                 <YAxis tick={{ fontSize: 11, fill: "#6B7BA4" }} />
                 <Tooltip
                   contentStyle={{
@@ -672,7 +744,9 @@ export function ReportsPage() {
                         className="w-3 h-3 rounded-full flex-shrink-0"
                         style={{ background: item.color }}
                       />
-                      <span className="text-xs text-foreground">{item.name}</span>
+                      <span className="text-xs text-foreground">
+                        {item.name}
+                      </span>
                     </div>
                     <span className="text-xs font-semibold text-muted-foreground">
                       {item.value}
@@ -792,11 +866,15 @@ export function ReportsPage() {
               {t("reports.plannedVsActual")}
             </p>
           </div>
-          {reportData.costTracking.length > 0 && reportData.costTracking.some(d => d.planned > 0 || d.actual > 0) ? (
+          {reportData.costTracking.length > 0 &&
+          reportData.costTracking.some((d) => d.planned > 0 || d.actual > 0) ? (
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={reportData.costTracking} barSize={20}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6B7BA4" }} />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 11, fill: "#6B7BA4" }}
+                />
                 <YAxis
                   tick={{ fontSize: 11, fill: "#6B7BA4" }}
                   tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`}
@@ -1006,7 +1084,10 @@ export function ReportsPage() {
                       {t("reports.completionRate_label")}
                     </span>
                     <span className="font-medium">
-                      {tech.assigned > 0 ? Math.round((tech.completed / tech.assigned) * 100) : 0}%
+                      {tech.assigned > 0
+                        ? Math.round((tech.completed / tech.assigned) * 100)
+                        : 0}
+                      %
                     </span>
                   </div>
                   <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
@@ -1038,7 +1119,10 @@ export function ReportsPage() {
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex gap-2 text-xs">
               <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full border border-red-200 font-medium">
-                {preventiveSchedule.filter((s) => s.status === "Overdue").length}{" "}
+                {
+                  preventiveSchedule.filter((s) => s.status === "Overdue")
+                    .length
+                }{" "}
                 Overdue
               </span>
               <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200 font-medium">
@@ -1049,7 +1133,10 @@ export function ReportsPage() {
                 Due Today
               </span>
               <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full border border-yellow-200 font-medium">
-                {preventiveSchedule.filter((s) => s.status === "Due Soon").length}{" "}
+                {
+                  preventiveSchedule.filter((s) => s.status === "Due Soon")
+                    .length
+                }{" "}
                 Due Soon
               </span>
             </div>
@@ -1190,7 +1277,9 @@ export function ReportsPage() {
                 <input
                   type="text"
                   value={formData.system}
-                  onChange={(e) => setFormData({ ...formData, system: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, system: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A3580]"
                   placeholder="e.g., HVAC – Floor 1 & 2"
                 />
@@ -1202,7 +1291,9 @@ export function ReportsPage() {
                 <input
                   type="text"
                   value={formData.frequency}
-                  onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, frequency: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A3580]"
                   placeholder="e.g., Every 3 months"
                 />
@@ -1215,7 +1306,9 @@ export function ReportsPage() {
                   <input
                     type="date"
                     value={formData.lastDone}
-                    onChange={(e) => setFormData({ ...formData, lastDone: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, lastDone: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A3580]"
                   />
                 </div>
@@ -1226,7 +1319,9 @@ export function ReportsPage() {
                   <input
                     type="date"
                     value={formData.nextDue}
-                    onChange={(e) => setFormData({ ...formData, nextDue: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, nextDue: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A3580]"
                   />
                 </div>
@@ -1237,12 +1332,20 @@ export function ReportsPage() {
                 </label>
                 <select
                   value={formData.assignedProfessionalId}
-                  onChange={(e) => setFormData({ ...formData, assignedProfessionalId: Number(e.target.value) })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      assignedProfessionalId: Number(e.target.value),
+                    })
+                  }
                   className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A3580]"
                 >
                   <option value={0}>Select Professional</option>
                   {professionals.map((prof) => (
-                    <option key={prof.id} value={Number(prof.id.replace("USR-", ""))}>
+                    <option
+                      key={prof.id}
+                      value={Number(prof.id.replace("USR-", ""))}
+                    >
                       {prof.name}
                     </option>
                   ))}
@@ -1254,7 +1357,9 @@ export function ReportsPage() {
                 </label>
                 <textarea
                   value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, notes: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A3580]"
                   rows={3}
                   placeholder="Additional notes..."
@@ -1274,7 +1379,13 @@ export function ReportsPage() {
               </button>
               <button
                 onClick={handleSaveSchedule}
-                disabled={!formData.system || !formData.frequency || !formData.lastDone || !formData.nextDue || !formData.assignedProfessionalId}
+                disabled={
+                  !formData.system ||
+                  !formData.frequency ||
+                  !formData.lastDone ||
+                  !formData.nextDue ||
+                  !formData.assignedProfessionalId
+                }
                 className="px-4 py-2 text-sm font-medium text-white bg-[#1A3580] hover:bg-[#0E2271] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {showAddModal ? "Add Schedule" : "Save Changes"}

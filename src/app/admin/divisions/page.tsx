@@ -1,6 +1,6 @@
 "use client";
 
-import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { DivisionsPage } from '@/views/admin/DivisionsPage';
 
 export default function Page() {

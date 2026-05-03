@@ -5,13 +5,6 @@ export const API_CONFIG = {
   REQUEST_TIMEOUT_MS: 30000,
 } as const;
 
-// Session Configuration
-export const SESSION_CONFIG = {
-  TOKEN_KEY: "insa_token",
-  USER_KEY: "insa_user",
-  SESSION_TIMEOUT_MS: 3600000, // 1 hour
-} as const;
-
 // Pagination
 export const PAGINATION = {
   DEFAULT_PAGE_SIZE: 10,
@@ -21,17 +14,25 @@ export const PAGINATION = {
 // Status Colors
 export const STATUS_COLORS = {
   Submitted: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-  "Under Review": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-  "Assigned to Supervisor": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-  "WorkOrder Created": "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
-  "Assigned to Professionals": "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300",
-  "In Progress": "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-  Completed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  "Under Review":
+    "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+  "Assigned to Supervisor":
+    "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+  "WorkOrder Created":
+    "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+  "Assigned to Professionals":
+    "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300",
+  "In Progress":
+    "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+  Completed:
+    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
   Reviewed: "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300",
-  Approved: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+  Approved:
+    "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
   Rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
   Closed: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300",
-  "In Process": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  "In Process":
+    "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
 } as const;
 
 // Priority Colors
@@ -44,10 +45,13 @@ export const PRIORITY_COLORS = {
 
 // Role Colors
 export const ROLE_COLORS = {
-  admin: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+  admin:
+    "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
   user: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-  supervisor: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
-  professional: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  supervisor:
+    "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+  professional:
+    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
 } as const;
 
 // Local Storage Keys
@@ -78,7 +82,15 @@ export const FILE_UPLOAD = {
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ],
-  ALLOWED_EXTENSIONS: [".jpg", ".jpeg", ".png", ".gif", ".pdf", ".doc", ".docx"],
+  ALLOWED_EXTENSIONS: [
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".pdf",
+    ".doc",
+    ".docx",
+  ],
 } as const;
 
 // Validation

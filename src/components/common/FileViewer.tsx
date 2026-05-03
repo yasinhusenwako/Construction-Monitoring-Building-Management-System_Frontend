@@ -1,7 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, Download, Eye, Image as ImageIcon, FileArchive, File } from "lucide-react";
+import Image from "next/image";
+import {
+  FileText,
+  Download,
+  Eye,
+  Image as ImageIcon,
+  FileArchive,
+  File,
+} from "lucide-react";
 import { FileItem, isImageFile, formatFileSize } from "@/lib/file-upload";
 
 interface FileViewerProps {
@@ -25,9 +33,7 @@ export function FileViewer({
     return (
       <div>
         {title && (
-          <h3 className="text-sm font-semibold text-[#0E2271] mb-3">
-            {title}
-          </h3>
+          <h3 className="text-sm font-semibold text-[#0E2271] mb-3">{title}</h3>
         )}
         <p className="text-muted-foreground text-sm">{emptyMessage}</p>
       </div>
@@ -36,30 +42,30 @@ export function FileViewer({
 
   const getFileIcon = (file: FileItem) => {
     const name = file.name.toLowerCase();
-    
+
     if (isImageFile(name)) {
       return <ImageIcon size={16} className="text-blue-500" />;
     }
-    
-    if (name.endsWith('.pdf')) {
+
+    if (name.endsWith(".pdf")) {
       return <FileText size={16} className="text-red-500" />;
     }
-    
+
     if (name.match(/\.(zip|rar|7z)$/)) {
       return <FileArchive size={16} className="text-amber-500" />;
     }
-    
+
     if (name.match(/\.(doc|docx|xls|xlsx|ppt|pptx)$/)) {
       return <FileText size={16} className="text-blue-600" />;
     }
-    
+
     return <File size={16} className="text-gray-500" />;
   };
 
   const handleDownload = (file: FileItem) => {
     if (file.url) {
       // If we have a URL, download from there
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = file.url;
       link.download = file.name;
       document.body.appendChild(link);
@@ -67,7 +73,9 @@ export function FileViewer({
       document.body.removeChild(link);
     } else {
       // Legacy files without URLs - show message
-      alert(`File "${file.name}" is not available for download. This is a legacy attachment reference.`);
+      alert(
+        `File "${file.name}" is not available for download. This is a legacy attachment reference.`,
+      );
     }
   };
 
@@ -76,20 +84,20 @@ export function FileViewer({
       setPreviewFile(file);
     } else if (file.url) {
       // Open in new tab for non-images
-      window.open(file.url, '_blank');
+      window.open(file.url, "_blank");
     } else {
-      alert(`Preview not available for "${file.name}". This is a legacy attachment reference.`);
+      alert(
+        `Preview not available for "${file.name}". This is a legacy attachment reference.`,
+      );
     }
   };
 
   return (
     <div>
       {title && (
-        <h3 className="text-sm font-semibold text-[#0E2271] mb-3">
-          {title}
-        </h3>
+        <h3 className="text-sm font-semibold text-[#0E2271] mb-3">{title}</h3>
       )}
-      
+
       <div className="space-y-2">
         {files.map((file) => (
           <div
@@ -111,7 +119,7 @@ export function FileViewer({
                 )}
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2 flex-shrink-0">
               {showPreview && isImageFile(file.name) && (
                 <button
@@ -164,14 +172,19 @@ export function FileViewer({
                 <line x1="6" y1="6" x2="18" y2="18"></line>
               </svg>
             </button>
-            <img
+            <Image
               src={previewFile.url}
               alt={previewFile.name}
+              width={1200}
+              height={900}
               className="max-w-full max-h-[90vh] object-contain"
               onClick={(e) => e.stopPropagation()}
+              unoptimized
             />
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-              <p className="text-white text-sm font-medium">{previewFile.name}</p>
+              <p className="text-white text-sm font-medium">
+                {previewFile.name}
+              </p>
             </div>
           </div>
         </div>

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { divisions, User, UserRole } from "@/types/models";
-import { fetchLiveUsers, deleteUser, updateLiveUser } from "@/lib/live-api";
 import { StatusBadge, RoleBadge } from "@/components/common/StatusBadge";
 import {
   Search,
@@ -13,10 +12,54 @@ import {
   X,
   CheckCircle,
   Trash2,
+  Key,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
+import { keycloakUserApi, KeycloakUser } from "@/lib/keycloak-user-api";
 
-const PROFESSIONAL_OTHER_DIVISION_ID = "OTHER";
+const PROFESSIONAL_OTHER_DIVISION_ID = "other"; // Changed to lowercase to match Keycloak attribute
+
+// Map Keycloak roles to frontend roles
+const mapKeycloakRoleToFrontend = (roles: string[]): UserRole => {
+  if (roles.includes("ADMIN")) return "admin";
+  if (roles.includes("SUPERVISOR")) return "supervisor";
+  if (roles.includes("PROFESSIONAL")) return "professional";
+  return "user";
+};
+
+// Map frontend role to Keycloak role
+const mapFrontendRoleToKeycloak = (role: UserRole): string => {
+  switch (role) {
+    case "admin": return "ADMIN";
+    case "supervisor": return "SUPERVISOR";
+    case "professional": return "PROFESSIONAL";
+    case "user": return "USER";
+    default: return "USER";
+  }
+};
+
+// Convert Keycloak user to frontend User format
+const convertKeycloakUserToFrontend = (kUser: KeycloakUser): User => {
+  const role = mapKeycloakRoleToFrontend(kUser.roles);
+  const name = `${kUser.firstName || ''} ${kUser.lastName || ''}`.trim() || kUser.username;
+  
+  return {
+    id: kUser.id,
+    name,
+    email: kUser.email,
+    phone: kUser.phone || "",
+    department: kUser.department || "",
+    divisionId: kUser.divisionId,
+    profession: kUser.profession,
+    role,
+    status: kUser.status as any,
+    password: "", // Not used with Keycloak
+    avatar: kUser.avatar,
+    createdAt: kUser.createdTimestamp 
+      ? new Date(kUser.createdTimestamp).toISOString().split("T")[0]
+      : new Date().toISOString().split("T")[0],
+  };
+};
 
 export function UsersPage() {
   const { t } = useLanguage();
@@ -35,13 +78,13 @@ export function UsersPage() {
       setLoading(true);
       setLoadError("");
       try {
-        // Token is automatically sent via httpOnly cookie
-        const liveUsers = await fetchLiveUsers();
-        setUsers(liveUsers as User[]);
+        const keycloakUsers = await keycloakUserApi.getAllUsers();
+        const frontendUsers = keycloakUsers.map(convertKeycloakUserToFrontend);
+        setUsers(frontendUsers);
       } catch (err) {
-        console.error("Failed to load users", err);
+        console.error("Failed to load users from Keycloak", err);
         setLoadError(
-          err instanceof Error ? err.message : "Failed to load users",
+          err instanceof Error ? err.message : "Failed to load users from Keycloak",
         );
         setUsers([]);
       } finally {
@@ -74,12 +117,18 @@ export function UsersPage() {
   });
 
   const getDivisionName = (user: User) => {
-    if (user.divisionId === PROFESSIONAL_OTHER_DIVISION_ID) {
+    // Handle "other" division (case-insensitive)
+    if (user.divisionId && user.divisionId.toLowerCase() === "other") {
       return "Other (Project/Booking)";
     }
+    // Handle standard divisions (DIV-001, DIV-002, DIV-003)
     if (user.divisionId) {
-      return divisions.find((d) => d.id === user.divisionId)?.name || "";
+      const division = divisions.find((d) => d.id === user.divisionId);
+      if (division) {
+        return division.name;
+      }
     }
+    // Fallback to department
     return user.department || "";
   };
 
@@ -130,6 +179,7 @@ export function UsersPage() {
       form.role === "professional" &&
       form.divisionId === PROFESSIONAL_OTHER_DIVISION_ID;
     const isKnownDivision = !!selectedDivision;
+    
     if (needsDivision && !isKnownDivision && !isOtherDivision) {
       alert("Please select a division.");
       return;
@@ -138,6 +188,7 @@ export function UsersPage() {
       alert("Please enter profession.");
       return;
     }
+    
     const resolvedDepartment =
       form.role === "admin" || form.role === "user"
         ? ""
@@ -149,77 +200,130 @@ export function UsersPage() {
         ? form.divisionId
         : undefined;
 
+    const keycloakRole = mapFrontendRoleToKeycloak(form.role);
+
     if (editUser) {
       try {
-        const saved = await updateLiveUser({
-          userId: editUser.id,
-          name: form.name,
+        // Split name into first and last name
+        const nameParts = form.name.trim().split(" ");
+        const firstName = nameParts[0] || "";
+        const lastName = nameParts.slice(1).join(" ") || "";
+
+        await keycloakUserApi.updateUser(editUser.id, {
           email: form.email,
-          role: form.role,
+          firstName,
+          lastName,
+          enabled: form.status === "active",
+          roles: [keycloakRole],
           phone: form.phone,
           department: resolvedDepartment,
-          profession: form.role === "professional" ? form.profession : undefined,
           divisionId: resolvedDivisionId,
+          profession: form.role === "professional" ? form.profession : undefined,
         });
-        setUsers((prev) =>
-          prev.map((u) => (u.id === editUser.id ? { ...u, ...saved } : u)),
-        );
+
+        // Reload users
+        const keycloakUsers = await keycloakUserApi.getAllUsers();
+        const frontendUsers = keycloakUsers.map(convertKeycloakUserToFrontend);
+        setUsers(frontendUsers);
+        
+        setActionMsg(t("users.userUpdated"));
       } catch (err) {
         console.error("Failed to update user", err);
         alert(err instanceof Error ? err.message : "Failed to update user");
         return;
       }
-      setActionMsg(t("users.userUpdated"));
     } else {
-      const newUser: User = {
-        id: `USR-${String(users.length + 1).padStart(3, "0")}`,
-        name: form.name,
-        email: form.email,
-        phone: form.phone,
-        department: resolvedDepartment,
-        divisionId: resolvedDivisionId,
-        profession: form.role === "professional" ? form.profession : undefined,
-        role: form.role,
-        status: form.status,
-        password: "password123",
-        avatar: form.name
-          .split(" ")
-          .map((n) => n[0])
-          .join("")
-          .toUpperCase()
-          .slice(0, 2),
-        createdAt: new Date().toISOString().split("T")[0],
-      };
-      setUsers((prev) => [...prev, newUser]);
-      setActionMsg(t("users.userCreated"));
+      try {
+        // Split name into first and last name
+        const nameParts = form.name.trim().split(" ");
+        const firstName = nameParts[0] || "";
+        const lastName = nameParts.slice(1).join(" ") || "";
+
+        // Create username from email (part before @)
+        const username = form.email.split("@")[0];
+
+        await keycloakUserApi.createUser({
+          username,
+          email: form.email,
+          firstName,
+          lastName,
+          password: "password", // Default password
+          roles: [keycloakRole],
+          phone: form.phone,
+          department: resolvedDepartment,
+          divisionId: resolvedDivisionId,
+          profession: form.role === "professional" ? form.profession : undefined,
+        });
+
+        // Reload users
+        const keycloakUsers = await keycloakUserApi.getAllUsers();
+        const frontendUsers = keycloakUsers.map(convertKeycloakUserToFrontend);
+        setUsers(frontendUsers);
+        
+        setActionMsg(t("users.userCreated"));
+      } catch (err) {
+        console.error("Failed to create user", err);
+        alert(err instanceof Error ? err.message : "Failed to create user");
+        return;
+      }
     }
     setShowModal(false);
     setTimeout(() => setActionMsg(""), 3000);
   };
 
-  const toggleStatus = (userId: string) => {
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id !== userId) return u;
-        const newStatus = u.status === "active" ? "inactive" : "active";
-        return { ...u, status: newStatus };
-      }),
-    );
-    setActionMsg(t("users.userUpdated"));
-    setTimeout(() => setActionMsg(""), 3000);
+  const toggleStatus = async (userId: string) => {
+    const user = users.find((u) => u.id === userId);
+    if (!user) return;
+
+    const newEnabled = user.status !== "active";
+    
+    try {
+      await keycloakUserApi.toggleUserStatus(userId, newEnabled);
+      
+      setUsers((prev) =>
+        prev.map((u) => {
+          if (u.id !== userId) return u;
+          const newStatus = newEnabled ? "active" : "inactive";
+          return { ...u, status: newStatus as any };
+        }),
+      );
+      setActionMsg(t("users.userUpdated"));
+      setTimeout(() => setActionMsg(""), 3000);
+    } catch (err) {
+      console.error("Failed to toggle user status", err);
+      alert(err instanceof Error ? err.message : "Failed to toggle user status");
+    }
   };
 
   const handleDelete = async (userId: string) => {
     if (!confirm(t("users.confirmDelete"))) return;
     try {
-      await deleteUser(userId);
+      await keycloakUserApi.deleteUser(userId);
       setUsers((prev) => prev.filter((u) => u.id !== userId));
       setActionMsg(t("users.userDeleted"));
       setTimeout(() => setActionMsg(""), 3000);
     } catch (err) {
       console.error("Failed to delete user", err);
-      setActionMsg(t("users.deleteFailed"));
+      alert(err instanceof Error ? err.message : "Failed to delete user");
+    }
+  };
+
+  const handleResetPassword = async (userId: string) => {
+    const newPassword = prompt("Enter new password for user:");
+    if (!newPassword) return;
+
+    if (newPassword.length < 6) {
+      alert("Password must be at least 6 characters long");
+      return;
+    }
+
+    try {
+      await keycloakUserApi.resetPassword(userId, newPassword, false);
+      setActionMsg("Password reset successfully");
       setTimeout(() => setActionMsg(""), 3000);
+    } catch (err) {
+      console.error("Failed to reset password", err);
+      alert(err instanceof Error ? err.message : "Failed to reset password");
     }
   };
 
@@ -232,6 +336,9 @@ export function UsersPage() {
             {filtered.length} {t("users.usersCount")} ·{" "}
             {users.filter((u) => u.status === "active").length}{" "}
             {t("users.active_count")}
+          </p>
+          <p className="text-xs text-blue-600 mt-1">
+            🔐 Managed via Keycloak Authentication
           </p>
         </div>
         <button
@@ -427,6 +534,13 @@ export function UsersPage() {
                         {user.status === "active"
                           ? t("users.disable_btn")
                           : t("users.enable_btn")}
+                      </button>
+                      <button
+                        onClick={() => handleResetPassword(user.id)}
+                        className="flex items-center gap-1 text-xs text-orange-600 hover:underline font-medium"
+                        title="Reset Password"
+                      >
+                        <Key size={12} /> Reset
                       </button>
                       <button
                         onClick={() => handleDelete(user.id)}

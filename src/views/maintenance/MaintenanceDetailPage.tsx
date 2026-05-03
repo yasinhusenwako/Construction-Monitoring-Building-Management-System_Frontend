@@ -27,7 +27,11 @@ import {
   Info,
   Calendar,
 } from "lucide-react";
-import { fetchLiveMaintenance, fetchLiveUsers } from "@/lib/live-api";
+import {
+  fetchLiveMaintenance,
+  fetchLiveUsers,
+  adminAssignRequest,
+} from "@/lib/live-api";
 import { apiRequest } from "@/lib/api";
 import { executeWorkflowAction } from "@/lib/workflow-actions";
 import { FileViewer } from "@/components/common/FileViewer";
@@ -128,21 +132,29 @@ export function MaintenanceDetailPage() {
 
         if (
           found &&
-          canViewItem(role as WorkflowRole, found, currentUser?.id)
+          canViewItem(
+            role as WorkflowRole,
+            found,
+            currentUser?.id,
+            currentUser?.divisionId,
+          )
         ) {
           setMaintenanceItem(found);
           // Initialize cost fields if they exist
-          if (found.materialCost) setMaterialCost(found.materialCost.toString());
+          if (found.materialCost)
+            setMaterialCost(found.materialCost.toString());
           if (found.laborCost) setLaborCost(found.laborCost.toString());
           if (found.partsUsed) setPartsUsed(found.partsUsed);
           // Auto-set assign mode based on role for maintenance
           if (role === "admin") setAssignMode("team");
           else if (role === "supervisor") setAssignMode("professional");
-          
+
           // Fetch uploaded files from backend
           if (found.dbId) {
             try {
-              const files = await apiRequest<any[]>(`/api/files/request/MAINTENANCE/${found.dbId}`);
+              const files = await apiRequest<any[]>(
+                `/api/files/request/MAINTENANCE/${found.dbId}`,
+              );
               setUploadedFiles(files || []);
             } catch (error) {
               console.error("Failed to fetch files:", error);
@@ -161,7 +173,7 @@ export function MaintenanceDetailPage() {
     };
 
     refresh();
-  }, [id, role, currentUser]);
+  }, [id, role, currentUser?.id, currentUser?.divisionId]);
 
   if (!maintenanceItem)
     return (
@@ -195,31 +207,46 @@ export function MaintenanceDetailPage() {
   const requester = systemUsers.find((u) => u.id === maint.requestedBy);
   const assignee = systemUsers.find((u) => u.id === maint.assignedTo);
   const professionals = systemUsers.filter((u) => u.role === "professional");
-  
-  // Maintenance uses professionals from the 3 maintenance divisions (DIV-001, DIV-002, DIV-003)
-  // NOT from "OTHER" division
-  const maintenanceDivisions = ["DIV-001", "DIV-002", "DIV-003"];
-  const divisionProfessionals = professionals.filter(
-    (u) => u.divisionId && maintenanceDivisions.includes(u.divisionId.toUpperCase())
-  );
-  
+
+  // STRICT DIVISION FILTERING: Supervisors can only assign professionals from their own division
+  const supervisorDivision = currentUser?.divisionId;
+  const divisionProfessionals = professionals.filter((u) => {
+    // Admin can see all maintenance division professionals (DIV-001, DIV-002, DIV-003)
+    if (role === "admin") {
+      const maintenanceDivisions = ["1", "2", "3", "DIV-001", "DIV-002", "DIV-003"];
+      if (!u.divisionId) return false;
+      const numericId = u.divisionId.replace(/^DIV-0*/, "");
+      return (
+        maintenanceDivisions.includes(u.divisionId) ||
+        maintenanceDivisions.includes(numericId)
+      );
+    }
+    
+    // Supervisor can ONLY see professionals from their own division
+    if (role === "supervisor") {
+      return supervisorDivision && u.divisionId === supervisorDivision;
+    }
+    
+    return false;
+  });
+
   // Further filter by profession/task type if selected
   const taskTypeDivisionProfessionals = divisionProfessionals.filter(
-    (u) => u.profession === selectedTaskType
+    (u) => u.profession === selectedTaskType,
   );
 
   // Debug: Log delete button visibility
-  console.log("=== Delete Button Debug (Maintenance) ===");
-  console.log("Role:", role);
-  console.log("Current User ID:", currentUser?.id);
-  console.log("Maintenance Requested By:", maint.requestedBy);
-  console.log("Maintenance Status:", maint.status);
-  console.log("Is User:", role === "user");
-  console.log("Is Creator:", maint.requestedBy === currentUser?.id);
-  console.log("Is Submitted:", maint.status === "Submitted");
-  console.log("User Can Delete:", role === "user" && maint.requestedBy === currentUser?.id && maint.status === "Submitted");
-  console.log("Admin Can Delete:", role === "admin");
-  console.log("Show Delete Button:", ((role === "user" && maint.requestedBy === currentUser?.id && maint.status === "Submitted") || role === "admin"));
+  // console.log("=== Delete Button Debug (Maintenance) ===");
+  // console.log("Role:", role);
+  // console.log("Current User ID:", currentUser?.id);
+  // console.log("Maintenance Requested By:", maint.requestedBy);
+  // console.log("Maintenance Status:", maint.status);
+  // console.log("Is User:", role === "user");
+  // console.log("Is Creator:", maint.requestedBy === currentUser?.id);
+  // console.log("Is Submitted:", maint.status === "Submitted");
+  // console.log("User Can Delete:", role === "user" && maint.requestedBy === currentUser?.id && maint.status === "Submitted");
+  // console.log("Admin Can Delete:", role === "admin");
+  // console.log("Show Delete Button:", ((role === "user" && maint.requestedBy === currentUser?.id && maint.status === "Submitted") || role === "admin"));
 
   const totalCost = parseInt(materialCost || "0") + parseInt(laborCost || "0");
 
@@ -345,7 +372,10 @@ export function MaintenanceDetailPage() {
         const mergedTimeline = [
           ...found.timeline.filter((e) => e.id !== newEvent.id),
           newEvent,
-        ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        ].sort(
+          (a, b) =>
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+        );
         setMaintenanceItem({ ...found, timeline: mergedTimeline });
       }
     } catch (err) {
@@ -388,18 +418,15 @@ export function MaintenanceDetailPage() {
       formData.append("entityType", "maintenance");
       formData.append("entityId", maint.id); // Use business ID, not dbId
 
-      const uploadedFileData = await apiRequest<any>(
-        `/api/files/upload`,
-        {
-          method: "POST",
-          body: formData,
-          headers: {}, // Let browser set Content-Type with boundary
-        }
-      );
+      const uploadedFileData = await apiRequest<any>(`/api/files/upload`, {
+        method: "POST",
+        body: formData,
+        headers: {}, // Let browser set Content-Type with boundary
+      });
 
       // Refresh uploaded files list
       const updatedFiles = await apiRequest<any[]>(
-        `/api/files/request/MAINTENANCE/${maint.dbId}`
+        `/api/files/request/MAINTENANCE/${maint.dbId}`,
       );
       setUploadedFiles(updatedFiles || []);
 
@@ -449,10 +476,9 @@ export function MaintenanceDetailPage() {
             <h1 className="text-[#0E2271]">{maint.title}</h1>
           </div>
         </div>
-        
+
         {/* Action Buttons */}
-        <div className="flex gap-2">
-        </div>
+        <div className="flex gap-2"></div>
       </div>
 
       {/* Workflow Progress */}
@@ -504,7 +530,8 @@ export function MaintenanceDetailPage() {
                         {
                           icon: <MapPin size={16} />,
                           label:
-                            t("maintenance.placeholder.building") || "Building / Site",
+                            t("maintenance.placeholder.building") ||
+                            "Building / Site",
                           value: maint.building,
                         },
                       ]
@@ -512,7 +539,8 @@ export function MaintenanceDetailPage() {
                   {
                     icon: <MapPin size={16} />,
                     label: t("maintenance.floor_label"),
-                    value: maint.floor && maint.floor !== "N/A" ? maint.floor : null,
+                    value:
+                      maint.floor && maint.floor !== "N/A" ? maint.floor : null,
                   },
                   ...(maint.roomArea
                     ? [
@@ -555,20 +583,20 @@ export function MaintenanceDetailPage() {
                 ]
                   .filter((item) => item.value)
                   .map((item, idx) => (
-                  <div key={idx} className="flex items-start gap-3">
-                    <span className="text-[#CC1F1A] mt-0.5 flex-shrink-0 bg-red-50 p-1.5 rounded-md border border-red-100">
-                      {item.icon}
-                    </span>
-                    <div>
-                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">
-                        {item.label}
-                      </p>
-                      <p className="font-medium text-foreground text-sm">
-                        {item.value}
-                      </p>
+                    <div key={idx} className="flex items-start gap-3">
+                      <span className="text-[#CC1F1A] mt-0.5 flex-shrink-0 bg-red-50 p-1.5 rounded-md border border-red-100">
+                        {item.icon}
+                      </span>
+                      <div>
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">
+                          {item.label}
+                        </p>
+                        <p className="font-medium text-foreground text-sm">
+                          {item.value}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
 
@@ -577,87 +605,93 @@ export function MaintenanceDetailPage() {
             {/* Attachments */}
             <div className="p-6">
               <FileViewer
-                files={uploadedFiles.length > 0 
-                  ? uploadedFiles.map(f => ({
-                      id: f.id.toString(),
-                      name: f.fileName,
-                      url: `/api/files/download/${f.id}`,
-                      size: undefined,
-                      type: undefined,
-                      uploadedAt: f.uploadedAt,
-                    }))
-                  : (maint.files || convertDocumentsToFiles(maint.attachments))
+                files={
+                  uploadedFiles.length > 0
+                    ? uploadedFiles.map((f) => ({
+                        id: f.id.toString(),
+                        name: f.fileName,
+                        url: `/api/files/download/${f.id}`,
+                        size: undefined,
+                        type: undefined,
+                        uploadedAt: f.uploadedAt,
+                      }))
+                    : maint.files || convertDocumentsToFiles(maint.attachments)
                 }
                 title={t("maintenance.attachments_label")}
                 showDownload={true}
                 showPreview={true}
                 emptyMessage={t("maintenance.noAttachments")}
               />
-              
+
               {/* Professional can upload proof */}
-              {role === "professional" && (maint.status === "In Progress" || maint.status === "Assigned to Professionals") && (
-                <div className="mt-5 border border-dashed border-slate-300 rounded-xl p-5 bg-slate-50">
-                  <p className="text-[11px] font-bold text-[#CC1F1A] uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <Upload size={14} />{" "}
-                    {t("maintenance.uploadCompletionProof") || "UPLOAD COMPLETION PROOF"}
-                  </p>
-                  <input
-                    id="pro-upload"
-                    type="file"
-                    multiple
-                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-                    className="hidden"
-                    onChange={handleFileUpload}
-                  />
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div
-                      onClick={() =>
-                        document.getElementById("pro-upload")?.click()
-                      }
-                      className="border border-border rounded-xl p-5 text-center cursor-pointer hover:border-[#CC1F1A] hover:bg-white transition-all shadow-sm group"
-                    >
-                      <div className="bg-red-50 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-[#CC1F1A] transition-colors">
-                        <Upload
-                          size={18}
-                          className="text-[#CC1F1A] group-hover:text-white"
-                        />
+              {role === "professional" &&
+                (maint.status === "In Progress" ||
+                  maint.status === "Assigned to Professionals") && (
+                  <div className="mt-5 border border-dashed border-slate-300 rounded-xl p-5 bg-slate-50">
+                    <p className="text-[11px] font-bold text-[#CC1F1A] uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <Upload size={14} />{" "}
+                      {t("maintenance.uploadCompletionProof") ||
+                        "UPLOAD COMPLETION PROOF"}
+                    </p>
+                    <input
+                      id="pro-upload"
+                      type="file"
+                      multiple
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div
+                        onClick={() =>
+                          document.getElementById("pro-upload")?.click()
+                        }
+                        className="border border-border rounded-xl p-5 text-center cursor-pointer hover:border-[#CC1F1A] hover:bg-white transition-all shadow-sm group"
+                      >
+                        <div className="bg-red-50 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-[#CC1F1A] transition-colors">
+                          <Upload
+                            size={18}
+                            className="text-[#CC1F1A] group-hover:text-white"
+                          />
+                        </div>
+                        <p className="text-sm font-bold text-[#0E2271] group-hover:text-[#CC1F1A] transition-colors">
+                          {t("maintenance.uploadPhotos") || "Upload Photos"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {t("maintenance.beforeAfterImages") ||
+                            "Before / After repair images"}
+                        </p>
                       </div>
-                      <p className="text-sm font-bold text-[#0E2271] group-hover:text-[#CC1F1A] transition-colors">
-                        {t("maintenance.uploadPhotos") || "Upload Photos"}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {t("maintenance.beforeAfterImages") || "Before / After repair images"}
-                      </p>
-                    </div>
-                    <div
-                      onClick={() =>
-                        document.getElementById("pro-upload")?.click()
-                      }
-                      className="border border-border rounded-xl p-5 text-center cursor-pointer hover:border-[#CC1F1A] hover:bg-white transition-all shadow-sm group"
-                    >
-                      <div className="bg-red-50 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-[#CC1F1A] transition-colors">
-                        <FileText
-                          size={18}
-                          className="text-[#CC1F1A] group-hover:text-white"
-                        />
+                      <div
+                        onClick={() =>
+                          document.getElementById("pro-upload")?.click()
+                        }
+                        className="border border-border rounded-xl p-5 text-center cursor-pointer hover:border-[#CC1F1A] hover:bg-white transition-all shadow-sm group"
+                      >
+                        <div className="bg-red-50 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-[#CC1F1A] transition-colors">
+                          <FileText
+                            size={18}
+                            className="text-[#CC1F1A] group-hover:text-white"
+                          />
+                        </div>
+                        <p className="text-sm font-bold text-[#0E2271] group-hover:text-[#CC1F1A] transition-colors">
+                          {t("maintenance.uploadDocs") || "Upload Documents"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {t("maintenance.receiptsManuals") ||
+                            "Receipts, manuals, or reports"}
+                        </p>
                       </div>
-                      <p className="text-sm font-bold text-[#0E2271] group-hover:text-[#CC1F1A] transition-colors">
-                        {t("maintenance.uploadDocs") || "Upload Documents"}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {t("maintenance.receiptsManuals") || "Receipts, manuals, or reports"}
-                      </p>
                     </div>
+                    {uploadedFiles.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-dashed border-slate-300">
+                        <p className="text-xs font-semibold text-muted-foreground mb-2">
+                          {uploadedFiles.length} file(s) uploaded
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  {uploadedFiles.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-dashed border-slate-300">
-                      <p className="text-xs font-semibold text-muted-foreground mb-2">
-                        {uploadedFiles.length} file(s) uploaded
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
             </div>
 
             {/* Cost Information Display - For Supervisor and Admin (Read-only) */}
@@ -817,7 +851,9 @@ export function MaintenanceDetailPage() {
                 <Timeline
                   events={maint.timeline}
                   title={t("maintenance.activityTimeline")}
-                  emptyMessage={t("maintenance.noActivityYet") || "No activity recorded yet"}
+                  emptyMessage={
+                    t("maintenance.noActivityYet") || "No activity recorded yet"
+                  }
                   userRole={role as WorkflowRole}
                 />
               </div>
@@ -847,12 +883,17 @@ export function MaintenanceDetailPage() {
                   <div className="space-y-3 bg-white border border-border rounded-xl p-4 shadow-sm">
                     <div className="mb-4 pb-4 border-b border-dashed border-border">
                       <p className="text-xs text-muted-foreground mb-3">
-                        Quick Actions: Approve/Reject directly or start review process.
+                        Quick Actions: Approve/Reject directly or start review
+                        process.
                       </p>
                       <div className="flex gap-2 mb-3">
                         <button
                           onClick={() =>
-                            handleAction("Approved", "admin", t("requests.approved"))
+                            handleAction(
+                              "Approved",
+                              "admin",
+                              t("requests.approved"),
+                            )
                           }
                           className="flex-1 py-2.5 rounded-lg text-white text-sm font-bold bg-green-600 hover:bg-green-700 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
                         >
@@ -860,16 +901,26 @@ export function MaintenanceDetailPage() {
                         </button>
                         <button
                           onClick={async () => {
-                            const reason = prompt("Please enter the reason for rejection:");
+                            const reason = prompt(
+                              "Please enter the reason for rejection:",
+                            );
                             if (reason !== null) {
                               try {
-                                await apiRequest(`/api/maintenance/${maint.dbId}/reject`, {
-                                  method: "PATCH",
-                                  body: { reason },
-                                });
+                                await apiRequest(
+                                  `/api/maintenance/${maint.dbId}/reject`,
+                                  {
+                                    method: "PATCH",
+                                    body: { reason },
+                                  },
+                                );
                                 window.location.reload();
                               } catch (error) {
-                                alert("Failed to reject maintenance: " + (error instanceof Error ? error.message : "Unknown error"));
+                                alert(
+                                  "Failed to reject maintenance: " +
+                                    (error instanceof Error
+                                      ? error.message
+                                      : "Unknown error"),
+                                );
                               }
                             }
                           }}
@@ -878,7 +929,9 @@ export function MaintenanceDetailPage() {
                           <ThumbsDown size={16} /> Reject
                         </button>
                       </div>
-                      <div className="text-xs text-muted-foreground mb-2">OR</div>
+                      <div className="text-xs text-muted-foreground mb-2">
+                        OR
+                      </div>
                       <button
                         onClick={() =>
                           handleAction(
@@ -895,11 +948,10 @@ export function MaintenanceDetailPage() {
                     </div>
                   </div>
                 )}
-                
+
                 {(maint.status === "Submitted" ||
                   maint.status === "Under Review") && (
                   <div className="space-y-3 bg-white border border-border rounded-xl p-4 shadow-sm">
-
                     {/* Assignment Mode UI - Restricted by role in Maintenance */}
                     <div className="flex items-center justify-between mb-4 pb-2 border-b border-dashed border-border">
                       <h4 className="text-[10px] font-bold uppercase tracking-wider text-[#1A3580] flex items-center gap-1.5">
@@ -938,7 +990,7 @@ export function MaintenanceDetailPage() {
                             <option value="">
                               {t("requests.selectDivision")}
                             </option>
-                            {divisions.map((d) => (
+                            {MAINTENANCE_DIVISIONS.map((d) => (
                               <option key={d.id} value={d.id}>
                                 {d.name}
                               </option>
@@ -948,16 +1000,38 @@ export function MaintenanceDetailPage() {
 
                         <button
                           disabled={!selectedDivisionId || busy}
-                          onClick={() => {
+                          onClick={async () => {
                             setBusy(true);
-                            handleAction(
-                              "Assigned to Supervisor",
-                              "admin",
-                              t("requests.assigned_to_supervisor"),
-                              {
-                                divisionId: selectedDivisionId,
-                              },
-                            ).finally(() => setBusy(false));
+                            try {
+                              // Call the admin assign API with division ID (as string)
+                              await adminAssignRequest({
+                                module: "MAINTENANCE",
+                                businessId: maint.id,
+                                requestId: maint.dbId,
+                                divisionId: `DIV-${selectedDivisionId.padStart(3, "0")}`, // Convert "1" to "DIV-001"
+                                priority: maint.priority,
+                              });
+
+                              // Then update the UI
+                              await handleAction(
+                                "Assigned to Supervisor",
+                                "admin",
+                                t("requests.assigned_to_supervisor"),
+                                {
+                                  divisionId: `DIV-${selectedDivisionId.padStart(3, "0")}`,
+                                },
+                              );
+                            } catch (error) {
+                              console.error("Assignment failed:", error);
+                              alert(
+                                "Failed to assign to division: " +
+                                  (error instanceof Error
+                                    ? error.message
+                                    : "Unknown error"),
+                              );
+                            } finally {
+                              setBusy(false);
+                            }
                           }}
                           className="w-full py-3 rounded-xl text-white text-sm font-bold bg-[#1A3580] shadow-premium hover-lift transition-all disabled:opacity-40 disabled:hover:transform-none"
                         >
@@ -981,10 +1055,10 @@ export function MaintenanceDetailPage() {
                               {t("common.select") || "Select"}
                             </option>
                             {divisionProfessionals.map((pr) => (
-                                <option key={pr.id} value={pr.id}>
-                                  {pr.name}
-                                </option>
-                              ))}
+                              <option key={pr.email} value={pr.email}>
+                                {pr.name}
+                              </option>
+                            ))}
                           </select>
                         </div>
 
@@ -1029,16 +1103,26 @@ export function MaintenanceDetailPage() {
                     </button>
                     <button
                       onClick={async () => {
-                        const reason = prompt("Please enter the reason for rejection:");
+                        const reason = prompt(
+                          "Please enter the reason for rejection:",
+                        );
                         if (reason !== null) {
                           try {
-                            await apiRequest(`/api/maintenance/${maint.dbId}/reject`, {
-                              method: "PATCH",
-                              body: { reason },
-                            });
+                            await apiRequest(
+                              `/api/maintenance/${maint.dbId}/reject`,
+                              {
+                                method: "PATCH",
+                                body: { reason },
+                              },
+                            );
                             window.location.reload();
                           } catch (error) {
-                            alert("Failed to reject maintenance: " + (error instanceof Error ? error.message : "Unknown error"));
+                            alert(
+                              "Failed to reject maintenance: " +
+                                (error instanceof Error
+                                  ? error.message
+                                  : "Unknown error"),
+                            );
                           }
                         }
                       }}
@@ -1096,194 +1180,209 @@ export function MaintenanceDetailPage() {
           )}
 
           {/* Supervisor Actions */}
-          {role === "supervisor" && maint.supervisorId === currentUser?.id && (
-            <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative border-l-4 border-l-[#CC1F1A]">
-              <h3 className="text-sm font-bold text-[#CC1F1A] mb-5 flex items-center gap-2">
-                <CheckCircle size={16} />
-                {t("maintenance.supervisorActions")}
-              </h3>
+          {role === "supervisor" &&
+            (maint.supervisorId === currentUser?.id ||
+              maint.divisionId === currentUser?.divisionId) && (
+              <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative border-l-4 border-l-[#CC1F1A]">
+                <h3 className="text-sm font-bold text-[#CC1F1A] mb-5 flex items-center gap-2">
+                  <CheckCircle size={16} />
+                  {t("maintenance.supervisorActions")}
+                </h3>
 
-              {actionDone && (
-                <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 text-sm text-green-700 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
-                  <CheckCircle size={16} />{" "}
-                  <span className="font-medium">Applied:</span> "{actionDone}"
-                </div>
-              )}
-              <div className="space-y-4">
-                {maint.status === "Assigned to Supervisor" && (
-                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-4">
-                      Task has been assigned to you. Select an available professional to begin.
-                    </p>
-                    
-                    <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
-                      {t("maintenance.assignProfessional")}
-                    </label>
-                    <select
-                      value={selectedTech}
-                      onChange={(e) => setSelectedTech(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all shadow-sm"
-                    >
-                      <option value="">Select professional...</option>
-                      {divisionProfessionals.map((tech) => (
-                          <option key={tech.id} value={tech.id}>
-                            {tech.name}{tech.profession ? ` - ${tech.profession}` : " - General"}
-                          </option>
-                        ))}
-                    </select>
-                    
-                    {divisionProfessionals.length === 0 && (
-                      <p className="text-xs text-amber-600 mb-3 bg-amber-50 border border-amber-200 rounded px-3 py-2">
-                        No professionals available in this division
-                      </p>
-                    )}
-
-                    <button
-                      onClick={() => {
-                        if (!selectedTech) return;
-                        const selectedProfessional = systemUsers.find(u => u.id === selectedTech);
-                        handleAction(
-                          "Assigned to Professionals",
-                          "supervisor",
-                          t("requests.assigned_to_professional"),
-                          {
-                            assignedTo: selectedTech,
-                            notes: selectedProfessional?.profession || "General maintenance",
-                          },
-                        );
-                      }}
-                      disabled={!selectedTech}
-                      className="w-full py-3 rounded-xl text-sm font-bold bg-[#CC1F1A] text-white shadow-premium hover-lift transition-all disabled:bg-red-200 disabled:text-red-400 disabled:hover:transform-none flex items-center justify-center gap-2"
-                    >
-                      <UserPlus size={16} />{" "}
-                      {t("maintenance.assignProfessional")}
-                    </button>
+                {actionDone && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-4 text-sm text-green-700 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
+                    <CheckCircle size={16} />{" "}
+                    <span className="font-medium">Applied:</span> "{actionDone}"
                   </div>
                 )}
-                {maint.status === "WorkOrder Created" && (
-                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
-                      Select Profession Type
-                    </label>
-                    <select
-                      value={selectedTaskType}
-                      onChange={(e) => {
-                        setSelectedTaskType(e.target.value);
-                        setSelectedTech(""); // Reset professional selection when profession changes
-                      }}
-                      className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all shadow-sm"
-                    >
-                      <option value="">Select profession type...</option>
-                      <option value="Electrician">Electrician</option>
-                      <option value="Plumber">Plumber</option>
-                      <option value="Carpenter">Carpenter</option>
-                      <option value="HVAC Technician">HVAC Technician</option>
-                      <option value="Mason">Mason</option>
-                      <option value="Painter">Painter</option>
-                      <option value="Welder">Welder</option>
-                      <option value="General Maintenance">General Maintenance</option>
-                    </select>
+                <div className="space-y-4">
+                  {maint.status === "Assigned to Supervisor" && (
+                    <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
+                      <p className="text-xs text-muted-foreground mb-4">
+                        Task has been assigned to you. Select an available
+                        professional to begin.
+                      </p>
 
-                    {selectedTaskType && (
-                      <>
-                        <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide opacity-80 mt-4">
-                          {t("maintenance.assignProfessional")} ({selectedTaskType})
-                        </label>
-                        <select
-                          value={selectedTech}
-                          onChange={(e) => setSelectedTech(e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all shadow-sm"
-                        >
-                          <option value="">Select professional...</option>
-                          {taskTypeDivisionProfessionals.map((tech) => (
-                              <option key={tech.id} value={tech.id}>
+                      <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
+                        {t("maintenance.assignProfessional")}
+                      </label>
+                      <select
+                        value={selectedTech}
+                        onChange={(e) => setSelectedTech(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all shadow-sm"
+                      >
+                        <option value="">Select professional...</option>
+                        {divisionProfessionals.map((tech) => (
+                          <option key={tech.email} value={tech.email}>
+                            {tech.name}
+                            {tech.profession
+                              ? ` - ${tech.profession}`
+                              : " - General"}
+                          </option>
+                        ))}
+                      </select>
+
+                      {divisionProfessionals.length === 0 && (
+                        <p className="text-xs text-amber-600 mb-3 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+                          No professionals available in this division
+                        </p>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          if (!selectedTech) return;
+                          const selectedProfessional = systemUsers.find(
+                            (u) => u.email === selectedTech,
+                          );
+                          handleAction(
+                            "Assigned to Professionals",
+                            "supervisor",
+                            t("requests.assigned_to_professional"),
+                            {
+                              assignedTo: selectedTech,
+                              notes:
+                                selectedProfessional?.profession ||
+                                "General maintenance",
+                            },
+                          );
+                        }}
+                        disabled={!selectedTech}
+                        className="w-full py-3 rounded-xl text-sm font-bold bg-[#CC1F1A] text-white shadow-premium hover-lift transition-all disabled:bg-red-200 disabled:text-red-400 disabled:hover:transform-none flex items-center justify-center gap-2"
+                      >
+                        <UserPlus size={16} />{" "}
+                        {t("maintenance.assignProfessional")}
+                      </button>
+                    </div>
+                  )}
+                  {maint.status === "WorkOrder Created" && (
+                    <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
+                      <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
+                        Select Profession Type
+                      </label>
+                      <select
+                        value={selectedTaskType}
+                        onChange={(e) => {
+                          setSelectedTaskType(e.target.value);
+                          setSelectedTech(""); // Reset professional selection when profession changes
+                        }}
+                        className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all shadow-sm"
+                      >
+                        <option value="">Select profession type...</option>
+                        <option value="Electrician">Electrician</option>
+                        <option value="Plumber">Plumber</option>
+                        <option value="Carpenter">Carpenter</option>
+                        <option value="HVAC Technician">HVAC Technician</option>
+                        <option value="Mason">Mason</option>
+                        <option value="Painter">Painter</option>
+                        <option value="Welder">Welder</option>
+                        <option value="General Maintenance">
+                          General Maintenance
+                        </option>
+                      </select>
+
+                      {selectedTaskType && (
+                        <>
+                          <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide opacity-80 mt-4">
+                            {t("maintenance.assignProfessional")} (
+                            {selectedTaskType})
+                          </label>
+                          <select
+                            value={selectedTech}
+                            onChange={(e) => setSelectedTech(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all shadow-sm"
+                          >
+                            <option value="">Select professional...</option>
+                            {taskTypeDivisionProfessionals.map((tech) => (
+                              <option key={tech.email} value={tech.email}>
                                 {tech.name} - {tech.profession}
                               </option>
                             ))}
-                        </select>
-                        {taskTypeDivisionProfessionals.length === 0 && (
-                          <p className="text-xs text-amber-600 mb-3 bg-amber-50 border border-amber-200 rounded px-3 py-2">
-                            No {selectedTaskType} professionals available in this division
-                          </p>
-                        )}
-                      </>
-                    )}
+                          </select>
+                          {taskTypeDivisionProfessionals.length === 0 && (
+                            <p className="text-xs text-amber-600 mb-3 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+                              No {selectedTaskType} professionals available in
+                              this division
+                            </p>
+                          )}
+                        </>
+                      )}
 
+                      <button
+                        onClick={() => {
+                          if (!selectedTech || !selectedTaskType) return;
+                          handleAction(
+                            "Assigned to Professionals",
+                            "supervisor",
+                            t("requests.assigned_to_professional"),
+                            {
+                              assignedTo: selectedTech,
+                              notes: selectedTaskType,
+                            },
+                          );
+                        }}
+                        disabled={!selectedTech || !selectedTaskType}
+                        className="w-full py-3 rounded-xl text-sm font-bold bg-[#CC1F1A] text-white shadow-premium hover-lift transition-all disabled:bg-red-200 disabled:text-red-400 disabled:hover:transform-none flex items-center justify-center gap-2"
+                      >
+                        <UserPlus size={16} />{" "}
+                        {t("maintenance.assignProfessional")}
+                      </button>
+                    </div>
+                  )}
+                  {maint.status === "Completed" && (
+                    <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Work has been completed by the professional. Review and
+                        submit to admin.
+                      </p>
+                      <button
+                        onClick={() =>
+                          handleAction(
+                            "Reviewed",
+                            "supervisor",
+                            t("requests.reviewed"),
+                          )
+                        }
+                        className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all flex items-center justify-center gap-2"
+                        style={{ background: "#0891B2" }}
+                      >
+                        <CheckCircle size={16} />{" "}
+                        {t("maintenance.submitToAdmin")}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Note Field */}
+                  <div className="glass-effect rounded-xl p-5 shadow-sm mt-3">
+                    <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
+                      {t("maintenance.supervisorActions")} Note
+                    </label>
+                    <textarea
+                      value={techNote}
+                      onChange={(e) => setTechNote(e.target.value)}
+                      rows={3}
+                      placeholder={t("projects.addCommentOrReason")}
+                      className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none resize-none focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all shadow-sm"
+                    />
                     <button
                       onClick={() => {
-                        if (!selectedTech || !selectedTaskType) return;
+                        if (!techNote.trim()) return;
                         handleAction(
-                          "Assigned to Professionals",
+                          maint.status,
                           "supervisor",
-                          t("requests.assigned_to_professional"),
-                          {
-                            assignedTo: selectedTech,
-                            notes: selectedTaskType,
-                          },
+                          t("maintenance.noteSaved"),
+                          {},
+                          techNote,
                         );
+                        setTechNote("");
                       }}
-                      disabled={!selectedTech || !selectedTaskType}
-                      className="w-full py-3 rounded-xl text-sm font-bold bg-[#CC1F1A] text-white shadow-premium hover-lift transition-all disabled:bg-red-200 disabled:text-red-400 disabled:hover:transform-none flex items-center justify-center gap-2"
+                      className="w-full py-3 rounded-xl text-sm font-bold border-2 border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50 mt-3 hover-lift transition-all flex items-center justify-center gap-2"
                     >
-                      <UserPlus size={16} />{" "}
-                      {t("maintenance.assignProfessional")}
+                      <MessageSquare size={14} /> {t("maintenance.saveNote")}
                     </button>
                   </div>
-                )}
-                {maint.status === "Completed" && (
-                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <p className="text-xs text-muted-foreground mb-3">
-                      Work has been completed by the professional. Review and
-                      submit to admin.
-                    </p>
-                    <button
-                      onClick={() =>
-                        handleAction(
-                          "Reviewed",
-                          "supervisor",
-                          t("requests.reviewed"),
-                        )
-                      }
-                      className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all flex items-center justify-center gap-2"
-                      style={{ background: "#0891B2" }}
-                    >
-                      <CheckCircle size={16} /> {t("maintenance.submitToAdmin")}
-                    </button>
-                  </div>
-                )}
-
-                {/* Note Field */}
-                <div className="glass-effect rounded-xl p-5 shadow-sm mt-3">
-                  <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
-                    {t("maintenance.supervisorActions")} Note
-                  </label>
-                  <textarea
-                    value={techNote}
-                    onChange={(e) => setTechNote(e.target.value)}
-                    rows={3}
-                    placeholder={t("projects.addCommentOrReason")}
-                    className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none resize-none focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all shadow-sm"
-                  />
-                  <button
-                    onClick={() => {
-                      if (!techNote.trim()) return;
-                      handleAction(
-                        maint.status,
-                        "supervisor",
-                        t("maintenance.noteSaved"),
-                        {},
-                        techNote,
-                      );
-                      setTechNote("");
-                    }}
-                    className="w-full py-3 rounded-xl text-sm font-bold border-2 border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50 mt-3 hover-lift transition-all flex items-center justify-center gap-2"
-                  >
-                    <MessageSquare size={14} /> {t("maintenance.saveNote")}
-                  </button>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Professional Actions */}
           {role === "professional" && maint.assignedTo === currentUser?.id && (
@@ -1418,7 +1517,9 @@ export function MaintenanceDetailPage() {
                   {t("maintenance.attachmentsCount")}
                 </span>
                 <span className="font-semibold text-[#CC1F1A]">
-                  {uploadedFiles.length > 0 ? uploadedFiles.length : maint.attachments.length}
+                  {uploadedFiles.length > 0
+                    ? uploadedFiles.length
+                    : maint.attachments.length}
                 </span>
               </div>
               <div className="flex justify-between items-center">

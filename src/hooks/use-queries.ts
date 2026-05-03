@@ -35,6 +35,7 @@ export function useProjects(projectId?: string) {
     queryFn: () => fetchLiveProjects(projectId),
     enabled: typeof window !== "undefined",
     staleTime: 1000 * 60 * 2, // 2 minutes
+    retry: false, // Don't retry on auth errors
   });
 }
 
@@ -66,6 +67,10 @@ export function useBookings(bookingId?: string) {
     queryFn: () => fetchLiveBookings(bookingId),
     enabled: typeof window !== "undefined",
     staleTime: 1000 * 60 * 2,
+    retry: 1, // Only retry once on failure
+    retryDelay: 1000, // Wait 1 second before retry
+    // Note: onError is deprecated in React Query v5 for queries
+    // Error handling is done in the component using isError state
   });
 }
 
@@ -97,6 +102,7 @@ export function useMaintenance(maintenanceId?: string) {
     queryFn: () => fetchLiveMaintenance(maintenanceId),
     enabled: typeof window !== "undefined",
     staleTime: 1000 * 60 * 2,
+    retry: false, // Don't retry on auth errors
   });
 }
 
@@ -132,6 +138,7 @@ export function useNotifications() {
     enabled: typeof window !== "undefined",
     staleTime: 1000 * 30, // 30 seconds
     refetchInterval: 1000 * 60, // Refetch every minute
+    retry: false, // Don't retry on auth errors
   });
 }
 
@@ -230,16 +237,20 @@ export function useDashboardData() {
   const maintenance = useMaintenance();
   const notifications = useNotifications();
 
+  // Only consider it loading if ALL queries are loading
+  // This allows partial data to be shown
   const isLoading =
-    projects.isLoading ||
-    bookings.isLoading ||
-    maintenance.isLoading ||
+    projects.isLoading &&
+    bookings.isLoading &&
+    maintenance.isLoading &&
     notifications.isLoading;
 
+  // Only consider it an error if ALL queries failed
+  // This allows the dashboard to render with partial data
   const isError =
-    projects.isError ||
-    bookings.isError ||
-    maintenance.isError ||
+    projects.isError &&
+    bookings.isError &&
+    maintenance.isError &&
     notifications.isError;
 
   const error =
@@ -263,6 +274,20 @@ export function useDashboardData() {
       bookings.refetch();
       maintenance.refetch();
       notifications.refetch();
+    },
+    // Add individual loading states for debugging
+    loadingStates: {
+      projects: projects.isLoading,
+      bookings: bookings.isLoading,
+      maintenance: maintenance.isLoading,
+      notifications: notifications.isLoading,
+    },
+    // Add individual error states for debugging
+    errorStates: {
+      projects: projects.isError,
+      bookings: bookings.isError,
+      maintenance: maintenance.isError,
+      notifications: notifications.isError,
     },
   };
 }

@@ -8,7 +8,11 @@ import { Project } from "../../types/models";
 import { StatusBadge } from "../../components/common/StatusBadge";
 import { FileViewer } from "@/components/common/FileViewer";
 import { convertDocumentsToFiles } from "@/lib/file-upload";
-import { getClassificationLabel, getClassificationCode, formatProjectTitle } from "@/lib/classification-utils";
+import {
+  getClassificationLabel,
+  getClassificationCode,
+  formatProjectTitle,
+} from "@/lib/classification-utils";
 import {
   ArrowLeft,
   Copy,
@@ -82,30 +86,41 @@ export function ProjectDetailPage() {
 
         if (
           found &&
-          canViewItem(role as WorkflowRole, found, currentUser?.id)
+          canViewItem(
+            role as WorkflowRole,
+            found,
+            currentUser?.id,
+            currentUser?.divisionId,
+          )
         ) {
           setProjectItem(found);
           if (found.materialCost)
             setMaterialCost(found.materialCost.toString());
           if (found.laborCost) setLaborCost(found.laborCost.toString());
           if (found.partsUsed) setPartsUsed(found.partsUsed);
-          
+
           // Fetch uploaded files from backend
           if (found.dbId) {
             try {
-              const files = await apiRequest<any[]>(`/api/files/request/PROJECT/${found.dbId}`);
+              const files = await apiRequest<any[]>(
+                `/api/files/request/PROJECT/${found.dbId}`,
+              );
               setUploadedFiles(files || []);
             } catch (error) {
               console.error("Failed to fetch files:", error);
               setUploadedFiles([]);
             }
           }
-          
+
           // Fetch linked project if this is A5/A6 with linkedProjectId
           if (found.linkedProjectId) {
             try {
-              const linkedProjects = await fetchLiveProjects(found.linkedProjectId);
-              const linked = linkedProjects.find((p) => p.id === found.linkedProjectId);
+              const linkedProjects = await fetchLiveProjects(
+                found.linkedProjectId,
+              );
+              const linked = linkedProjects.find(
+                (p) => p.id === found.linkedProjectId,
+              );
               setLinkedProject(linked || null);
             } catch (error) {
               console.error("Failed to fetch linked project:", error);
@@ -128,7 +143,7 @@ export function ProjectDetailPage() {
     };
 
     refresh();
-  }, [id, role, currentUser]);
+  }, [id, role, currentUser?.id, currentUser?.divisionId]);
 
   if (!projectItem)
     return (
@@ -147,7 +162,7 @@ export function ProjectDetailPage() {
   const canShowProfessionalActions =
     role === "professional" &&
     (project.assignedTo === currentUser?.id || !project.assignedTo);
-  
+
   // Debug: Log delete button visibility
   console.log("=== Delete Button Debug (Project) ===");
   console.log("Role:", role);
@@ -157,19 +172,34 @@ export function ProjectDetailPage() {
   console.log("Is User:", role === "user");
   console.log("Is Creator:", project.requestedBy === currentUser?.id);
   console.log("Is Submitted:", project.status === "Submitted");
-  console.log("User Can Delete:", role === "user" && project.requestedBy === currentUser?.id && project.status === "Submitted");
+  console.log(
+    "User Can Delete:",
+    role === "user" &&
+      project.requestedBy === currentUser?.id &&
+      project.status === "Submitted",
+  );
   console.log("Admin Can Delete:", role === "admin");
-  console.log("Show Delete Button:", ((role === "user" && project.requestedBy === currentUser?.id && project.status === "Submitted") || role === "admin"));
-  
+  console.log(
+    "Show Delete Button:",
+    (role === "user" &&
+      project.requestedBy === currentUser?.id &&
+      project.status === "Submitted") ||
+      role === "admin",
+  );
+
   // Debug: Log project cost data
   console.log("=== Project Cost Data ===");
   console.log("Role:", role);
   console.log("Project ID:", project.id);
-  console.log("Material Cost:", project.materialCost, typeof project.materialCost);
+  console.log(
+    "Material Cost:",
+    project.materialCost,
+    typeof project.materialCost,
+  );
   console.log("Labor Cost:", project.laborCost, typeof project.laborCost);
   console.log("Total Cost:", project.totalCost, typeof project.totalCost);
   console.log("Parts Used:", project.partsUsed);
-  
+
   const copyId = () => {
     try {
       navigator.clipboard.writeText(project.id);
@@ -189,10 +219,13 @@ export function ProjectDetailPage() {
   const requester = systemUsers.find((u) => u.id === project.requestedBy);
   const assignee = systemUsers.find((u) => u.id === project.assignedTo);
   const professionals = systemUsers.filter((u) => u.role === "professional");
-  
-  // Projects use professionals from "OTHER" division (not maintenance divisions)
+
+  // Projects use professionals from division 0 (Administration) or OTHER
+  // Keycloak users have divisionId: "OTHER" for admin professionals
   const projectProfessionals = professionals.filter(
-    (u) => u.divisionId && u.divisionId.toUpperCase() === "OTHER"
+    (u) => 
+      u.divisionId === "0" || 
+      u.divisionId?.toUpperCase() === "OTHER"
   );
   const totalCost = parseInt(materialCost || "0") + parseInt(laborCost || "0");
   const requestModeLabel =
@@ -248,8 +281,7 @@ export function ProjectDetailPage() {
       toScopeDisplayValue(scopeData.projectContext) !== "-" ||
       toScopeDisplayValue(scopeData.a4Deliverables) !== "-";
     const hasA5Scope = toScopeDisplayValue(scopeData.boqPurpose) !== "-";
-    const hasA6Scope =
-      toScopeDisplayValue(scopeData.supervisionTypes) !== "-";
+    const hasA6Scope = toScopeDisplayValue(scopeData.supervisionTypes) !== "-";
 
     const inferredCode = hasA2Scope
       ? "A2"
@@ -267,78 +299,78 @@ export function ProjectDetailPage() {
 
     const items = (() => {
       switch (inferredCode) {
-      case "A1":
-        return [
-          {
-            label: "Building Type",
-            value: toScopeDisplayValue(scopeData.buildingType),
-          },
-          {
-            label: "Floor Area",
-            value: toScopeDisplayValue(scopeData.floorArea),
-          },
-          {
-            label: "Disciplines",
-            value: toScopeDisplayValue(scopeData.disciplines),
-          },
-        ];
-      case "A2":
-        return [
-          {
-            label: "Intervention Type",
-            value: toScopeDisplayValue(scopeData.interventionType),
-          },
-          {
-            label: "Design Disciplines",
-            value: toScopeDisplayValue(scopeData.a2DesignScope),
-          },
-          {
-            label: "Deliverables",
-            value: toScopeDisplayValue(scopeData.a2Deliverables),
-          },
-        ];
-      case "A3":
-        return [
-          {
-            label: "Space Type",
-            value: toScopeDisplayValue(scopeData.spaceType),
-          },
-          {
-            label: "Deliverables",
-            value: toScopeDisplayValue(scopeData.a3Deliverables),
-          },
-        ];
-      case "A4":
-        return [
-          {
-            label: "Project Context",
-            value: toScopeDisplayValue(scopeData.projectContext),
-          },
-          {
-            label: "Site Area (sq.m)",
-            value: scopeData.siteArea || "-",
-          },
-          {
-            label: "Deliverables",
-            value: toScopeDisplayValue(scopeData.a4Deliverables),
-          },
-        ];
-      case "A5":
-        return [
-          {
-            label: "BOQ Purpose",
-            value: toScopeDisplayValue(scopeData.boqPurpose),
-          },
-        ];
-      case "A6":
-        return [
-          {
-            label: "Supervision Types",
-            value: toScopeDisplayValue(scopeData.supervisionTypes),
-          },
-        ];
-      default:
-        return [];
+        case "A1":
+          return [
+            {
+              label: "Building Type",
+              value: toScopeDisplayValue(scopeData.buildingType),
+            },
+            {
+              label: "Floor Area",
+              value: toScopeDisplayValue(scopeData.floorArea),
+            },
+            {
+              label: "Disciplines",
+              value: toScopeDisplayValue(scopeData.disciplines),
+            },
+          ];
+        case "A2":
+          return [
+            {
+              label: "Intervention Type",
+              value: toScopeDisplayValue(scopeData.interventionType),
+            },
+            {
+              label: "Design Disciplines",
+              value: toScopeDisplayValue(scopeData.a2DesignScope),
+            },
+            {
+              label: "Deliverables",
+              value: toScopeDisplayValue(scopeData.a2Deliverables),
+            },
+          ];
+        case "A3":
+          return [
+            {
+              label: "Space Type",
+              value: toScopeDisplayValue(scopeData.spaceType),
+            },
+            {
+              label: "Deliverables",
+              value: toScopeDisplayValue(scopeData.a3Deliverables),
+            },
+          ];
+        case "A4":
+          return [
+            {
+              label: "Project Context",
+              value: toScopeDisplayValue(scopeData.projectContext),
+            },
+            {
+              label: "Site Area (sq.m)",
+              value: scopeData.siteArea || "-",
+            },
+            {
+              label: "Deliverables",
+              value: toScopeDisplayValue(scopeData.a4Deliverables),
+            },
+          ];
+        case "A5":
+          return [
+            {
+              label: "BOQ Purpose",
+              value: toScopeDisplayValue(scopeData.boqPurpose),
+            },
+          ];
+        case "A6":
+          return [
+            {
+              label: "Supervision Types",
+              value: toScopeDisplayValue(scopeData.supervisionTypes),
+            },
+          ];
+        default:
+          return [];
       }
     })();
 
@@ -393,11 +425,8 @@ export function ProjectDetailPage() {
         setTimeout(() => setActionDone(""), 5000);
         return;
       }
-      
-      if (
-        action === "Completed" &&
-        currentStatus !== "In Progress"
-      ) {
+
+      if (action === "Completed" && currentStatus !== "In Progress") {
         setActionDone(
           `Cannot mark complete. Current status: '${currentStatus}'. Expected: 'In Progress'. Please start work first.`,
         );
@@ -464,7 +493,10 @@ export function ProjectDetailPage() {
         const mergedTimeline = [
           ...found.timeline.filter((e) => e.id !== newEvent.id),
           newEvent,
-        ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        ].sort(
+          (a, b) =>
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+        );
         setProjectItem({ ...found, timeline: mergedTimeline });
       }
     } catch (err) {
@@ -480,7 +512,7 @@ export function ProjectDetailPage() {
       alert("Please enter a rejection reason");
       return;
     }
-    
+
     setRejectingProject(true);
     try {
       await apiRequest(`/api/projects/${project.dbId}/reject`, {
@@ -491,7 +523,10 @@ export function ProjectDetailPage() {
       setRejectionReason("");
       window.location.reload();
     } catch (error) {
-      alert("Failed to reject project: " + (error instanceof Error ? error.message : "Unknown error"));
+      alert(
+        "Failed to reject project: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+      );
     } finally {
       setRejectingProject(false);
     }
@@ -509,16 +544,22 @@ export function ProjectDetailPage() {
     console.log("Material Cost:", materialCostValue);
     console.log("Labor Cost:", laborCostValue);
     console.log("Parts Used:", partsUsed);
-    console.log("Request URL:", `/api/professional/projects/${project.dbId}/cost`);
+    console.log(
+      "Request URL:",
+      `/api/professional/projects/${project.dbId}/cost`,
+    );
 
-    const response = await apiRequest(`/api/professional/projects/${project.dbId}/cost`, {
-      method: "PATCH",
-      body: {
-        materialCost: materialCostValue,
-        laborCost: laborCostValue,
-        partsUsed,
+    const response = await apiRequest(
+      `/api/professional/projects/${project.dbId}/cost`,
+      {
+        method: "PATCH",
+        body: {
+          materialCost: materialCostValue,
+          laborCost: laborCostValue,
+          partsUsed,
+        },
       },
-    });
+    );
 
     console.log("Cost save response:", response);
 
@@ -586,12 +627,15 @@ export function ProjectDetailPage() {
             </p>
             {project.linkedProjectId && (
               <p className="text-xs text-muted-foreground mt-1">
-                Linked to: <span className="font-mono font-semibold text-[#1A3580]">{project.linkedProjectId}</span>
+                Linked to:{" "}
+                <span className="font-mono font-semibold text-[#1A3580]">
+                  {project.linkedProjectId}
+                </span>
               </p>
             )}
           </div>
         </div>
-        
+
         <div className="flex gap-2" />
       </div>
 
@@ -629,7 +673,7 @@ export function ProjectDetailPage() {
         {/* Main Details */}
         <div className="lg:col-span-2 space-y-6">
           {/* Linked Project Info for A5/A6 */}
-          {linkedProject && (project.linkedProjectId) && (
+          {linkedProject && project.linkedProjectId && (
             <div className="glass-card rounded-2xl p-6 shadow-modern border-2 border-[#1A3580]/20">
               <div className="flex items-start gap-3 mb-4">
                 <div className="w-10 h-10 rounded-full bg-[#1A3580]/10 flex items-center justify-center flex-shrink-0">
@@ -640,24 +684,30 @@ export function ProjectDetailPage() {
                     Linked Existing Project
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    This {getClassificationCode(project.classification) === "A5" ? "BOQ preparation" : "supervision"} request is for the following existing project:
+                    This{" "}
+                    {getClassificationCode(project.classification) === "A5"
+                      ? "BOQ preparation"
+                      : "supervision"}{" "}
+                    request is for the following existing project:
                   </p>
                 </div>
               </div>
-              
+
               <div className="bg-secondary/30 rounded-lg p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-sm font-bold text-[#1A3580]">
                     {linkedProject.id}
                   </span>
                   <button
-                    onClick={() => router.push(`/dashboard/projects/${linkedProject.id}`)}
+                    onClick={() =>
+                      router.push(`/dashboard/projects/${linkedProject.id}`)
+                    }
                     className="text-xs text-[#1A3580] hover:underline"
                   >
                     View Project →
                   </button>
                 </div>
-                
+
                 <div>
                   <p className="text-sm font-medium text-foreground">
                     {linkedProject.title}
@@ -666,11 +716,13 @@ export function ProjectDetailPage() {
                     {getClassificationLabel(linkedProject.classification)}
                   </p>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/50">
                   <div>
                     <p className="text-xs text-muted-foreground">Location</p>
-                    <p className="text-sm font-medium text-foreground">{linkedProject.location}</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {linkedProject.location}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Budget</p>
@@ -686,37 +738,78 @@ export function ProjectDetailPage() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Start Date</p>
-                    <p className="text-sm font-medium text-foreground">{linkedProject.startDate}</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {linkedProject.startDate}
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
           )}
-          
+
           {/* Combined Card for Description, Details, Contact, and Scope */}
           <div className="bg-white rounded-xl border border-border p-5 shadow-sm space-y-8">
             {/* Request Summary - Hidden for A5/A6 existing projects */}
-            {!(["A5", "A6"].includes(classificationCode) && project.requestMode === "existing") && (
+            {!(
+              ["A5", "A6"].includes(classificationCode) &&
+              project.requestMode === "existing"
+            ) && (
               <div>
                 <h3 className="text-sm font-semibold text-[#0E2271] mb-4">
                   Request Summary
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {[
-                    { icon: <FileText size={16} />, label: "Request ID", value: project.id || "-" },
-                    { icon: <Layers size={16} />, label: "Request Mode", value: requestModeLabel },
-                    { icon: <Package size={16} />, label: "Classification", value: project.classification || "-" },
-                    { icon: <FileText size={16} />, label: "Title", value: project.title || "-" },
-                    { icon: <MapPin size={16} />, label: "Location", value: actualLocation },
-                    { icon: <MapPin size={16} />, label: "Block", value: block },
-                    { icon: <MapPin size={16} />, label: "Floor", value: floor },
-                    { icon: <Briefcase size={16} />, label: "Department", value: project.department || "-" },
+                    {
+                      icon: <FileText size={16} />,
+                      label: "Request ID",
+                      value: project.id || "-",
+                    },
+                    {
+                      icon: <Layers size={16} />,
+                      label: "Request Mode",
+                      value: requestModeLabel,
+                    },
+                    {
+                      icon: <Package size={16} />,
+                      label: "Classification",
+                      value: project.classification || "-",
+                    },
+                    {
+                      icon: <FileText size={16} />,
+                      label: "Title",
+                      value: project.title || "-",
+                    },
+                    {
+                      icon: <MapPin size={16} />,
+                      label: "Location",
+                      value: actualLocation,
+                    },
+                    {
+                      icon: <MapPin size={16} />,
+                      label: "Block",
+                      value: block,
+                    },
+                    {
+                      icon: <MapPin size={16} />,
+                      label: "Floor",
+                      value: floor,
+                    },
+                    {
+                      icon: <Briefcase size={16} />,
+                      label: "Department",
+                      value: project.department || "-",
+                    },
                     {
                       icon: <User size={16} />,
                       label: "Requested By",
                       value: requester?.name || project.requestedBy || "-",
                     },
-                    { icon: <Phone size={16} />, label: "Contact", value: contactSummary || "-" },
+                    {
+                      icon: <Phone size={16} />,
+                      label: "Contact",
+                      value: contactSummary || "-",
+                    },
                     {
                       icon: <Info size={16} />,
                       label: "Site Condition",
@@ -727,11 +820,19 @@ export function ProjectDetailPage() {
                       label: "Budget",
                       value: `ETB ${project.budget.toLocaleString()}`,
                     },
-                    { icon: <Calendar size={16} />, label: "Timeline", value: timelineRange },
-                    { icon: <UserPlus size={16} />, label: "Auto-Assign To", value: autoAssignTo },
-                    ...summaryScopeItems.map(item => ({
+                    {
+                      icon: <Calendar size={16} />,
+                      label: "Timeline",
+                      value: timelineRange,
+                    },
+                    {
+                      icon: <UserPlus size={16} />,
+                      label: "Auto-Assign To",
+                      value: autoAssignTo,
+                    },
+                    ...summaryScopeItems.map((item) => ({
                       icon: <Package size={16} />,
-                      ...item
+                      ...item,
                     })),
                     {
                       icon: <Layers size={16} />,
@@ -747,12 +848,14 @@ export function ProjectDetailPage() {
                         <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">
                           {item.label}
                         </p>
-                        <p className="text-sm font-medium text-foreground break-words">{item.value}</p>
+                        <p className="text-sm font-medium text-foreground break-words">
+                          {item.value}
+                        </p>
                       </div>
                     </div>
                   ))}
                 </div>
-                
+
                 {/* Functional Description - Full Width */}
                 <div className="mt-4 pt-4 border-t border-border">
                   <div className="flex items-start gap-3">
@@ -928,16 +1031,17 @@ export function ProjectDetailPage() {
           {/* Documents */}
           <div className="glass-card rounded-2xl p-6 shadow-modern">
             <FileViewer
-              files={uploadedFiles.length > 0 
-                ? uploadedFiles.map(f => ({
-                    id: f.id.toString(),
-                    name: f.fileName,
-                    url: `/api/files/download/${f.id}`,
-                    size: undefined,
-                    type: undefined,
-                    uploadedAt: f.uploadedAt,
-                  }))
-                : convertDocumentsToFiles(project.documents)
+              files={
+                uploadedFiles.length > 0
+                  ? uploadedFiles.map((f) => ({
+                      id: f.id.toString(),
+                      name: f.fileName,
+                      url: `/api/files/download/${f.id}`,
+                      size: undefined,
+                      type: undefined,
+                      uploadedAt: f.uploadedAt,
+                    }))
+                  : convertDocumentsToFiles(project.documents)
               }
               title={t("projects.documents")}
               showDownload={true}
@@ -951,7 +1055,9 @@ export function ProjectDetailPage() {
             <Timeline
               events={project.timeline}
               title={t("projects.activityTimeline")}
-              emptyMessage={t("projects.noActivityYet") || "No activity recorded yet"}
+              emptyMessage={
+                t("projects.noActivityYet") || "No activity recorded yet"
+              }
               userRole={role as WorkflowRole}
             />
           </div>
@@ -984,7 +1090,8 @@ export function ProjectDetailPage() {
                     {project.status === "Submitted" && (
                       <div className="mb-4 pb-4 border-b border-dashed border-border">
                         <p className="text-xs text-muted-foreground mb-3">
-                          Quick Actions: Approve/Reject directly or start review process.
+                          Quick Actions: Approve/Reject directly or start review
+                          process.
                         </p>
                         <div className="flex gap-2 mb-3">
                           <button
@@ -1002,7 +1109,9 @@ export function ProjectDetailPage() {
                             <ThumbsDown size={16} /> Reject
                           </button>
                         </div>
-                        <div className="text-xs text-muted-foreground mb-2">OR</div>
+                        <div className="text-xs text-muted-foreground mb-2">
+                          OR
+                        </div>
                         <button
                           onClick={() =>
                             handleAction(
@@ -1023,7 +1132,8 @@ export function ProjectDetailPage() {
                     {project.status === "Under Review" && (
                       <div className="mb-4 pb-4 border-b border-dashed border-border">
                         <p className="text-xs text-muted-foreground mb-3">
-                          Review the project and make a decision before assigning to professional.
+                          Review the project and make a decision before
+                          assigning to professional.
                         </p>
                         <div className="flex gap-2">
                           <button
@@ -1054,18 +1164,17 @@ export function ProjectDetailPage() {
                         onChange={(e) => setSelectedTech(e.target.value)}
                         className="w-full text-sm px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm outline-none focus:border-[#1A3580] shadow-sm transition-all"
                       >
-                        <option value="">
-                          Select
-                        </option>
+                        <option value="">Select</option>
                         {projectProfessionals.map((pr) => (
-                          <option key={pr.id} value={pr.id}>
+                          <option key={pr.email} value={pr.email}>
                             {pr.name}
                           </option>
                         ))}
                       </select>
                       {projectProfessionals.length === 0 && (
                         <p className="text-[10px] text-muted-foreground">
-                          No professional users found. Create a professional account first.
+                          No professional users found. Create a professional
+                          account first.
                         </p>
                       )}
                       {project.status === "Submitted" && (
@@ -1165,80 +1274,85 @@ export function ProjectDetailPage() {
 
           {/* Professional Actions */}
           {canShowProfessionalActions && (
-              <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative border-l-4 border-l-[#EA580C]">
-                <h3 className="text-sm font-semibold text-[#0E2271] mb-4 flex items-center justify-between">
-                  <span>{t("projects.professionalActions")}</span>
+            <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative border-l-4 border-l-[#EA580C]">
+              <h3 className="text-sm font-semibold text-[#0E2271] mb-4 flex items-center justify-between">
+                <span>{t("projects.professionalActions")}</span>
+                <button
+                  onClick={async () => {
+                    try {
+                      const liveProjects = await fetchLiveProjects(id);
+                      const found = liveProjects.find((p) => p.id === id);
+                      if (found) {
+                        setProjectItem(found);
+                        setActionDone("Status refreshed");
+                        setTimeout(() => setActionDone(""), 2000);
+                      }
+                    } catch (err) {
+                      console.error("Failed to refresh", err);
+                    }
+                  }}
+                  className="text-xs text-[#1A3580] hover:underline"
+                >
+                  Refresh Status
+                </button>
+              </h3>
+              {project.assignedTo && project.assignedTo !== currentUser?.id && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 text-sm text-amber-700">
+                  You are viewing this task, but it is assigned to another
+                  professional.
+                </div>
+              )}
+              {actionDone && (
+                <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-3 text-sm text-green-700 flex items-center gap-2">
+                  <CheckCircle size={14} /> {actionDone}
+                </div>
+              )}
+              <div className="space-y-2">
+                {project.status === "Assigned to Professionals" && (
                   <button
-                    onClick={async () => {
-                      try {
-                        const liveProjects = await fetchLiveProjects(id);
-                        const found = liveProjects.find((p) => p.id === id);
-                        if (found) {
-                          setProjectItem(found);
-                          setActionDone("Status refreshed");
-                          setTimeout(() => setActionDone(""), 2000);
-                        }
-                      } catch (err) {
-                        console.error("Failed to refresh", err);
-                      }
-                    }}
-                    className="text-xs text-[#1A3580] hover:underline"
+                    onClick={() =>
+                      handleAction(
+                        "In Progress",
+                        "professional",
+                        t("requests.in_progress"),
+                      )
+                    }
+                    className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all"
+                    style={{ background: "#EA580C" }}
                   >
-                    Refresh Status
+                    {t("maintenance.startWork")}
                   </button>
-                </h3>
-                {project.assignedTo && project.assignedTo !== currentUser?.id && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 text-sm text-amber-700">
-                    You are viewing this task, but it is assigned to another professional.
-                  </div>
                 )}
-                {actionDone && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-3 text-sm text-green-700 flex items-center gap-2">
-                    <CheckCircle size={14} /> {actionDone}
-                  </div>
+                {project.status === "In Progress" && (
+                  <button
+                    onClick={() =>
+                      handleAction(
+                        "Completed",
+                        "professional",
+                        t("requests.completed"),
+                      )
+                    }
+                    className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all"
+                    style={{ background: "#0D9488" }}
+                  >
+                    {t("maintenance.markFixed")}
+                  </button>
                 )}
-                <div className="space-y-2">
-                  {project.status === "Assigned to Professionals" && (
-                    <button
-                      onClick={() =>
-                        handleAction(
-                          "In Progress",
-                          "professional",
-                          t("requests.in_progress"),
-                        )
-                      }
-                      className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all"
-                      style={{ background: "#EA580C" }}
-                    >
-                      {t("maintenance.startWork")}
-                    </button>
-                  )}
-                  {project.status === "In Progress" && (
-                    <button
-                      onClick={() =>
-                        handleAction(
-                          "Completed",
-                          "professional",
-                          t("requests.completed"),
-                        )
-                      }
-                      className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all"
-                      style={{ background: "#0D9488" }}
-                    >
-                      {t("maintenance.markFixed")}
-                    </button>
-                  )}
-                  {project.status !== "Assigned to Professionals" && project.status !== "In Progress" && (
+                {project.status !== "Assigned to Professionals" &&
+                  project.status !== "In Progress" && (
                     <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-600">
-                      Current status: <span className="font-semibold">{project.status}</span>
+                      Current status:{" "}
+                      <span className="font-semibold">{project.status}</span>
                       {project.status === "Under Review" && (
-                        <p className="text-xs mt-1 text-slate-500">Waiting for admin to assign this project to you.</p>
+                        <p className="text-xs mt-1 text-slate-500">
+                          Waiting for admin to assign this project to you.
+                        </p>
                       )}
                     </div>
                   )}
-                </div>
               </div>
-            )}
+            </div>
+          )}
 
           {/* Quick Info */}
           <div className="glass-card rounded-2xl p-6 shadow-modern">
@@ -1282,7 +1396,9 @@ export function ProjectDetailPage() {
                   {t("form.attachments")}
                 </span>
                 <span className="font-semibold text-[#1A3580]">
-                  {uploadedFiles.length > 0 ? uploadedFiles.length : project.documents.length}
+                  {uploadedFiles.length > 0
+                    ? uploadedFiles.length
+                    : project.documents.length}
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -1332,7 +1448,8 @@ export function ProjectDetailPage() {
               Reject Project
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Please provide a reason for rejecting this project. This will be sent to the requester.
+              Please provide a reason for rejecting this project. This will be
+              sent to the requester.
             </p>
             <textarea
               value={rejectionReason}
