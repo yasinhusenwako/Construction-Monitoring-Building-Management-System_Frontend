@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import { useLanguage } from '@/context/LanguageContext';
 import {
   Building2,
@@ -20,50 +20,69 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { fetchLiveProjects, fetchLiveMaintenance } from "@/lib/live-api";
 import { divisions } from "@/types/models";
 import { StatusBadge, PriorityBadge } from '@/components/common/StatusBadge';
 import { getUserFacingStatus, type WorkflowRole } from '@/lib/workflow';
 import { apiRequest } from "@/lib/api";
+import { useProjects, useMaintenance } from "@/hooks/use-queries";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-client";
 
 export function DivisionsPage() {
   const { t } = useLanguage();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const [projects, setProjects] = useState<any[]>([]);
-  const [maintenance, setMaintenance] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [expandedDivision, setExpandedDivision] = useState<string | null>(null);
   const [copied, setCopied] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [liveProjects, liveMaintenance] = await Promise.all([
-          fetchLiveProjects(),
-          fetchLiveMaintenance(),
-        ]);
-        setProjects(liveProjects);
-        setMaintenance(liveMaintenance);
-      } catch (error) {
-        console.error("Failed to fetch division data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+  // Use React Query hooks for automatic real-time updates with polling
+  const { data: projects = [], isLoading: projectsLoading, refetch: refetchProjects } = useProjects();
+  const { data: maintenance = [], isLoading: maintenanceLoading, refetch: refetchMaintenance } = useMaintenance();
 
-    // Auto-refresh every 15 seconds to show newly assigned tasks
-    const refreshInterval = setInterval(fetchData, 15000);
-    return () => clearInterval(refreshInterval);
-  }, []);
+  const loading = projectsLoading || maintenanceLoading;
+
+  // Set up automatic polling for real-time updates
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      refetchProjects();
+      refetchMaintenance();
+    }, 10000); // Refetch every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [refetchProjects, refetchMaintenance]);
 
   const divisionStats = useMemo(() => {
+    // Debug: Log the actual division IDs in the data
+    console.log("=== DIVISIONS PAGE DEBUG ===");
+    console.log("Projects:", projects?.length || 0);
+    console.log("Maintenance:", maintenance?.length || 0);
+    
+    if (projects && projects.length > 0) {
+      const projectDivisions = [...new Set(projects.map(p => p.divisionId))];
+      console.log("Unique project divisionIds:", projectDivisions);
+    }
+    
+    if (maintenance && maintenance.length > 0) {
+      const maintenanceDivisions = [...new Set(maintenance.map(m => m.divisionId))];
+      console.log("Unique maintenance divisionIds:", maintenanceDivisions);
+    }
+    
+    console.log("Expected division IDs:", divisions.map(d => d.id));
+    
     return divisions.map((div) => {
-      const divProjects = projects.filter((p) => p.divisionId === div.id);
+      // Map division IDs: "1" -> "DIV-001", "2" -> "DIV-002", "3" -> "DIV-003"
+      const backendDivisionId = `DIV-00${div.id}`;
+      
+      const divProjects = (projects || []).filter((p) => 
+        p.divisionId === div.id || p.divisionId === backendDivisionId
+      );
       // Only maintenance tasks for this division
-      const divTasks = maintenance.filter((m) => m.divisionId === div.id);
+      const divTasks = (maintenance || []).filter((m) => 
+        m.divisionId === div.id || m.divisionId === backendDivisionId
+      );
+      
+      console.log(`Division ${div.id} (${backendDivisionId}): ${divProjects.length} projects, ${divTasks.length} maintenance`);
 
       const activeProjects = divProjects.filter(
         (p) => !["Approved", "Rejected", "Closed"].includes(p.status),
@@ -115,7 +134,8 @@ export function DivisionsPage() {
       await apiRequest(`/api/maintenance/${m.dbId ?? m.id}`, {
         method: "DELETE",
       });
-      setMaintenance((prev) => prev.filter((item) => item.id !== m.id));
+      // Invalidate and refetch maintenance data
+      queryClient.invalidateQueries({ queryKey: queryKeys.maintenance.all });
     } catch (error) {
       alert(
         "Failed to delete maintenance request: " +
@@ -125,19 +145,8 @@ export function DivisionsPage() {
   };
 
   const handleManualRefresh = async () => {
-    setRefreshing(true);
-    try {
-      const [liveProjects, liveMaintenance] = await Promise.all([
-        fetchLiveProjects(),
-        fetchLiveMaintenance(),
-      ]);
-      setProjects(liveProjects);
-      setMaintenance(liveMaintenance);
-    } catch (error) {
-      console.error("Failed to refresh division data:", error);
-    } finally {
-      setRefreshing(false);
-    }
+    // Refetch both projects and maintenance data
+    await Promise.all([refetchProjects(), refetchMaintenance()]);
   };
 
   if (loading) {
@@ -163,11 +172,11 @@ export function DivisionsPage() {
         <div className="flex gap-2">
           <button 
             onClick={handleManualRefresh}
-            disabled={refreshing}
+            disabled={loading}
             className="px-4 py-2.5 bg-white dark:bg-gray-800 border-2 border-[#7C3AED] text-[#7C3AED] rounded-xl text-sm font-semibold hover:bg-[#7C3AED] hover:text-white transition-all shadow-sm hover:shadow-md flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} /> 
-            {refreshing ? "Refreshing..." : "Refresh Data"}
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} /> 
+            {loading ? "Refreshing..." : "Refresh Data"}
           </button>
           <button className="px-4 py-2.5 bg-[#7C3AED] text-white rounded-xl text-sm font-semibold hover:bg-[#6D28D9] transition-all shadow-sm hover:shadow-md flex items-center gap-2">
             <BarChart2 size={16} /> Division Analytics

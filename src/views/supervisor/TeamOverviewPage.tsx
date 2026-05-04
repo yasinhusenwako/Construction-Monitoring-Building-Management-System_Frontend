@@ -12,6 +12,17 @@ import {
 } from "@/lib/live-api";
 import { Users, Mail, Phone, Activity } from "lucide-react";
 
+function normalizeDivisionId(value?: string | null): string | null {
+  if (!value) return null;
+  const raw = value.trim();
+  if (!raw) return null;
+  const upper = raw.toUpperCase().replace("_", "-");
+  if (/^DIV-\d+$/.test(upper)) return `DIV-${upper.slice(4).padStart(3, "0")}`;
+  if (/^DIV\d+$/.test(upper)) return `DIV-${upper.slice(3).padStart(3, "0")}`;
+  if (/^\d+$/.test(upper)) return `DIV-${upper.padStart(3, "0")}`;
+  return upper;
+}
+
 export function TeamOverviewPage() {
   const { currentUser } = useAuth();
   const { t } = useLanguage();
@@ -23,7 +34,16 @@ export function TeamOverviewPage() {
 
   // Get current user's division
   const userDivision = currentUser?.divisionId;
-  const divisionName = divisions.find((d) => d.id === userDivision)?.name || "Division";
+  const normalizedUserDivision = normalizeDivisionId(userDivision);
+  const normalizedDivisionNumber = normalizedUserDivision
+    ? String(parseInt(normalizedUserDivision.replace("DIV-", ""), 10))
+    : undefined;
+  const divisionName =
+    divisions.find(
+      (d) =>
+        d.id === userDivision ||
+        (normalizedDivisionNumber && d.id === normalizedDivisionNumber),
+    )?.name || "Division";
 
   React.useEffect(() => {
     const refresh = async () => {
@@ -69,9 +89,10 @@ export function TeamOverviewPage() {
     let filtered = teamMembers;
 
     // Always filter by division - only show professionals from supervisor's division
-    if (userDivision) {
+    if (normalizedUserDivision) {
       filtered = filtered.filter(
-        (member) => member.divisionId === userDivision
+        (member) =>
+          normalizeDivisionId(member.divisionId) === normalizedUserDivision,
       );
     }
 
@@ -87,7 +108,7 @@ export function TeamOverviewPage() {
     }
 
     return filtered;
-  }, [teamMembers, userDivision, searchQuery]);
+  }, [teamMembers, normalizedUserDivision, searchQuery]);
 
   return (
     <div className="space-y-6">
@@ -168,7 +189,7 @@ export function TeamOverviewPage() {
 
             return (
               <div
-                key={member.id}
+                key={`${member.id}-${member.email || member.name}`}
                 className="bg-white rounded-2xl border border-border shadow-sm hover:shadow-md transition-all overflow-hidden"
               >
                 <div className="p-6">

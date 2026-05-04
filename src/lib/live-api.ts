@@ -559,7 +559,7 @@ export async function fetchLiveUsers(): Promise<
        createdAt?: string;
     }>
   >("/api/users");
-  return list.map((item) => {
+  const mapped = list.map((item) => {
     const rawName = item.name || "Unknown User";
     const initials = rawName
       .split(" ")
@@ -568,8 +568,17 @@ export async function fetchLiveUsers(): Promise<
       .toUpperCase()
       .slice(0, 2);
     const frontendRole = mapRoleFromBackend(item.role);
+    const backendId = item.id as unknown as number | string;
+    const isSyntheticKeycloakId =
+      (typeof backendId === "number" && backendId <= 0) ||
+      (typeof backendId === "string" && /^-?\d+$/.test(backendId) && Number(backendId) <= 0);
+    const frontendId =
+      isSyntheticKeycloakId && item.email
+        ? item.email
+        : userId(backendId as number | string);
+
     return {
-      id: userId(item.id),
+      id: frontendId,
       name: rawName,
       email: item.email || "",
       role: frontendRole,
@@ -588,6 +597,17 @@ export async function fetchLiveUsers(): Promise<
       profession: item.profession || undefined,
     };
   });
+
+  // Deduplicate users by stable identity (prefer email, then id)
+  const deduped = new Map<string, (typeof mapped)[number]>();
+  for (const user of mapped) {
+    const key = (user.email || user.id).toLowerCase();
+    if (!deduped.has(key)) {
+      deduped.set(key, user);
+    }
+  }
+
+  return Array.from(deduped.values());
 }
 
 export async function deleteUser(userId: string): Promise<void> {

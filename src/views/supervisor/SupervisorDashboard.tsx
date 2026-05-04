@@ -21,6 +21,23 @@ import {
   Download,
 } from "lucide-react";
 
+function normalizeDivisionId(value?: string | null): string | null {
+  if (!value) return null;
+  const raw = value.trim();
+  if (!raw) return null;
+  const upper = raw.toUpperCase().replace("_", "-");
+  if (/^DIV-\d+$/.test(upper)) {
+    return `DIV-${upper.slice(4).padStart(3, "0")}`;
+  }
+  if (/^DIV\d+$/.test(upper)) {
+    return `DIV-${upper.slice(3).padStart(3, "0")}`;
+  }
+  if (/^\d+$/.test(upper)) {
+    return `DIV-${upper.padStart(3, "0")}`;
+  }
+  return upper;
+}
+
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export function SupervisorDashboard() {
   const { currentUser } = useAuth();
@@ -60,7 +77,16 @@ export function SupervisorDashboard() {
 
   // Get current user's division
   const userDivision = currentUser?.divisionId;
-  const divisionName = divisions.find((d) => d.id === userDivision)?.name || "Division";
+  const normalizedUserDivision = normalizeDivisionId(userDivision);
+  const normalizedDivisionNumber = normalizedUserDivision
+    ? String(parseInt(normalizedUserDivision.replace("DIV-", ""), 10))
+    : undefined;
+  const divisionName =
+    divisions.find(
+      (d) =>
+        d.id === userDivision ||
+        (normalizedDivisionNumber && d.id === normalizedDivisionNumber),
+    )?.name || "Division";
 
   // Debug: Log division filtering
   console.log("=== Supervisor Dashboard Division Filter ===");
@@ -93,8 +119,8 @@ export function SupervisorDashboard() {
   const myTasks = allTasks.filter(
     (m) => {
       const matchesSupervisor = m.supervisorId === uid;
-      const matchesDivision = userDivision &&
-        m.divisionId === userDivision &&
+      const matchesDivision = normalizedUserDivision &&
+        normalizeDivisionId(m.divisionId) === normalizedUserDivision &&
         supervisorTrackedStatuses.includes(m.status);
       
       // Debug log for each task
@@ -132,10 +158,10 @@ export function SupervisorDashboard() {
         (u) =>
           u.role === "professional" &&
           String(u.status || "active").toLowerCase() === "active" &&
-          userDivision &&
-          u.divisionId === userDivision  // STRICT: Only professionals from supervisor's division
+          normalizedUserDivision &&
+          normalizeDivisionId(u.divisionId) === normalizedUserDivision
       ),
-    [users, userDivision],
+    [users, normalizedUserDivision],
   );
 
   return (
