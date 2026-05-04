@@ -172,6 +172,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
 
   // Professional workload
   const techWorkload = technicians.map((t) => ({
+    id: t.id,
     name: t.name.split(" ")[0],
     assigned: maintenanceItems.filter(
       (m) =>
@@ -816,14 +817,14 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                   </h3>
                 </div>
                 <div className="p-3 space-y-2.5">
-                  {techWorkload.map((t) => {
+                  {techWorkload.map((t, index) => {
                     const total = t.assigned + t.completed;
                     const pct =
                       total > 0 ? Math.round((t.assigned / total) * 100) : 0;
                     const loadColor =
                       pct > 70 ? "#CC1F1A" : pct > 40 ? "#F5B800" : "#16A34A";
                     return (
-                      <div key={t.name}>
+                      <div key={`tech-${t.id}-${index}`}>
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-[#1A3580] flex items-center justify-center text-white text-xs font-bold">
