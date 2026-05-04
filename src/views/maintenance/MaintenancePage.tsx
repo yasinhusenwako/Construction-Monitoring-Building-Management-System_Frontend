@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -21,6 +21,7 @@ import { StatusBadge, PriorityBadge } from "@/components/common/StatusBadge";
 import {
   canViewItem,
   canTransition,
+  getVisibleStatusesForRole,
   type WorkflowRole,
   type WorkflowStatus,
 } from "@/lib/workflow";
@@ -32,9 +33,11 @@ export function MaintenancePage() {
   const router = useRouter();
   const { t } = useLanguage();
   const role = currentUser?.role;
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const [view, setView] = useState<"list">("list");
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
   const [typeFilter, setTypeFilter] = useState("All");
   const [priorityFilter, setPriorityFilter] = useState("All");
   const [copied, setCopied] = useState("");
@@ -69,6 +72,19 @@ export function MaintenancePage() {
         setMaintenanceItems(items);
       } catch (error) {
         console.error("Failed to refresh maintenance data:", error);
+        // If authentication error, stop auto-refresh and let ProtectedRoute handle it
+        if (
+          error instanceof Error &&
+          error.message.includes("Authentication required")
+        ) {
+          console.log(
+            "[MaintenancePage] Authentication error - stopping auto-refresh",
+          );
+          if (refreshIntervalRef.current) {
+            clearInterval(refreshIntervalRef.current);
+            refreshIntervalRef.current = null;
+          }
+        }
       } finally {
         setLoading(false);
       }
@@ -76,8 +92,14 @@ export function MaintenancePage() {
     void refresh();
 
     // Auto-refresh every 15 seconds to show newly assigned tasks
-    const refreshInterval = setInterval(refresh, 15000);
-    return () => clearInterval(refreshInterval);
+    refreshIntervalRef.current = setInterval(refresh, 15000);
+
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+        refreshIntervalRef.current = null;
+      }
+    };
   }, [role]);
 
   const getFilteredProfessionals = (m?: Maintenance) => {
@@ -85,7 +107,14 @@ export function MaintenancePage() {
       return users.filter((u) => u.role === "supervisor");
     }
     if (role === "supervisor") {
-      return users.filter((u) => u.role === "professional");
+      // STRICT: Only show professionals from supervisor's division
+      const supervisorDivision = currentUser?.divisionId;
+      return users.filter(
+        (u) =>
+          u.role === "professional" &&
+          supervisorDivision &&
+          u.divisionId === supervisorDivision
+      );
     }
     return [];
   };
@@ -100,6 +129,10 @@ export function MaintenancePage() {
     "Urgent Repair",
   ];
   const priorities = ["All", "Critical", "High", "Medium", "Low"];
+  const statuses = [
+    "All",
+    ...getVisibleStatusesForRole(role as WorkflowRole, "maintenance"),
+  ];
 
   const filtered = maintenanceItems.filter((m) => {
     // Mock Data structures differ slightly between resources
@@ -111,6 +144,7 @@ export function MaintenancePage() {
       role as WorkflowRole | undefined,
       m as any,
       currentUser?.id,
+      currentUser?.divisionId,
     );
     const matchSearch =
       !search ||
@@ -122,9 +156,12 @@ export function MaintenancePage() {
     const matchType = typeFilter === "All" || mType === typeFilter;
     const matchPriority =
       priorityFilter === "All" || mPriority === priorityFilter;
+    const matchStatus = statusFilter === "All" || m.status === statusFilter;
 
     // Override: Bookings do not have priority, default to Medium and let them show if Priority == Medium or All
-    return matchRole && matchSearch && matchType && matchPriority;
+    return (
+      matchRole && matchSearch && matchType && matchPriority && matchStatus
+    );
   });
 
   const professionalSpecificStats =
@@ -172,10 +209,9 @@ export function MaintenancePage() {
       return false;
     }
 
-    const token = sessionStorage.getItem("insa_token") ?? undefined;
     const requestModule = m.id.startsWith("PRJ-")
       ? "PROJECT"
-      : (m.id.startsWith("BKG-") || m.id.startsWith("ALLOC-"))
+      : m.id.startsWith("BKG-") || m.id.startsWith("ALLOC-")
         ? "BOOKING"
         : "MAINTENANCE";
 
@@ -229,10 +265,9 @@ export function MaintenancePage() {
 
   const handleAssignConfirm = async (m: Maintenance) => {
     const techName = selectedTech;
-    const token = sessionStorage.getItem("insa_token") ?? undefined;
     const requestModule = m.id.startsWith("PRJ-")
       ? "PROJECT"
-      : (m.id.startsWith("BKG-") || m.id.startsWith("ALLOC-"))
+      : m.id.startsWith("BKG-") || m.id.startsWith("ALLOC-")
         ? "BOOKING"
         : "MAINTENANCE";
 
@@ -242,7 +277,7 @@ export function MaintenancePage() {
           module: requestModule,
           businessId: m.id,
           supervisorId: selectedTech,
-          divisionId: m.divisionId || "DIV-001",
+          divisionId: m.divisionId || "1",
         });
         setMaintenanceItems((prev) =>
           prev.map((item) =>
@@ -426,48 +461,77 @@ export function MaintenancePage() {
       )}
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-border p-4 shadow-sm flex gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-48">
-          <Search
-            size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-          />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("maintenance.searchByTitleOrID")}
-            className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-input-background text-sm outline-none focus:border-[#CC1F1A]"
-          />
+      <div className="bg-white rounded-xl border border-border p-4 shadow-sm">
+        <div className="flex gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-48">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+            />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t("maintenance.searchByTitleOrID")}
+              className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-input-background text-sm outline-none focus:border-[#CC1F1A]"
+            />
+          </div>
+          {/* Only show type and priority filters for users and supervisors */}
+          {(role === "user" || role === "supervisor") && (
+            <>
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none cursor-pointer"
+              >
+                {types.map((t_item) => (
+                  <option key={t_item}>
+                    {t_item === "All" ? t("status.all") : t_item}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+                className="px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none cursor-pointer"
+              >
+                {priorities.map((p) => (
+                  <option key={p}>{p === "All" ? t("status.all") : p}</option>
+                ))}
+              </select>
+            </>
+          )}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none cursor-pointer"
+          >
+            {statuses.map((s) => (
+              <option key={s} value={s}>
+                {s === "All"
+                  ? t("status.all")
+                  : t(
+                      `status.${s.charAt(0).toLowerCase() + s.slice(1).replace(/\s+/g, "")}`,
+                    )}
+              </option>
+            ))}
+          </select>
         </div>
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none cursor-pointer"
-        >
-          {types.map((t_item) => (
-            <option key={t_item}>
-              {t_item === "All" ? t("status.all") : t_item}
-            </option>
-          ))}
-        </select>
-        <select
-          value={priorityFilter}
-          onChange={(e) => setPriorityFilter(e.target.value)}
-          className="px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none cursor-pointer"
-        >
-          {priorities.map((p) => (
-            <option key={p}>{p === "All" ? t("status.all") : p}</option>
-          ))}
-        </select>
       </div>
 
       {/* List View */}
       <div>
         {filtered.length === 0 ? (
           <div className="bg-white rounded-xl border border-border p-16 text-center">
-            <Wrench size={48} className="mx-auto text-muted-foreground/40 mb-3" />
-            <h3 className="text-[#0E2271]">{t("maintenance.noTicketsFound")}</h3>
-            <p className="text-muted-foreground text-sm">{t("maintenance.noTicketsMatch")}</p>
+            <Wrench
+              size={48}
+              className="mx-auto text-muted-foreground/40 mb-3"
+            />
+            <h3 className="text-[#0E2271]">
+              {t("maintenance.noTicketsFound")}
+            </h3>
+            <p className="text-muted-foreground text-sm">
+              {t("maintenance.noTicketsMatch")}
+            </p>
           </div>
         ) : (
           <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
@@ -475,14 +539,30 @@ export function MaintenancePage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border bg-secondary/50">
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">{t("maintenance.ticketID")}</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("form.title")}</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("maintenance.type")}</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("form.status")}</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("maintenance.priority")}</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("form.location")}</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("projects.updated")}</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("projects.actions")}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                      {t("maintenance.ticketID")}
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {t("form.title")}
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {t("maintenance.type")}
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {t("form.status")}
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {t("maintenance.priority")}
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {t("form.location")}
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {t("projects.updated")}
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {t("projects.actions")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -494,21 +574,75 @@ export function MaintenancePage() {
                       tech={undefined}
                       onCopyId={copyId}
                       copiedId={copied}
-                      onAssign={(id) => setAssignTarget(assignTarget === id ? null : id)}
-                      onStartReview={(m) => applyTransition(m, "Under Review", "admin", t("maintenance.reviewStarted"))}
+                      onAssign={(id) =>
+                        setAssignTarget(assignTarget === id ? null : id)
+                      }
+                      onStartReview={(m) =>
+                        applyTransition(
+                          m,
+                          "Under Review",
+                          "admin",
+                          t("maintenance.reviewStarted"),
+                        )
+                      }
                       onCreateWorkOrder={handleCreateWorkOrder}
-                      onStartWork={(m) => applyTransition(m, "In Progress", "professional", t("maintenance.taskStarted"))}
-                      onCompleteWork={(m) => applyTransition(m, "Completed", "professional", t("maintenance.workSubmitted"))}
-                      onApprove={(m) => applyTransition(m, "Reviewed", "supervisor", t("maintenance.reviewSubmitted"))}
-                      onFinalApprove={(m) => applyTransition(m, "Approved", "admin", t("status.approved"))}
-                      onReject={(m) => applyTransition(m, "Rejected", "admin", t("status.rejected"))}
-                      onClose={(m) => applyTransition(m, "Closed", "admin", t("status.closed"))}
+                      onStartWork={(m) =>
+                        applyTransition(
+                          m,
+                          "In Progress",
+                          "professional",
+                          t("maintenance.taskStarted"),
+                        )
+                      }
+                      onCompleteWork={(m) =>
+                        applyTransition(
+                          m,
+                          "Completed",
+                          "professional",
+                          t("maintenance.workSubmitted"),
+                        )
+                      }
+                      onApprove={(m) =>
+                        applyTransition(
+                          m,
+                          "Reviewed",
+                          "supervisor",
+                          t("maintenance.reviewSubmitted"),
+                        )
+                      }
+                      onFinalApprove={(m) =>
+                        applyTransition(
+                          m,
+                          "Approved",
+                          "admin",
+                          t("status.approved"),
+                        )
+                      }
+                      onReject={(m) =>
+                        applyTransition(
+                          m,
+                          "Rejected",
+                          "admin",
+                          t("status.rejected"),
+                        )
+                      }
+                      onClose={(m) =>
+                        applyTransition(
+                          m,
+                          "Closed",
+                          "admin",
+                          t("status.closed"),
+                        )
+                      }
                       onDelete={handleDeleteRequest}
                       assignTarget={assignTarget}
                       selectedTech={selectedTech}
                       onSelectTech={setSelectedTech}
                       onConfirmAssign={handleAssignConfirm}
-                      onCancelAssign={() => { setAssignTarget(null); setSelectedTech(""); }}
+                      onCancelAssign={() => {
+                        setAssignTarget(null);
+                        setSelectedTech("");
+                      }}
                       filteredProfessionals={getFilteredProfessionals(m)}
                       currentUserId={currentUser?.id}
                     />
@@ -517,11 +651,20 @@ export function MaintenancePage() {
               </table>
             </div>
             <div className="px-4 py-3 border-t border-border bg-secondary/30 flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">{t("common.showing")} {filtered.length} {t("common.of")} {maintenanceItems.length} {t("nav.maintenance").toLowerCase()}</p>
+              <p className="text-xs text-muted-foreground">
+                {t("common.showing")} {filtered.length} {t("common.of")}{" "}
+                {maintenanceItems.length} {t("nav.maintenance").toLowerCase()}
+              </p>
               <div className="flex items-center gap-1">
-                <button className="px-3 py-1 rounded border border-border text-xs hover:bg-secondary">{t("common.previous")}</button>
-                <button className="px-3 py-1 rounded bg-[#CC1F1A] text-white text-xs">1</button>
-                <button className="px-3 py-1 rounded border border-border text-xs hover:bg-secondary">{t("common.next")}</button>
+                <button className="px-3 py-1 rounded border border-border text-xs hover:bg-secondary">
+                  {t("common.previous")}
+                </button>
+                <button className="px-3 py-1 rounded bg-[#CC1F1A] text-white text-xs">
+                  1
+                </button>
+                <button className="px-3 py-1 rounded border border-border text-xs hover:bg-secondary">
+                  {t("common.next")}
+                </button>
               </div>
             </div>
           </div>

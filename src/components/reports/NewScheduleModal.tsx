@@ -128,8 +128,8 @@ export function NewScheduleModal({ isOpen, onClose, professionals, initialData }
               onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}
             >
               <option value="">Select Professional</option>
-              {professionals.map((p) => (
-                <option key={p.id} value={p.name}>
+              {professionals.map((p, index) => (
+                <option key={p.id || p.email || `prof-${index}`} value={p.name}>
                   {p.name}
                 </option>
               ))}

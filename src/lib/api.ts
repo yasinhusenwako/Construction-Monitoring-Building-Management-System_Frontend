@@ -6,6 +6,7 @@ type ApiRequestOptions = Omit<RequestInit, "body"> & {
   showErrorToast?: boolean;
   retryCount?: number;
   retryDelayMs?: number;
+  authToken?: string;
 };
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(
@@ -21,17 +22,17 @@ function getApiBaseUrl(): string {
 
 function resolveUrl(url: string): string {
   const baseUrl = getApiBaseUrl();
-  
+
   // If URL is already absolute, return as-is
   if (/^https?:\/\//i.test(url)) {
     return url;
   }
-  
+
   // If no base URL configured, return as-is (will use same-origin)
   if (!baseUrl) {
     return url;
   }
-  
+
   // Prepend base URL for both client and server
   return `${baseUrl}${url.startsWith("/") ? url : `/${url}`}`;
 }
@@ -44,21 +45,19 @@ function isServer(): boolean {
 }
 
 /**
- * Get auth token from httpOnly cookie on server-side.
- * Client-side relies on cookies being sent automatically.
+ * Get auth header value from the incoming request on server-side.
  */
-async function getServerAuthToken(): Promise<string | undefined> {
+async function getServerAuthHeader(): Promise<string | undefined> {
   if (!isServer()) return undefined;
 
   try {
-    const { cookies } = await import("next/headers");
-    const cookieStore = cookies();
-    // Handle Next.js 15 async cookies() correctly
-    const authCookie =
-      typeof (cookieStore as any).get === "function"
-        ? (cookieStore as any).get("insa_token")
-        : (await cookieStore).get("insa_token");
-    return authCookie?.value;
+    const { headers } = await import("next/headers");
+    const headerStore = headers();
+    const authHeader =
+      typeof (headerStore as any).get === "function"
+        ? (headerStore as any).get("authorization")
+        : (await headerStore).get("authorization");
+    return authHeader ?? undefined;
   } catch {
     return undefined;
   }
@@ -75,16 +74,61 @@ export async function apiRequest<T>(
     showErrorToast = true,
     retryCount = 0,
     retryDelayMs = 500,
+    authToken,
     ...rest
   } = options;
   const resolvedHeaders = new Headers(headers || {});
 
-  // Server-side: manually attach Authorization header from cookie
-  // Client-side: cookie is sent automatically by browser
-  if (isServer()) {
-    const authToken = await getServerAuthToken();
-    if (authToken) {
-      resolvedHeaders.set("Authorization", `Bearer ${authToken}`);
+  if (authToken && !resolvedHeaders.has("Authorization")) {
+    const value = authToken.startsWith("Bearer ")
+      ? authToken
+      : `Bearer ${authToken}`;
+    resolvedHeaders.set("Authorization", value);
+  }
+
+  // Check for Keycloak token first (client-side only)
+  if (!isServer() && typeof window !== "undefined") {
+    try {
+      const keycloakInstance = (window as any).keycloak;
+      if (keycloakInstance && keycloakInstance.authenticated) {
+        // Try to refresh token if it's about to expire (within 70 seconds)
+        try {
+          const refreshed = await keycloakInstance.updateToken(70);
+          if (refreshed) {
+            console.debug("[API] Token refreshed successfully");
+          }
+        } catch (refreshError) {
+          console.warn(
+            "[API] Token refresh failed - token may be expired:",
+            refreshError,
+          );
+          // Token refresh failed - likely expired
+          // Don't throw here, let the 401 response trigger re-authentication
+        }
+
+        // Use the (potentially refreshed) token
+        if (keycloakInstance.token) {
+          resolvedHeaders.set(
+            "Authorization",
+            `Bearer ${keycloakInstance.token}`,
+          );
+        } else {
+          console.warn("[API] No token available after refresh attempt");
+        }
+      } else if (keycloakInstance && !keycloakInstance.authenticated) {
+        console.warn("[API] Keycloak not authenticated - user needs to login");
+      }
+    } catch (e) {
+      // Keycloak not available, fall back to cookie auth
+      console.warn("[API] Keycloak not available:", e);
+    }
+  }
+
+  // Server-side: forward Authorization header from incoming request
+  if (isServer() && !resolvedHeaders.has("Authorization")) {
+    const authHeader = await getServerAuthHeader();
+    if (authHeader) {
+      resolvedHeaders.set("Authorization", authHeader);
     }
   }
 
@@ -104,7 +148,6 @@ export async function apiRequest<T>(
   let lastError: Error | undefined;
   for (let attempt = 0; attempt <= retryCount; attempt++) {
     try {
-      console.log(`[API DEBUG] ${rest.method || "GET"} ${url}`, JSON.stringify(body, null, 2));
       const response = await fetch(resolveUrl(url), {
         ...rest,
         headers: resolvedHeaders,
@@ -117,9 +160,25 @@ export async function apiRequest<T>(
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => "");
+
+        // Handle 401 Unauthorized - DON'T redirect, let ProtectedRoute handle it
+        if (response.status === 401 && !isServer()) {
+          // Just log and throw - ProtectedRoute will handle authentication
+          console.debug("[API] 401 Unauthorized - authentication required");
+          throw new Error("Authentication required");
+        }
+
         // Only log 403 errors as warnings (they're often expected for role-based access)
+        // Also suppress 401 errors for /api/users/me and /api/notifications (expected when using Keycloak)
         if (response.status === 403) {
           console.warn(`[API ACCESS DENIED] ${response.status} ${url}`);
+        } else if (
+          response.status === 401 &&
+          (url.includes("/api/users/me") || url.includes("/api/notifications"))
+        ) {
+          console.debug(
+            `[API AUTH] ${response.status} ${url} (expected with Keycloak)`,
+          );
         } else {
           console.error(`[API ERROR] ${response.status} ${url}`, errorText);
         }
@@ -131,7 +190,7 @@ export async function apiRequest<T>(
             const parsedMessage = (parsed as { message?: string }).message;
             if (parsedMessage) message = parsedMessage;
           }
-        } catch { }
+        } catch {}
         throw new Error(message);
       }
 

@@ -185,7 +185,7 @@ export interface Space {
 // Static divisions data (not from backend — these are config/reference data)
 export const divisions: Division[] = [
   {
-    id: "DIV-001",
+    id: "1",
     name: "Power Supply Division",
     type: "power-supply",
     description: "Handles elevator, generators, UPS, AC, and water distillers",
@@ -203,7 +203,7 @@ export const divisions: Division[] = [
     ],
   },
   {
-    id: "DIV-002",
+    id: "2",
     name: "Facility Administration Division",
     type: "facility-admin",
     description: "Manages cleaning, landscaping, and furniture movement",
@@ -225,7 +225,7 @@ export const divisions: Division[] = [
     ],
   },
   {
-    id: "DIV-003",
+    id: "3",
     name: "Infrastructure Development & Building Maintenance Division",
     type: "infrastructure-dev",
     description: "Handles construction, building maintenance, and infrastructure systems",

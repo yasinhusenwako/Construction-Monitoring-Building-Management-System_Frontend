@@ -550,13 +550,13 @@ export function NewProjectPage() {
     const year = new Date().getFullYear();
     const id = `PRJ-${year}-${String(Math.floor(Math.random() * 900) + 100)}`;
     const budgetValue = form.budget ? Number(form.budget) : 0;
-    const storedUser = sessionStorage.getItem("insa_user");
-    const parsedUser = storedUser ? JSON.parse(storedUser) : null;
-    const divisionId =
-      Number(String(parsedUser?.divisionId ?? "").replace(/[^\d]/g, "")) || 1;
+    // Projects don't have a division when created - admin assigns division later
+    const divisionId = null;
 
     // Format classification as "Code - Label" for storage
-    const formattedClassification = formatClassificationForStorage(form.classification);
+    const formattedClassification = formatClassificationForStorage(
+      form.classification,
+    );
 
     try {
       const locParts: string[] = [];
@@ -607,8 +607,8 @@ export function NewProjectPage() {
             projectId: id,
             title: form.title,
             location: locString,
-          block: form.block,
-          floor: form.floor,
+            block: form.block,
+            floor: form.floor,
             department: form.department,
             contactPerson: form.contactPerson,
             phone: form.contactPhone,
@@ -677,7 +677,7 @@ export function NewProjectPage() {
         body: requestBody,
       });
       const projectId = created.projectId || id;
-      
+
       // Upload files if any
       if (form.files.length > 0) {
         try {
@@ -689,15 +689,17 @@ export function NewProjectPage() {
           });
           formData.append("entityType", "project");
           formData.append("entityId", projectId);
-          
-          console.log(`[File Upload] Uploading ${form.files.length} file(s) for ${projectId}`);
-          
+
+          console.log(
+            `[File Upload] Uploading ${form.files.length} file(s) for ${projectId}`,
+          );
+
           await apiRequest("/api/files/upload", {
             method: "POST",
             body: formData as any,
             showErrorToast: false, // Don't show toast for file upload errors
           });
-          
+
           console.log("[File Upload] Files uploaded successfully");
         } catch (fileError) {
           console.warn("File upload failed (non-critical):", fileError);
@@ -706,7 +708,7 @@ export function NewProjectPage() {
           // Files can be uploaded later if needed
         }
       }
-      
+
       setSubmittedId(projectId);
       setSubmitted(true);
     } catch (error) {
@@ -759,7 +761,10 @@ export function NewProjectPage() {
       return [
         [
           "Building Type",
-          resolveOtherText(form.scope.buildingType, form.scope.otherBuildingType),
+          resolveOtherText(
+            form.scope.buildingType,
+            form.scope.otherBuildingType,
+          ),
         ],
         ["Floor Area", form.scope.floorArea],
         [
@@ -780,22 +785,34 @@ export function NewProjectPage() {
         ],
         [
           "Design Disciplines",
-          resolveOtherArray(form.scope.a2DesignScope, form.scope.otherA2DesignScope),
+          resolveOtherArray(
+            form.scope.a2DesignScope,
+            form.scope.otherA2DesignScope,
+          ),
         ],
         [
           "Required Deliverables",
-          resolveOtherArray(form.scope.a2Deliverables, form.scope.otherA2Deliverable),
+          resolveOtherArray(
+            form.scope.a2Deliverables,
+            form.scope.otherA2Deliverable,
+          ),
         ],
       ];
     }
 
     if (form.classification === "A3") {
       return [
-        ["Space Type", resolveOtherText(form.scope.spaceType, form.scope.otherSpaceType)],
+        [
+          "Space Type",
+          resolveOtherText(form.scope.spaceType, form.scope.otherSpaceType),
+        ],
         ["User Capacity", form.scope.userCapacity],
         [
           "Required Deliverables",
-          resolveOtherArray(form.scope.a3Deliverables, form.scope.otherA3Deliverable),
+          resolveOtherArray(
+            form.scope.a3Deliverables,
+            form.scope.otherA3Deliverable,
+          ),
         ],
       ];
     }
@@ -804,22 +821,28 @@ export function NewProjectPage() {
       return [
         [
           "Project Context",
-          resolveOtherText(form.scope.projectContext, form.scope.otherProjectContext),
+          resolveOtherText(
+            form.scope.projectContext,
+            form.scope.otherProjectContext,
+          ),
         ],
-        [
-          "Site Area (sq.m)",
-          form.scope.siteArea || "-",
-        ],
+        ["Site Area (sq.m)", form.scope.siteArea || "-"],
         [
           "Required Deliverables",
-          resolveOtherArray(form.scope.a4Deliverables, form.scope.otherA4Deliverable),
+          resolveOtherArray(
+            form.scope.a4Deliverables,
+            form.scope.otherA4Deliverable,
+          ),
         ],
       ];
     }
 
     if (form.classification === "A5") {
       return [
-        ["BOQ Purpose", resolveOtherText(form.scope.boqPurpose, form.scope.otherBoqPurpose)],
+        [
+          "BOQ Purpose",
+          resolveOtherText(form.scope.boqPurpose, form.scope.otherBoqPurpose),
+        ],
       ];
     }
 
@@ -1925,11 +1948,24 @@ export function NewProjectPage() {
               onFilesChange={(files) => setForm((f) => ({ ...f, files }))}
               maxFiles={10}
               maxSizeMB={10}
-              acceptedTypes={[".pdf", ".doc", ".docx", ".xlsx", ".xls", ".png", ".jpg", ".jpeg", "image/*"]}
+              acceptedTypes={[
+                ".pdf",
+                ".doc",
+                ".docx",
+                ".xlsx",
+                ".xls",
+                ".png",
+                ".jpg",
+                ".jpeg",
+                "image/*",
+              ]}
               label={t("projects.uploadDocuments") || "Upload Documents"}
-              description={t("projects.dragDropFiles") || "Drag and drop files here, or click to browse"}
+              description={
+                t("projects.dragDropFiles") ||
+                "Drag and drop files here, or click to browse"
+              }
             />
-            
+
             {form.files.length === 0 && (
               <p className="text-center text-muted-foreground text-sm py-2">
                 {form.classification === "A5"

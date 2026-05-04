@@ -62,20 +62,25 @@ export default function BookingDetailPage({ id }: { id: string }) {
         ]);
         setSystemUsers(liveUsers);
         const found = liveBookings.find((b) => b.id === id);
-        
-        console.log("DEBUG Booking View Permission:", {
-          bookingId: id,
-          foundId: found?.id,
-          role,
-          currentUserId: currentUser?.id,
-          foundAssignedTo: found?.assignedTo,
-          foundRequestedBy: found?.requestedBy,
-          foundSupervisorId: found?.supervisorId,
-        });
+
+        // console.log("DEBUG Booking View Permission:", {
+        //   bookingId: id,
+        //   foundId: found?.id,
+        //   role,
+        //   currentUserId: currentUser?.id,
+        //   foundAssignedTo: found?.assignedTo,
+        //   foundRequestedBy: found?.requestedBy,
+        //   foundSupervisorId: found?.supervisorId,
+        // });
 
         if (
           found &&
-          canViewItem(role as WorkflowRole, found, currentUser?.id)
+          canViewItem(
+            role as WorkflowRole,
+            found,
+            currentUser?.id,
+            currentUser?.divisionId,
+          )
         ) {
           setBooking(found);
           // Fetch real timeline from backend
@@ -99,7 +104,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
     };
 
     void fetchBooking();
-  }, [id, role, currentUser]);
+  }, [id, role, currentUser?.id, currentUser?.divisionId]);
 
   if (loading) {
     return (
@@ -134,24 +139,27 @@ export default function BookingDetailPage({ id }: { id: string }) {
   const requester = systemUsers.find((u) => u.id === booking.requestedBy);
   const assignee = systemUsers.find((u) => u.id === booking.assignedTo);
   const supervisorUser = systemUsers.find((u) => u.id === booking.supervisorId);
-  
+
   // Bookings use professionals from "OTHER" division (not maintenance divisions)
   const bookingProfessionals = systemUsers.filter(
-    (u) => u.role === "professional" && u.divisionId && u.divisionId.toUpperCase() === "OTHER"
+    (u) =>
+      u.role === "professional" &&
+      u.divisionId &&
+      u.divisionId.toUpperCase() === "OTHER",
   );
 
   // Debug: Log delete button visibility
-  console.log("=== Delete Button Debug (Booking) ===");
-  console.log("Role:", role);
-  console.log("Current User ID:", currentUser?.id);
-  console.log("Booking Requested By:", booking.requestedBy);
-  console.log("Booking Status:", booking.status);
-  console.log("Is User:", role === "user");
-  console.log("Is Creator:", booking.requestedBy === currentUser?.id);
-  console.log("Is Submitted:", booking.status === "Submitted");
-  console.log("User Can Delete:", role === "user" && booking.requestedBy === currentUser?.id && booking.status === "Submitted");
-  console.log("Admin Can Delete:", role === "admin");
-  console.log("Show Delete Button:", ((role === "user" && booking.requestedBy === currentUser?.id && booking.status === "Submitted") || role === "admin"));
+  // console.log("=== Delete Button Debug (Booking) ===");
+  // console.log("Role:", role);
+  // console.log("Current User ID:", currentUser?.id);
+  // console.log("Booking Requested By:", booking.requestedBy);
+  // console.log("Booking Status:", booking.status);
+  // console.log("Is User:", role === "user");
+  // console.log("Is Creator:", booking.requestedBy === currentUser?.id);
+  // console.log("Is Submitted:", booking.status === "Submitted");
+  // console.log("User Can Delete:", role === "user" && booking.requestedBy === currentUser?.id && booking.status === "Submitted");
+  // console.log("Admin Can Delete:", role === "admin");
+  // console.log("Show Delete Button:", ((role === "user" && booking.requestedBy === currentUser?.id && booking.status === "Submitted") || role === "admin"));
 
   const copyId = () => {
     try {
@@ -220,7 +228,10 @@ export default function BookingDetailPage({ id }: { id: string }) {
         const mergedTimeline = [
           ...found.timeline.filter((e) => e.id !== newEvent.id),
           newEvent,
-        ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        ].sort(
+          (a, b) =>
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+        );
         setBooking({ ...found, timeline: mergedTimeline });
       }
     } catch (err) {
@@ -236,7 +247,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
       alert("Please enter a rejection reason");
       return;
     }
-    
+
     setRejectingBooking(true);
     try {
       await apiRequest(`/api/bookings/${booking.dbId}/reject`, {
@@ -247,7 +258,10 @@ export default function BookingDetailPage({ id }: { id: string }) {
       setRejectionReason("");
       window.location.reload();
     } catch (error) {
-      alert("Failed to reject booking: " + (error instanceof Error ? error.message : "Unknown error"));
+      alert(
+        "Failed to reject booking: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+      );
     } finally {
       setRejectingBooking(false);
     }
@@ -280,7 +294,10 @@ export default function BookingDetailPage({ id }: { id: string }) {
                 )}
               </button>
               <StatusBadge
-                status={getUserFacingStatus(booking.status, role as WorkflowRole)}
+                status={getUserFacingStatus(
+                  booking.status,
+                  role as WorkflowRole,
+                )}
                 size="md"
               />
               <span
@@ -290,27 +307,31 @@ export default function BookingDetailPage({ id }: { id: string }) {
                     : "bg-green-50 text-green-700 border-green-200"
                 }`}
               >
-                {isOfficeAllocation ? "🏢 B1 · Office Allocation" : "🏛️ B2 · Hall Booking"}
+                {isOfficeAllocation
+                  ? "🏢 B1 · Office Allocation"
+                  : "🏛️ B2 · Hall Booking"}
               </span>
             </div>
             <h1 className="text-[#0E2271]">{booking.title}</h1>
           </div>
         </div>
-        
+
         {/* Action Buttons */}
         <div className="flex gap-2">
           {/* Edit Button - Only show if user is the creator and status is Submitted */}
-          {role === "user" && 
-           booking.requestedBy === currentUser?.id && 
-           booking.status === "Submitted" && (
-            <button
-              onClick={() => router.push(`/dashboard/bookings/${booking.id}/edit`)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1A3580] text-white text-sm font-semibold hover:bg-[#0E2271] transition-all"
-            >
-              <FileText size={16} />
-              {t("action.edit") || "Edit Request"}
-            </button>
-          )}
+          {role === "user" &&
+            booking.requestedBy === currentUser?.id &&
+            booking.status === "Submitted" && (
+              <button
+                onClick={() =>
+                  router.push(`/dashboard/bookings/${booking.id}/edit`)
+                }
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1A3580] text-white text-sm font-semibold hover:bg-[#0E2271] transition-all"
+              >
+                <FileText size={16} />
+                {t("action.edit") || "Edit Request"}
+              </button>
+            )}
         </div>
       </div>
 
@@ -323,7 +344,6 @@ export default function BookingDetailPage({ id }: { id: string }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
         {/* Rejection Reason Alert - Show if booking is rejected */}
         {booking.status === "Rejected" && booking.rejectionReason && (
           <div className="lg:col-span-3">
@@ -349,7 +369,6 @@ export default function BookingDetailPage({ id }: { id: string }) {
         )}
 
         <div className="lg:col-span-2 space-y-5">
-
           {/* ── Purpose / Description Card ── */}
           <div className="glass-card rounded-2xl overflow-hidden shadow-modern">
             <div className="p-6">
@@ -382,46 +401,148 @@ export default function BookingDetailPage({ id }: { id: string }) {
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-4 text-sm">
                 {isOfficeAllocation ? (
                   <>
-                    <DetailRow icon={<Briefcase size={16} />} label={t("users.department") || "Department"} value={booking.department} />
-                    <DetailRow icon={<LayoutGrid size={16} />} label={t("bookings.officeTypeKey") || "Office Type"} value={booking.officeType} />
-                    <DetailRow icon={<MapPin size={16} />} label={t("bookings.preferredLocationKey") || "Preferred Location"} value={booking.space !== "N/A" ? booking.space : undefined} />
-                    <DetailRow icon={<Users size={16} />} label={t("bookings.seniorStaffKey") || "Senior Staff"} value={booking.seniorStaff} />
-                    <DetailRow icon={<Users size={16} />} label={t("bookings.supportStaffKey") || "Support Staff"} value={booking.supportStaff} />
-                    <DetailRow icon={<Users size={16} />} label={t("bookings.totalHeadcountKey") || "Total Headcount"} value={booking.attendees > 0 ? `${booking.attendees} people` : undefined} />
-                    <DetailRow icon={<User size={16} />} label={t("maintenance.reportedBy_label") || "Requested By"} value={requester?.name || booking.requestedBy} />
-                    <DetailRow icon={<User size={16} />} label={t("maintenance.assignedTo_label") || "Assigned To"} value={assignee?.name} />
-                    <DetailRow icon={<Calendar size={16} />} label={t("form.date") || "Submitted On"} value={booking.date} />
+                    <DetailRow
+                      icon={<Briefcase size={16} />}
+                      label={t("users.department") || "Department"}
+                      value={booking.department}
+                    />
+                    <DetailRow
+                      icon={<LayoutGrid size={16} />}
+                      label={t("bookings.officeTypeKey") || "Office Type"}
+                      value={booking.officeType}
+                    />
+                    <DetailRow
+                      icon={<MapPin size={16} />}
+                      label={
+                        t("bookings.preferredLocationKey") ||
+                        "Preferred Location"
+                      }
+                      value={
+                        booking.space !== "N/A" ? booking.space : undefined
+                      }
+                    />
+                    <DetailRow
+                      icon={<Users size={16} />}
+                      label={t("bookings.seniorStaffKey") || "Senior Staff"}
+                      value={booking.seniorStaff}
+                    />
+                    <DetailRow
+                      icon={<Users size={16} />}
+                      label={t("bookings.supportStaffKey") || "Support Staff"}
+                      value={booking.supportStaff}
+                    />
+                    <DetailRow
+                      icon={<Users size={16} />}
+                      label={
+                        t("bookings.totalHeadcountKey") || "Total Headcount"
+                      }
+                      value={
+                        booking.attendees > 0
+                          ? `${booking.attendees} people`
+                          : undefined
+                      }
+                    />
+                    <DetailRow
+                      icon={<User size={16} />}
+                      label={
+                        t("maintenance.reportedBy_label") || "Requested By"
+                      }
+                      value={requester?.name || booking.requestedBy}
+                    />
+                    <DetailRow
+                      icon={<User size={16} />}
+                      label={t("maintenance.assignedTo_label") || "Assigned To"}
+                      value={assignee?.name}
+                    />
+                    <DetailRow
+                      icon={<Calendar size={16} />}
+                      label={t("form.date") || "Submitted On"}
+                      value={booking.date}
+                    />
                   </>
                 ) : (
                   <>
-                    <DetailRow icon={<LayoutGrid size={16} />} label={t("bookings.spaceKey") || "Space"} value={booking.space} />
-                    <DetailRow icon={<Calendar size={16} />} label={t("bookings.date") || "Date"} value={booking.date} />
-                    <DetailRow icon={<Clock size={16} />} label={t("bookings.startTime") || "Start Time"} value={booking.startTime} />
-                    <DetailRow icon={<Clock size={16} />} label={t("bookings.endTime") || "End Time"} value={booking.endTime !== booking.startTime ? booking.endTime : undefined} />
-                    <DetailRow icon={<Users size={16} />} label={t("dashboard.attendees") || "Attendees"} value={booking.attendees > 0 ? booking.attendees.toString() : undefined} />
-                    <DetailRow icon={<FileText size={16} />} label={t("bookings.layoutKey") || "Room Layout"} value={booking.roomLayout} />
-                    <DetailRow icon={<User size={16} />} label={t("maintenance.reportedBy_label") || "Requested By"} value={requester?.name || booking.requestedBy} />
-                    <DetailRow icon={<User size={16} />} label={t("maintenance.assignedTo_label") || "Assigned To"} value={assignee?.name} />
+                    <DetailRow
+                      icon={<LayoutGrid size={16} />}
+                      label={t("bookings.spaceKey") || "Space"}
+                      value={booking.space}
+                    />
+                    <DetailRow
+                      icon={<Calendar size={16} />}
+                      label={t("bookings.date") || "Date"}
+                      value={booking.date}
+                    />
+                    <DetailRow
+                      icon={<Clock size={16} />}
+                      label={t("bookings.startTime") || "Start Time"}
+                      value={booking.startTime}
+                    />
+                    <DetailRow
+                      icon={<Clock size={16} />}
+                      label={t("bookings.endTime") || "End Time"}
+                      value={
+                        booking.endTime !== booking.startTime
+                          ? booking.endTime
+                          : undefined
+                      }
+                    />
+                    <DetailRow
+                      icon={<Users size={16} />}
+                      label={t("dashboard.attendees") || "Attendees"}
+                      value={
+                        booking.attendees > 0
+                          ? booking.attendees.toString()
+                          : undefined
+                      }
+                    />
+                    <DetailRow
+                      icon={<FileText size={16} />}
+                      label={t("bookings.layoutKey") || "Room Layout"}
+                      value={booking.roomLayout}
+                    />
+                    <DetailRow
+                      icon={<User size={16} />}
+                      label={
+                        t("maintenance.reportedBy_label") || "Requested By"
+                      }
+                      value={requester?.name || booking.requestedBy}
+                    />
+                    <DetailRow
+                      icon={<User size={16} />}
+                      label={t("maintenance.assignedTo_label") || "Assigned To"}
+                      value={assignee?.name}
+                    />
                   </>
                 )}
               </div>
             </div>
 
             {/* ── Contact Info (B1 only) ── */}
-            {isOfficeAllocation && (booking.contactPerson || booking.contactPhone) && (
-              <>
-                <div className="h-px w-full bg-border" />
-                <div className="p-6">
-                  <h3 className="text-sm font-bold text-[#0E2271] mb-4">
-                    {t("form.contact") || "Contact Information"}
-                  </h3>
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-y-5 gap-x-4">
-                    <DetailRow icon={<User size={16} />} label={t("maintenance.contactPerson") || "Contact Person"} value={booking.contactPerson} />
-                    <DetailRow icon={<Phone size={16} />} label={t("form.contactPhone") || "Contact Phone"} value={booking.contactPhone} />
+            {isOfficeAllocation &&
+              (booking.contactPerson || booking.contactPhone) && (
+                <>
+                  <div className="h-px w-full bg-border" />
+                  <div className="p-6">
+                    <h3 className="text-sm font-bold text-[#0E2271] mb-4">
+                      {t("form.contact") || "Contact Information"}
+                    </h3>
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-y-5 gap-x-4">
+                      <DetailRow
+                        icon={<User size={16} />}
+                        label={
+                          t("maintenance.contactPerson") || "Contact Person"
+                        }
+                        value={booking.contactPerson}
+                      />
+                      <DetailRow
+                        icon={<Phone size={16} />}
+                        label={t("form.contactPhone") || "Contact Phone"}
+                        value={booking.contactPhone}
+                      />
+                    </div>
                   </div>
-                </div>
-              </>
-            )}
+                </>
+              )}
 
             {/* ── Special Requirements / Amenities ── */}
             {booking.requirements && (
@@ -434,7 +555,10 @@ export default function BookingDetailPage({ id }: { id: string }) {
                       : t("bookings.amenitiesKey") || "Amenities Requested"}
                   </h3>
                   <ChipList
-                    items={booking.requirements.split(",").map((r) => r.trim()).filter(Boolean)}
+                    items={booking.requirements
+                      .split(",")
+                      .map((r) => r.trim())
+                      .filter(Boolean)}
                   />
                 </div>
               </>
@@ -446,7 +570,9 @@ export default function BookingDetailPage({ id }: { id: string }) {
             <Timeline
               events={booking.timeline}
               title={t("bookings.activityTimeline") || "Activity Timeline"}
-              emptyMessage={t("bookings.noActivityYet") || "No activity recorded yet"}
+              emptyMessage={
+                t("bookings.noActivityYet") || "No activity recorded yet"
+              }
               userRole={role as WorkflowRole}
             />
           </div>
@@ -476,7 +602,8 @@ export default function BookingDetailPage({ id }: { id: string }) {
                     {booking.status === "Submitted" && (
                       <div className="mb-4 pb-4 border-b border-dashed border-border">
                         <p className="text-xs text-muted-foreground mb-3">
-                          Quick Actions: Approve/Reject directly or start review process.
+                          Quick Actions: Approve/Reject directly or start review
+                          process.
                         </p>
                         <div className="flex gap-2 mb-3">
                           <button
@@ -494,10 +621,16 @@ export default function BookingDetailPage({ id }: { id: string }) {
                             <ThumbsDown size={16} /> Reject
                           </button>
                         </div>
-                        <div className="text-xs text-muted-foreground mb-2">OR</div>
+                        <div className="text-xs text-muted-foreground mb-2">
+                          OR
+                        </div>
                         <button
                           onClick={() =>
-                            handleAction("Under Review", "admin", "Started Review")
+                            handleAction(
+                              "Under Review",
+                              "admin",
+                              "Started Review",
+                            )
                           }
                           className="w-full py-3 rounded-xl text-white text-sm font-bold transition-all shadow-premium hover-lift flex items-center justify-center gap-2"
                           style={{ background: "#7C3AED" }}
@@ -511,23 +644,29 @@ export default function BookingDetailPage({ id }: { id: string }) {
                       <>
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                            {t("requests.selectProfessional") || "Select Professional"}
+                            {t("requests.selectProfessional") ||
+                              "Select Professional"}
                           </label>
                           <select
                             value={selectedAssignee}
-                            onChange={(e) => setSelectedAssignee(e.target.value)}
+                            onChange={(e) =>
+                              setSelectedAssignee(e.target.value)
+                            }
                             className="w-full text-sm px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm outline-none focus:border-[#1A3580] shadow-sm transition-all"
                           >
-                            <option value="">{t("common.select") || "Select"}</option>
+                            <option value="">
+                              {t("common.select") || "Select"}
+                            </option>
                             {bookingProfessionals.map((pr) => (
-                              <option key={pr.id} value={pr.id}>
+                              <option key={pr.email} value={pr.email}>
                                 {pr.name}
                               </option>
                             ))}
                           </select>
                           {bookingProfessionals.length === 0 && (
                             <p className="text-[10px] text-muted-foreground">
-                              No Project/Booking professionals found (Division: Other).
+                              No Project/Booking professionals found (Division:
+                              Other).
                             </p>
                           )}
                         </div>
@@ -545,7 +684,8 @@ export default function BookingDetailPage({ id }: { id: string }) {
                           }}
                           className="w-full py-3 rounded-xl text-white text-sm font-bold bg-[#1A3580] shadow-premium hover-lift transition-all disabled:opacity-40 disabled:hover:transform-none"
                         >
-                          {t("requests.assignToProfessional") || "Assign to Professional"}
+                          {t("requests.assignToProfessional") ||
+                            "Assign to Professional"}
                         </button>
                       </>
                     )}
@@ -555,7 +695,8 @@ export default function BookingDetailPage({ id }: { id: string }) {
                 {booking.status === "Completed" && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
                     <p className="text-xs text-muted-foreground mb-3">
-                      Professional has completed their work. Final decision required.
+                      Professional has completed their work. Final decision
+                      required.
                     </p>
                     <div className="grid grid-cols-2 gap-3">
                       <button
@@ -616,7 +757,11 @@ export default function BookingDetailPage({ id }: { id: string }) {
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
                     <button
                       onClick={() =>
-                        handleAction("In Progress", "professional", "Started Work")
+                        handleAction(
+                          "In Progress",
+                          "professional",
+                          "Started Work",
+                        )
                       }
                       className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all"
                       style={{ background: "#EA580C" }}
@@ -629,7 +774,11 @@ export default function BookingDetailPage({ id }: { id: string }) {
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
                     <button
                       onClick={() =>
-                        handleAction("Completed", "professional", "Task Completed")
+                        handleAction(
+                          "Completed",
+                          "professional",
+                          "Task Completed",
+                        )
                       }
                       className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all"
                       style={{ background: "#16A34A" }}
@@ -650,7 +799,9 @@ export default function BookingDetailPage({ id }: { id: string }) {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Type</span>
-                <span className="font-semibold text-[#0E2271]">{booking.type}</span>
+                <span className="font-semibold text-[#0E2271]">
+                  {booking.type}
+                </span>
               </div>
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Status</span>
@@ -659,13 +810,17 @@ export default function BookingDetailPage({ id }: { id: string }) {
               {booking.attendees > 0 && (
                 <div className="flex justify-between gap-2">
                   <span className="text-muted-foreground">Headcount</span>
-                  <span className="font-semibold text-[#0E2271]">{booking.attendees}</span>
+                  <span className="font-semibold text-[#0E2271]">
+                    {booking.attendees}
+                  </span>
                 </div>
               )}
               {assignee && (
                 <div className="flex justify-between gap-2">
                   <span className="text-muted-foreground">Assigned To</span>
-                  <span className="font-semibold text-[#0E2271] text-right">{assignee.name}</span>
+                  <span className="font-semibold text-[#0E2271] text-right">
+                    {assignee.name}
+                  </span>
                 </div>
               )}
             </div>
@@ -681,7 +836,8 @@ export default function BookingDetailPage({ id }: { id: string }) {
               Reject Booking
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Please provide a reason for rejecting this booking. This will be sent to the requester.
+              Please provide a reason for rejecting this booking. This will be
+              sent to the requester.
             </p>
             <textarea
               value={rejectionReason}
@@ -717,7 +873,15 @@ export default function BookingDetailPage({ id }: { id: string }) {
 }
 
 // Helper Components
-function DetailRow({ icon, label, value }: { icon: ReactNode; label: string; value?: string | number }) {
+function DetailRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value?: string | number;
+}) {
   if (!value) return null;
   return (
     <div className="flex items-start gap-3">

@@ -8,6 +8,7 @@ import type { Project } from '@/types/models';
 import {
   canViewItem,
   getUserFacingStatus,
+  getVisibleStatusesForRole,
   WORKFLOW_STATUSES,
   WorkflowRole,
 } from '@/lib/workflow';
@@ -39,41 +40,36 @@ export function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
 
   useEffect(() => {
+    // Only run if we have a user ID
+    if (!currentUser?.id) {
+      console.log("[ProjectsPage] No user ID, skipping fetch");
+      return;
+    }
+    
+    console.log("[ProjectsPage] Fetching projects for user:", currentUser.id, "role:", role);
+    
     const refresh = async () => {
       try {
         const live = await fetchLiveProjects();
-        console.log("Fetched projects:", live);
+        console.log("[ProjectsPage] Received projects:", live.length, live);
         setProjects(live);
       } catch (error) {
-        console.error("Failed to fetch projects:", error);
-        // backend unreachable
+        console.error("[ProjectsPage] Failed to fetch projects:", error);
+        // If authentication error, ProtectedRoute will handle it
       }
     };
     void refresh();
+  }, [currentUser?.id, role]); // Only depend on user ID, not the whole user object
 
-    // Auto-refresh every 15 seconds to show updates
-    const refreshInterval = setInterval(refresh, 15000);
-    return () => clearInterval(refreshInterval);
-  }, []);
-
-  const statuses = ["All", ...WORKFLOW_STATUSES];
+  const statuses = ["All", ...getVisibleStatusesForRole(role as WorkflowRole, "project")];
 
   const filtered = projects.filter((p) => {
     const matchesRole = canViewItem(
       role as WorkflowRole | undefined,
       p,
       currentUser?.id,
+      currentUser?.divisionId,
     );
-    
-    // Debug logging
-    if (!matchesRole && role === "user") {
-      console.log("Project filtered out:", {
-        projectId: p.id,
-        projectRequestedBy: p.requestedBy,
-        currentUserId: currentUser?.id,
-        match: p.requestedBy === currentUser?.id
-      });
-    }
     
     const matchesSearch =
       !search ||
@@ -207,27 +203,6 @@ export function ProjectsPage() {
               </option>
             ))}
           </select>
-        </div>
-
-        {/* Status quick filters */}
-        <div className="flex gap-2 mt-3 flex-wrap">
-          {statuses.map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                statusFilter === s
-                  ? "bg-[#1A3580] text-white"
-                  : "bg-secondary text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              {s === "All"
-                ? t("status.all")
-                : t(
-                    `status.${s.charAt(0).toLowerCase() + s.slice(1).replace(/\s+/g, "")}`,
-                  )}
-            </button>
-          ))}
         </div>
       </div>
 

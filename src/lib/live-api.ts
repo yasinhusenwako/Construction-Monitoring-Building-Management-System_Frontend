@@ -21,9 +21,9 @@ interface BackendProject {
   description?: string;
   classification?: string;
   status: BackendStatus;
-  createdBy: number;  // Backend uses createdBy, not requestedBy
+  createdBy: string;  // Backend now uses String (email for Keycloak, numeric string for legacy)
   assignedSupervisorId?: number | null;
-  assignedProfessionalId?: number | null;
+  assignedProfessionalId?: string | null;  // Changed to string to support both numeric IDs and emails
   location?: string;
   block?: string;
   floor?: string;
@@ -42,7 +42,7 @@ interface BackendProject {
   requestMode?: string;
   linkedProjectId?: string;
   scope?: unknown;
-  divisionId?: number | null;
+  divisionId?: string | null;  // Changed from number to string
 }
 
 interface BackendBooking {
@@ -50,9 +50,9 @@ interface BackendBooking {
   bookingId: string;
   type: string;
   status: BackendStatus;
-  requester: number;
+  requester: string; // Backend now uses String (email for Keycloak, numeric string for legacy)
   assignedSupervisorId?: number | null;
-  assignedProfessionalId?: number | null;
+  assignedProfessionalId?: string | null;  // Changed to string to support both numeric IDs and emails
   dateTime: string;
   capacity?: number;
   layout?: string;     // space name (B2) or preferred location (B1)
@@ -71,10 +71,10 @@ interface BackendMaintenance {
   description: string;
   status: BackendStatus;
   priority?: string;
-  createdBy: number;
+  createdBy: string; // Backend now uses String (email for Keycloak, numeric string for legacy)
   assignedSupervisorId?: number | null;
-  assignedProfessionalId?: number | null;
-  divisionId?: number | null;
+  assignedProfessionalId?: string | null;  // Changed to string to support both numeric IDs and emails
+  divisionId?: string | null;  // Changed from number to string
   location?: string;
   building?: string;   // location compound part
   floor?: string;      // floor selection
@@ -115,8 +115,18 @@ interface BackendAnalytics {
   professionalCount?: number;
 }
 
-function userId(id?: number | null): string {
+function userId(id?: number | string | null): string {
   if (!id) return "USR-000";
+  // If it's already a string (email), return as-is
+  if (typeof id === 'string') {
+    // Check if it's a numeric string
+    if (/^\d+$/.test(id)) {
+      return `USR-${String(id).padStart(3, "0")}`;
+    }
+    // It's an email or other string identifier
+    return id;
+  }
+  // It's a number
   return `USR-${String(id).padStart(3, "0")}`;
 }
 
@@ -278,10 +288,7 @@ export async function fetchLiveProjects(
         linkedProjectId: item.linkedProjectId,
         createdAt: toIsoDate(item.createdAt),
         updatedAt: toIsoDate(item.createdAt),
-        divisionId:
-          item.divisionId == null
-            ? undefined
-            : `DIV-${String(item.divisionId).padStart(3, "0")}`,
+        divisionId: item.divisionId || undefined,
         documents: [],
         timeline: timeline.length > 0 ? timeline : [
           {
@@ -374,7 +381,7 @@ export async function fetchLiveBookings(
         space,
         type: parseBookingType(item.type),
         status: mapStatusFromBackend(item.status) as Booking["status"],
-        requestedBy: userId(item.requester),
+        requestedBy: userId(item.requester), // Map requester to requestedBy (handles both email and numeric)
         supervisorId: item.assignedSupervisorId
           ? userId(item.assignedSupervisorId)
           : undefined,
@@ -452,9 +459,7 @@ export async function fetchLiveMaintenance(
         supervisorId: item.assignedSupervisorId
           ? userId(item.assignedSupervisorId)
           : undefined,
-        divisionId: item.divisionId
-          ? `DIV-${String(item.divisionId).padStart(3, "0")}`
-          : undefined,
+        divisionId: item.divisionId || undefined,
         location: item.location || "N/A",
         building: loc.building,
         floor: loc.floor,
@@ -548,7 +553,7 @@ export async function fetchLiveUsers(): Promise<
       status?: string;
       department?: string;
       phone?: string;
-       divisionId?: number | null;
+       divisionId?: string | null;  // Changed from number to string
        profession?: string | null;
        createdBy: number;
        createdAt?: string;
@@ -579,7 +584,7 @@ export async function fetchLiveUsers(): Promise<
           ? frontendRole === "professional"
             ? "OTHER"
             : undefined
-          : `DIV-${String(item.divisionId).padStart(3, "0")}`,
+          : item.divisionId,  // Use divisionId as-is (already string from DB)
       profession: item.profession || undefined,
     };
   });
@@ -630,7 +635,7 @@ export async function updateLiveUser(params: {
   const parsedDivisionId =
     !params.divisionId || params.divisionId === "OTHER"
       ? null
-      : parseUserId(params.divisionId);
+      : params.divisionId;  // Use divisionId as-is (already string)
 
   const item = await apiRequest<{
     id: number;
@@ -639,7 +644,7 @@ export async function updateLiveUser(params: {
     role: BackendRole;
     department?: string;
     phone?: string;
-    divisionId?: number | null;
+    divisionId?: string | null;  // Changed from number to string
     profession?: string | null;
     createdAt?: string;
   }>(`/api/users/${dbId}`, {
@@ -685,7 +690,7 @@ export async function updateLiveUser(params: {
         ? params.role === "professional"
           ? "OTHER"
           : undefined
-        : `DIV-${String(item.divisionId).padStart(3, "0")}`,
+        : item.divisionId,  // Use divisionId as-is (already string from DB)
     profession: item.profession || undefined,
   };
 }
@@ -782,7 +787,7 @@ export async function adminAssignRequest(params: {
   );
   if (!requestId)
     throw new Error(`Unable to resolve request id for ${params.businessId}`);
-  const divisionId = params.divisionId ? parseUserId(params.divisionId) : 0;
+  const divisionId = params.divisionId || null;  // Use divisionId as-is (already string)
   const supervisorId = params.supervisorId
     ? parseUserId(params.supervisorId)
     : undefined;
@@ -918,7 +923,8 @@ export async function adminAssignProfessional(params: {
     params.businessId,
     params.requestId,
   );
-  const assignedProfessionalId = parseUserId(params.professionalId);
+  // Professional ID can be either email (Keycloak) or numeric string (database)
+  const assignedProfessionalId = params.professionalId;
   if (!requestId) {
     throw new Error(`Unable to resolve request id for ${params.businessId}`);
   }
@@ -951,7 +957,8 @@ export async function supervisorAssignProfessional(params: {
     params.businessId,
     params.requestId,
   );
-  const assignedProfessionalId = parseUserId(params.professionalId);
+  // Professional ID can be either email (Keycloak) or numeric string (database)
+  const assignedProfessionalId = params.professionalId;
   if (!requestId) {
     throw new Error(`Unable to resolve request id for ${params.businessId}`);
   }
@@ -1040,6 +1047,7 @@ export async function updateBooking(bookingId: string, updates: Partial<Booking>
     body: {
       type: updates.type?.toUpperCase(),
       dateTime: updates.date && updates.startTime ? `${updates.date}T${updates.startTime}:00` : undefined,
+      endTime: updates.date && updates.endTime ? `${updates.date}T${updates.endTime}:00` : undefined,
       capacity: updates.attendees,
       layout: updates.space,
       amenities: updates.requirements,
@@ -1126,51 +1134,87 @@ export async function markScheduleCompleted(id: number): Promise<PreventiveSched
   });
 }
 
-export interface BackendHistoryEvent {
+// ─── Divisions & Professional Assignment ────────────────────────────────────
+
+export interface Division {
   id: number;
-  requestId: number;
-  requestType: string;
-  action: string;
-  status: string | null;
-  actorName: string;
-  actorId: number | null;
-  note: string | null;
-  createdAt: string;
+  name: string;
+  description: string;
 }
 
-export async function fetchRequestHistory(
-  type: "PROJECT" | "MAINTENANCE" | "BOOKING",
-  dbId: number | string,
-  users?: Array<{ id: string; role: string }>,
-) {
-  try {
-    const events = await apiRequest<BackendHistoryEvent[]>(
-      `/api/history/${type}/${dbId}`,
-    );
+export interface Professional {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  divisionId?: string;
+  department: string;
+  profession?: string;
+  phone?: string;
+  avatar: string;
+}
 
-    const roleLabel = (actorId: number | null): string => {
-      if (!actorId || !users) return "System";
-      const uid = `USR-${String(actorId).padStart(3, "0")}`;
-      const user = users.find((u) => u.id === uid);
-      if (!user) return "System";
-      switch (user.role) {
-        case "admin": return "Admin";
-        case "supervisor": return "Supervisor";
-        case "professional": return "Professional";
-        case "user": return "User";
-        default: return "System";
-      }
+/**
+ * Fetch all divisions for assignment dropdown
+ */
+export async function fetchDivisions(): Promise<Division[]> {
+  return apiRequest<Division[]>("/api/divisions");
+}
+
+/**
+ * Fetch professionals filtered by division
+ * @param divisionId - Division ID to filter by (0 for admin professionals, 1-3 for division professionals)
+ * @returns List of professionals in the specified division
+ */
+export async function fetchProfessionalsByDivision(divisionId?: string): Promise<Professional[]> {
+  const url = divisionId 
+    ? `/api/users/professionals?divisionId=${divisionId}`
+    : '/api/users/professionals/all';
+  
+  const list = await apiRequest<Array<{
+    id: number;
+    name: string;
+    email: string;
+    role: BackendRole;
+    divisionId?: string | null;
+    department?: string;
+    profession?: string | null;
+    phone?: string;
+  }>>(url);
+  
+  return list.map((item) => {
+    const initials = (item.name || "Unknown")
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+    
+    return {
+      id: item.email, // Use email as ID for Keycloak users
+      name: item.name,
+      email: item.email,
+      role: mapRoleFromBackend(item.role),
+      divisionId: item.divisionId || undefined,
+      department: item.department || "",
+      profession: item.profession || undefined,
+      phone: item.phone || "",
+      avatar: initials,
     };
+  });
+}
 
-    // Map to TimelineEvent format (reverse so oldest first)
-    return [...events].reverse().map((e) => ({
-      id: `EV-${e.id}`,
-      action: e.action === "Status Updated" && e.status ? e.status : e.action,
-      actor: roleLabel(e.actorId),
-      timestamp: e.createdAt,
-      note: e.note || "",
-    }));
-  } catch {
-    return [];
-  }
+/**
+ * Fetch admin professionals (divisionId=0) for project/booking assignment
+ */
+export async function fetchAdminProfessionals(): Promise<Professional[]> {
+  return fetchProfessionalsByDivision("0");
+}
+
+/**
+ * Fetch division professionals for maintenance assignment
+ * @param divisionId - Division ID (1, 2, or 3)
+ */
+export async function fetchDivisionProfessionals(divisionId: string): Promise<Professional[]> {
+  return fetchProfessionalsByDivision(divisionId);
 }

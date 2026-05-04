@@ -14,7 +14,7 @@ import {
   fetchLiveProjects,
   markNotificationAsRead,
 } from "@/lib/live-api";
-import { ProtectedRoute } from "../auth/ProtectedRoute";
+import ProtectedRoute from "../auth/ProtectedRoute";
 import { ThemeToggle } from "../common/ThemeToggle";
 import { LanguageToggle } from "../common/LanguageToggle";
 import {
@@ -54,7 +54,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const PROJECT_BADGE_SEEN_KEY = "insa_admin_seen_projects_actionable";
   const MAINTENANCE_BADGE_SEEN_KEY =
     "insa_admin_seen_maintenance_actionable";
-  const { currentUser, logout } = useAuth();
+  const { currentUser, isAuthenticated, logout } = useAuth(); // Use compat wrapper
   const { t } = useLanguage();
   const { settings } = useSystemSettings();
   const router = useRouter();
@@ -95,7 +95,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Token is automatically sent via httpOnly cookie
+    // Wait for authentication before fetching notifications
+    if (!isAuthenticated) {
+      return;
+    }
+
+    // Fetch notifications once authenticated
     fetchLiveNotifications()
       .then(setNotifications)
       .catch(() => {});
@@ -108,7 +113,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     }, 30000);
     
     return () => clearInterval(interval);
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (currentUser?.role !== "admin") {
@@ -568,11 +573,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               )}
             </div>
 
-            {/* Theme Toggle */}
-            <ThemeToggle />
-
-            {/* Language Toggle */}
-            <LanguageToggle />
+            {/* Combined Switchers */}
+            <div className="flex items-center gap-1 bg-card dark:bg-card border border-border dark:border-border rounded-xl p-1 shadow-sm">
+              {/* Language Switcher */}
+              <LanguageToggle />
+              {/* Theme Toggle */}
+              <ThemeToggle />
+            </div>
 
             {/* Profile */}
             <div className="relative" ref={profileRef}>

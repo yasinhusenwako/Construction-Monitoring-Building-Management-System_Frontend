@@ -524,8 +524,8 @@ export function AllRequestsPage() {
                 className="px-3 py-1.5 rounded-lg border border-border bg-white text-sm outline-none focus:border-[#1A3580]"
               >
                 <option value="All">{t("requests.allUsersOption")}</option>
-                {requesterUsers.map((u) => (
-                  <option key={u.id} value={u.id}>
+                {requesterUsers.map((u, index) => (
+                  <option key={u.id || u.email || `user-${index}`} value={u.id}>
                     {u.name} ({u.department})
                   </option>
                 ))}

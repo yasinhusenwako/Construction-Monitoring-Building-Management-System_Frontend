@@ -85,23 +85,56 @@ export function TaskManagementPage() {
   const divisionName = divisions.find((d) => d.id === userDivision)?.name || "Division";
 
   const supervisorTrackedStatuses = [
+    "Submitted",  // Added: Supervisors should see newly submitted requests in their division
     "Assigned to Supervisor",
     "WorkOrder Created",
     "Assigned to Professionals",
     "In Progress",
     "Completed",
     "Reviewed",
+    "Approved",  // Added: Supervisors should see approved tasks for tracking
+    "Rejected",  // Added: Supervisors should see rejected tasks for follow-up
+    "Closed",    // Added: Supervisors should see closed tasks for historical records
   ];
+
+  // Debug logging
+  console.log("=== TASK MANAGEMENT PAGE DEBUG ===");
+  console.log("Current User ID:", uid);
+  console.log("User Division:", userDivision);
+  console.log("Total Tasks Fetched:", allTasks.length);
+  console.log("All Tasks:", allTasks.map(t => ({
+    id: t.id,
+    title: t.title,
+    status: t.status,
+    divisionId: t.divisionId,
+    supervisorId: t.supervisorId,
+  })));
+  console.log("Supervisor Tracked Statuses:", supervisorTrackedStatuses);
 
   // My assigned tasks — primary key is supervisorId, divisionId is informational only
   const myTasks = allTasks.filter(
-    (m) =>
-      m.supervisorId === uid ||
-      // Fallback: division-scoped workflow items should remain visible to supervisor.
-      (userDivision &&
+    (m) => {
+      const matchesSupervisor = m.supervisorId === uid;
+      const matchesDivision = userDivision &&
         m.divisionId === userDivision &&
-        supervisorTrackedStatuses.includes(m.status)),
+        supervisorTrackedStatuses.includes(m.status);
+      
+      console.log(`Task ${m.id}:`, {
+        status: m.status,
+        divisionId: m.divisionId,
+        supervisorId: m.supervisorId,
+        matchesSupervisor,
+        matchesDivision,
+        statusInList: supervisorTrackedStatuses.includes(m.status),
+        included: matchesSupervisor || matchesDivision,
+      });
+      
+      return matchesSupervisor || matchesDivision;
+    }
   );
+  
+  console.log("Filtered Tasks (myTasks):", myTasks.length);
+  console.log("===================================");
   const pendingAssignment = myTasks.filter((m) =>
     ["Assigned to Supervisor", "WorkOrder Created"].includes(m.status),
   );
@@ -110,15 +143,17 @@ export function TaskManagementPage() {
   );
   const completedTasks = myTasks.filter((m) => m.status === "Completed");
   const reviewedTasks = myTasks.filter((m) => m.status === "Reviewed");
+  const approvedTasks = myTasks.filter((m) => m.status === "Approved");
+  const rejectedTasks = myTasks.filter((m) => m.status === "Rejected");
+  const closedTasks = myTasks.filter((m) => m.status === "Closed");
   const approvedProfessionals = useMemo(
     () =>
       users.filter(
         (u) =>
           u.role === "professional" &&
           String(u.status || "active").toLowerCase() === "active" &&
-          (!userDivision ||
-            u.divisionId === userDivision ||
-            !u.divisionId),
+          userDivision &&
+          u.divisionId === userDivision  // STRICT: Only professionals from supervisor's division
       ),
     [users, userDivision],
   );

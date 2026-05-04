@@ -19,6 +19,7 @@ import {
   canTransition,
   canViewItem,
   getUserFacingStatus,
+  getVisibleStatusesForRole,
   WORKFLOW_STATUSES,
   WorkflowRole,
   WorkflowStatus,
@@ -393,6 +394,11 @@ export function BookingsPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Calendar state
+  const today = new Date();
+  const [calendarYear, setCalendarYear] = useState(today.getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState(today.getMonth()); // 0-11
+
   useEffect(() => {
     const refresh = async () => {
       setLoading(true);
@@ -432,9 +438,15 @@ export function BookingsPage() {
       setSpaceList(event.detail);
     };
 
-    window.addEventListener("spacesUpdated", handleSpacesUpdate as EventListener);
+    window.addEventListener(
+      "spacesUpdated",
+      handleSpacesUpdate as EventListener,
+    );
     return () => {
-      window.removeEventListener("spacesUpdated", handleSpacesUpdate as EventListener);
+      window.removeEventListener(
+        "spacesUpdated",
+        handleSpacesUpdate as EventListener,
+      );
     };
   }, []);
 
@@ -451,32 +463,34 @@ export function BookingsPage() {
       // Consider bookings that are Submitted, Under Review, Assigned, In Progress, or Approved
       const isActiveStatus = [
         "Submitted",
-        "Under Review", 
+        "Under Review",
         "Assigned to Professionals",
         "In Progress",
         "Approved",
       ].includes(b.status);
-      
+
       // Check if booking is for today or future
       const isCurrentOrFuture = b.date >= today;
-      
+
       // If booking is today, check if it's currently ongoing or upcoming
       if (b.date === today) {
         return isActiveStatus && b.endTime >= currentTime;
       }
-      
+
       // For future bookings, mark as occupied
       return isActiveStatus && isCurrentOrFuture;
     });
 
     // Create a map of occupied spaces
     const occupiedSpaceNames = new Set(
-      activeBookings.map((b) => b.space.toLowerCase().trim())
+      activeBookings.map((b) => b.space.toLowerCase().trim()),
     );
 
     // Update space availability
     const updatedSpaces = spaceList.map((space) => {
-      const isOccupied = occupiedSpaceNames.has(space.name.toLowerCase().trim());
+      const isOccupied = occupiedSpaceNames.has(
+        space.name.toLowerCase().trim(),
+      );
       return {
         ...space,
         available: !isOccupied,
@@ -485,14 +499,14 @@ export function BookingsPage() {
 
     // Only update if there are changes
     const hasChanges = updatedSpaces.some(
-      (space, index) => space.available !== spaceList[index].available
+      (space, index) => space.available !== spaceList[index].available,
     );
 
     if (hasChanges) {
       setSpaceList(updatedSpaces);
       saveSpaces(updatedSpaces); // Persist to localStorage
     }
-  }, [bookings, spaceList.length]); // Re-run when bookings change
+  }, [bookings, spaceList]); // Re-run when bookings change
 
   // ─── Bookings ─────────────────────────────────────────────────────────────
   const filtered = bookings.filter((b) => {
@@ -500,6 +514,7 @@ export function BookingsPage() {
       role as WorkflowRole | undefined,
       b,
       currentUser?.id,
+      currentUser?.divisionId,
     );
     const matchSearch =
       !search ||
@@ -548,7 +563,7 @@ export function BookingsPage() {
           module: requestModule,
           businessId: bookingId,
           supervisorId: extraUpdates?.supervisorId || "",
-          divisionId: "DIV-001", // Fallback
+          divisionId: "1", // Fallback
         });
       } else if (
         nextStatus === "Assigned to Professionals" &&
@@ -686,12 +701,58 @@ export function BookingsPage() {
     {} as Record<string, Booking[]>,
   );
 
-  const calendarDays = Array.from(
-    { length: 31 },
-    (_, i) => `2024-04-${String(i + 1).padStart(2, "0")}`,
-  );
+  // Generate calendar days for current month
+  const getDaysInMonth = (year: number, month: number) =>
+    new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year: number, month: number) =>
+    new Date(year, month, 1).getDay();
 
-  const statuses = ["All", ...WORKFLOW_STATUSES];
+  const daysInMonth = getDaysInMonth(calendarYear, calendarMonth);
+  const firstDayOfWeek = getFirstDayOfMonth(calendarYear, calendarMonth);
+
+  const calendarDays = Array.from({ length: daysInMonth }, (_, i) => {
+    const day = i + 1;
+    const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    return dateStr;
+  });
+
+  const MONTHS = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+
+  const prevMonth = () => {
+    if (calendarMonth === 0) {
+      setCalendarMonth(11);
+      setCalendarYear((y) => y - 1);
+    } else {
+      setCalendarMonth((m) => m - 1);
+    }
+  };
+
+  const nextMonth = () => {
+    if (calendarMonth === 11) {
+      setCalendarMonth(0);
+      setCalendarYear((y) => y + 1);
+    } else {
+      setCalendarMonth((m) => m + 1);
+    }
+  };
+
+  const statuses = [
+    "All",
+    ...getVisibleStatusesForRole(role as WorkflowRole, "booking"),
+  ];
 
   // ─── Stats for spaces header ───────────────────────────────────────────────
   const availableCount = spaceList.filter((s) => s.available).length;
@@ -803,37 +864,35 @@ export function BookingsPage() {
 
       {/* ── LIST FILTERS ─────────────────────────────────────────────────────── */}
       {view === "list" && (
-        <div className="bg-white rounded-xl border border-border p-4 shadow-sm flex gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-48">
-            <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-            />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t("bookings.searchBookings")}
-              className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-input-background text-sm outline-none focus:border-[#1A3580]"
-            />
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {statuses.map((s) => (
-              <button
-                key={s}
-                onClick={() => setStatusFilter(s)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                  statusFilter === s
-                    ? "bg-green-600 text-white"
-                    : "bg-secondary text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                {s === "All"
-                  ? t("status.all")
-                  : t(
-                      `status.${s.charAt(0).toLowerCase() + s.slice(1).replace(/\s+/g, "")}`,
-                    )}
-              </button>
-            ))}
+        <div className="bg-white rounded-xl border border-border p-4 shadow-sm">
+          <div className="flex gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-48">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+              />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t("bookings.searchBookings")}
+                className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-input-background text-sm outline-none focus:border-[#1A3580]"
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-border bg-input-background text-sm outline-none focus:border-[#1A3580] cursor-pointer"
+            >
+              {statuses.map((s) => (
+                <option key={s} value={s}>
+                  {s === "All"
+                    ? t("status.all")
+                    : t(
+                        `status.${s.charAt(0).toLowerCase() + s.slice(1).replace(/\s+/g, "")}`,
+                      )}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       )}
@@ -860,46 +919,115 @@ export function BookingsPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-secondary/50">
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">{t("bookings.bookingID")}</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("form.title")}</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("bookings.space")}</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("form.status")}</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("bookings.date")}</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("bookings.startTime")}</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("projects.actions")}</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                        {t("bookings.bookingID")}
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        {t("form.title")}
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        {t("bookings.space")}
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        {t("form.status")}
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        {t("bookings.date")}
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        {t("bookings.startTime")}
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        {t("projects.actions")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {filtered.map((booking) => (
-                      <tr key={booking.id} className="hover:bg-secondary/30 transition-colors">
+                      <tr
+                        key={booking.id}
+                        className="hover:bg-secondary/30 transition-colors"
+                      >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1.5 whitespace-nowrap">
-                            <span className="font-mono text-xs font-semibold text-green-700">{booking.id}</span>
-                            <button onClick={() => copyId(booking.id)} className="text-muted-foreground hover:text-green-700" title="Copy ID">
-                              {copied === booking.id ? <CheckCircle size={11} className="text-green-500" /> : <Copy size={11} />}
+                            <span className="font-mono text-xs font-semibold text-green-700">
+                              {booking.id}
+                            </span>
+                            <button
+                              onClick={() => copyId(booking.id)}
+                              className="text-muted-foreground hover:text-green-700"
+                              title="Copy ID"
+                            >
+                              {copied === booking.id ? (
+                                <CheckCircle
+                                  size={11}
+                                  className="text-green-500"
+                                />
+                              ) : (
+                                <Copy size={11} />
+                              )}
                             </button>
                           </div>
                         </td>
                         <td className="px-4 py-3 max-w-xs">
-                          <p className="text-sm font-medium text-foreground truncate">{booking.title}</p>
-                          <p className="text-xs text-muted-foreground">{booking.type}</p>
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {booking.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {booking.type}
+                          </p>
                         </td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground">{booking.space}</td>
-                        <td className="px-4 py-3"><StatusBadge status={booking.status} /></td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">{booking.date}</td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">{booking.startTime} – {booking.endTime}</td>
+                        <td className="px-4 py-3 text-sm text-muted-foreground">
+                          {booking.space}
+                        </td>
+                        <td className="px-4 py-3">
+                          <StatusBadge status={booking.status} />
+                        </td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">
+                          {booking.date}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">
+                          {booking.startTime} – {booking.endTime}
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            {role === "user" && booking.status === "Submitted" && booking.requestedBy === currentUser?.id && (
-                              <button onClick={() => router.push(`/dashboard/bookings/edit/${booking.id}`)} className="flex items-center gap-1 text-xs text-[#1A3580] hover:underline font-medium">
-                                <Pencil size={12} /> {t("action.edit")}
-                              </button>
-                            )}
-                            <button onClick={() => router.push(`/dashboard/bookings/${booking.id}`)} className="flex items-center gap-1 text-xs text-[#1A3580] hover:underline font-medium">
+                            {role === "user" &&
+                              booking.status === "Submitted" &&
+                              booking.requestedBy === currentUser?.id && (
+                                <button
+                                  onClick={() =>
+                                    router.push(
+                                      `/dashboard/bookings/edit/${booking.id}`,
+                                    )
+                                  }
+                                  className="flex items-center gap-1 text-xs text-[#1A3580] hover:underline font-medium"
+                                >
+                                  <Pencil size={12} /> {t("action.edit")}
+                                </button>
+                              )}
+                            <button
+                              onClick={() =>
+                                router.push(`/dashboard/bookings/${booking.id}`)
+                              }
+                              className="flex items-center gap-1 text-xs text-[#1A3580] hover:underline font-medium"
+                            >
                               <ExternalLink size={12} /> {t("action.view")}
                             </button>
-                            {((role === "user" && booking.requestedBy === currentUser?.id && ["Submitted", "Approved", "Rejected", "Closed"].includes(booking.status)) || role === "admin") && (
-                              <button onClick={() => void handleDeleteBooking(booking)} className="flex items-center gap-1 text-xs text-red-600 hover:underline font-medium">
+                            {((role === "user" &&
+                              booking.requestedBy === currentUser?.id &&
+                              [
+                                "Submitted",
+                                "Approved",
+                                "Rejected",
+                                "Closed",
+                              ].includes(booking.status)) ||
+                              role === "admin") && (
+                              <button
+                                onClick={() =>
+                                  void handleDeleteBooking(booking)
+                                }
+                                className="flex items-center gap-1 text-xs text-red-600 hover:underline font-medium"
+                              >
                                 <Trash2 size={12} /> {t("action.delete")}
                               </button>
                             )}
@@ -911,11 +1039,20 @@ export function BookingsPage() {
                 </table>
               </div>
               <div className="px-4 py-3 border-t border-border bg-secondary/30 flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">{t("common.showing")} {filtered.length} {t("common.of")} {bookings.length} {t("nav.bookings").toLowerCase()}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t("common.showing")} {filtered.length} {t("common.of")}{" "}
+                  {bookings.length} {t("nav.bookings").toLowerCase()}
+                </p>
                 <div className="flex items-center gap-1">
-                  <button className="px-3 py-1 rounded border border-border text-xs hover:bg-secondary">{t("common.previous")}</button>
-                  <button className="px-3 py-1 rounded bg-[#1A3580] text-white text-xs">1</button>
-                  <button className="px-3 py-1 rounded border border-border text-xs hover:bg-secondary">{t("common.next")}</button>
+                  <button className="px-3 py-1 rounded border border-border text-xs hover:bg-secondary">
+                    {t("common.previous")}
+                  </button>
+                  <button className="px-3 py-1 rounded bg-[#1A3580] text-white text-xs">
+                    1
+                  </button>
+                  <button className="px-3 py-1 rounded border border-border text-xs hover:bg-secondary">
+                    {t("common.next")}
+                  </button>
                 </div>
               </div>
             </div>
@@ -927,13 +1064,21 @@ export function BookingsPage() {
       {view === "calendar" && (
         <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-            <h3 className="font-semibold text-[#0E2271]">April 2024</h3>
+            <h3 className="font-semibold text-[#0E2271]">
+              {MONTHS[calendarMonth]} {calendarYear}
+            </h3>
             <div className="flex gap-2 text-sm text-muted-foreground">
-              <button className="px-3 py-1 rounded border border-border hover:bg-secondary">
-                ← Mar
+              <button
+                onClick={prevMonth}
+                className="px-3 py-1 rounded border border-border hover:bg-secondary"
+              >
+                ← {t("bookings.prevMonth") || "Prev"}
               </button>
-              <button className="px-3 py-1 rounded border border-border hover:bg-secondary">
-                May →
+              <button
+                onClick={nextMonth}
+                className="px-3 py-1 rounded border border-border hover:bg-secondary"
+              >
+                {t("bookings.nextMonth") || "Next"} →
               </button>
             </div>
           </div>
@@ -948,18 +1093,38 @@ export function BookingsPage() {
             ))}
           </div>
           <div className="grid grid-cols-7">
-            <div className="border-r border-b border-border p-1 min-h-[80px]" />
-            {calendarDays.slice(0, 30).map((date, i) => {
+            {/* Empty cells for first day offset */}
+            {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+              <div
+                key={`empty-${i}`}
+                className="border-r border-b border-border p-1 min-h-[80px] bg-gray-50/50"
+              />
+            ))}
+
+            {calendarDays.map((date, i) => {
               const dayBookings = calendarBookings[date] || [];
-              const isToday = date === "2024-04-18";
+              const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+              const isToday = date === todayStr;
+              const hasBookings = dayBookings.length > 0;
+
               return (
                 <div
                   key={date}
-                  className={`border-r border-b border-border p-1 min-h-[80px] ${isToday ? "bg-blue-50" : "hover:bg-secondary/30"} transition-colors`}
+                  className={`border-r border-b border-border p-1 min-h-[80px] transition-colors ${
+                    isToday
+                      ? "bg-blue-50"
+                      : hasBookings
+                        ? "bg-red-50 hover:bg-red-100"
+                        : "hover:bg-secondary/30"
+                  }`}
                 >
                   <p
                     className={`text-xs font-semibold mb-1 w-6 h-6 flex items-center justify-center rounded-full ${
-                      isToday ? "bg-[#1A3580] text-white" : "text-foreground"
+                      isToday
+                        ? "bg-[#1A3580] text-white"
+                        : hasBookings
+                          ? "bg-red-500 text-white"
+                          : "text-foreground"
                     }`}
                   >
                     {i + 1}
@@ -967,28 +1132,62 @@ export function BookingsPage() {
                   {dayBookings.slice(0, 2).map((b) => (
                     <div
                       key={b.id}
-                      className={`text-xs px-1 py-0.5 rounded mb-0.5 truncate ${
+                      className={`text-xs px-1 py-0.5 rounded mb-0.5 cursor-pointer hover:opacity-80 ${
                         b.status === "Approved"
-                          ? "bg-green-100 text-green-800"
+                          ? "bg-green-100 text-green-800 border border-green-300"
                           : ["Submitted", "Under Review"].includes(b.status)
-                            ? "bg-amber-100 text-amber-800"
+                            ? "bg-amber-100 text-amber-800 border border-amber-300"
                             : b.status === "Rejected"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-blue-100 text-blue-800"
+                              ? "bg-red-100 text-red-800 border border-red-300"
+                              : "bg-blue-100 text-blue-800 border border-blue-300"
                       }`}
-                      title={b.title}
+                      title={`${b.title} - ${b.space}\n${b.startTime} - ${b.endTime}`}
+                      onClick={() => router.push(`/dashboard/bookings/${b.id}`)}
                     >
-                      {b.startTime} {b.space.split(" ").slice(0, 2).join(" ")}
+                      <div className="truncate font-medium">
+                        {b.startTime}-{b.endTime}
+                      </div>
+                      <div className="truncate text-[10px] opacity-90">
+                        {b.space.split(" ").slice(0, 2).join(" ")}
+                      </div>
                     </div>
                   ))}
                   {dayBookings.length > 2 && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground font-medium">
                       +{dayBookings.length - 2} more
                     </p>
                   )}
                 </div>
               );
             })}
+          </div>
+
+          {/* Calendar Legend */}
+          <div className="px-5 py-3 border-t border-border bg-gray-50 flex items-center gap-4 text-xs">
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded-full bg-[#1A3580]"></div>
+              <span className="text-muted-foreground">
+                {t("bookings.today") || "Today"}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded-full bg-red-500"></div>
+              <span className="text-muted-foreground">
+                {t("bookings.hasBookings") || "Has Bookings"}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded bg-green-100 border border-green-300"></div>
+              <span className="text-muted-foreground">
+                {t("status.approved")}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded bg-amber-100 border border-amber-300"></div>
+              <span className="text-muted-foreground">
+                {t("status.pending")}
+              </span>
+            </div>
           </div>
         </div>
       )}

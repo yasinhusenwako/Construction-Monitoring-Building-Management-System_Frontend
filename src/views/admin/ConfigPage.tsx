@@ -154,7 +154,7 @@ export function ConfigPage() {
     setSaved(section);
     setTimeout(() => setSaved(""), 3000);
     
-    console.log('✅ Settings saved and applied:', systemSettings);
+    // console.log('✅ Settings saved and applied:', systemSettings);
   };
 
   const handleSettingChange = (key: string, value: string) => {

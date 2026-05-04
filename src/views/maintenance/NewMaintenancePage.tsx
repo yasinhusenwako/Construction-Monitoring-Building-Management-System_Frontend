@@ -10,39 +10,10 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { useLanguage } from "@/context/LanguageContext";
+import { useAuth } from "@/context/AuthContext";
 import { FileUpload, UploadedFile } from "@/components/common/FileUpload";
-import type { Maintenance } from "@/types/models";
 
 // Static constants moved inside component for translation support
-
-const mapMaintenanceType = (category: string): Maintenance["type"] => {
-  const lowered = category.toLowerCase();
-  if (lowered.includes("hvac") || lowered.includes("air conditioning")) {
-    return "HVAC";
-  }
-  if (lowered.includes("electrical")) return "Electrical";
-  if (lowered.includes("plumbing") || lowered.includes("water")) {
-    return "Plumbing";
-  }
-  if (lowered.includes("structural") || lowered.includes("building damage")) {
-    return "Structural";
-  }
-  return "General";
-};
-
-const mapDivisionId = (type: Maintenance["type"]): string => {
-  switch (type) {
-    case "HVAC":
-      return "DIV-001"; // Power Supply Division
-    case "Electrical":
-    case "Plumbing":
-    case "Structural":
-      return "DIV-003"; // Infrastructure Development & Building Maintenance
-    case "General":
-    default:
-      return "DIV-002"; // Facility Admin
-  }
-};
 
 type FormState = {
   title: string;
@@ -59,6 +30,7 @@ type FormState = {
 export function NewMaintenancePage() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { currentUser } = useAuth();
 
   const locations = [
     "Wolo Sefer",
@@ -230,13 +202,7 @@ export function NewMaintenancePage() {
 
   const handleSubmit = async () => {
     setLoading(true);
-    const storedUser = sessionStorage.getItem("insa_user");
-    const parsed = storedUser ? JSON.parse(storedUser) : null;
-    const rawUserId = parsed?.id ?? parsed?.userId ?? "";
-    const createdBy = rawUserId
-      ? Number(String(rawUserId).replace("USR-", ""))
-      : null;
-    const requestedBy = rawUserId ? String(rawUserId) : "USR-000";
+    const createdBy = currentUser?.email || currentUser?.id || "keycloak-user";
 
     const generatedId = `MNT-${String(Math.floor(Math.random() * 9000) + 1000)}`;
 
@@ -267,7 +233,7 @@ export function NewMaintenancePage() {
       );
 
       const maintenanceId = created.maintenanceId || generatedId;
-      
+
       // Upload files if any
       if (form.files.length > 0) {
         try {
@@ -279,15 +245,17 @@ export function NewMaintenancePage() {
           });
           formData.append("entityType", "maintenance");
           formData.append("entityId", maintenanceId);
-          
-          console.log(`[File Upload] Uploading ${form.files.length} file(s) for ${maintenanceId}`);
-          
+
+          console.log(
+            `[File Upload] Uploading ${form.files.length} file(s) for ${maintenanceId}`,
+          );
+
           await apiRequest("/api/files/upload", {
             method: "POST",
             body: formData as any,
             showErrorToast: false, // Don't show toast for file upload errors
           });
-          
+
           console.log("[File Upload] Files uploaded successfully");
         } catch (fileError) {
           console.warn("File upload failed (non-critical):", fileError);
@@ -296,7 +264,7 @@ export function NewMaintenancePage() {
           // Files can be uploaded later if needed
         }
       }
-      
+
       setSubmittedId(maintenanceId);
       setSubmitted(true);
     } catch (error) {
@@ -555,10 +523,29 @@ export function NewMaintenancePage() {
                 ))}
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-[#0E2271] mb-1">
+                {t("form.block")}
+              </label>
+              <select
+                value={form.block}
+                onChange={(e) => update("block", e.target.value)}
+                className={inputClass("block")}
+                aria-label="Block"
+                title="Block"
+              >
+                <option value="">{t("maintenance.placeholder.block")}</option>
+                {blocks.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-[#0E2271] mb-1">
-                  {t("users.floor_label") || "Floor"}
+                  {t("form.floor")}
                 </label>
                 <select
                   value={form.floor}
@@ -577,7 +564,7 @@ export function NewMaintenancePage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#0E2271] mb-1">
-                  {t("bookings.spaceKey")}
+                  {t("form.space")}
                 </label>
                 <input
                   value={form.roomArea}
@@ -606,14 +593,17 @@ export function NewMaintenancePage() {
             <p className="text-muted-foreground text-sm">
               {t("maintenance.imageEvidence")}
             </p>
-            
+
             <FileUpload
               files={form.files}
               onFilesChange={(files) => update("files", files)}
               maxFiles={10}
               maxSizeMB={10}
               label={t("maintenance.dragDropImages") || "Upload Files"}
-              description={t("maintenance.fileTypes") || "Drag and drop files here, or click to browse"}
+              description={
+                t("maintenance.fileTypes") ||
+                "Drag and drop files here, or click to browse"
+              }
             />
           </div>
         )}

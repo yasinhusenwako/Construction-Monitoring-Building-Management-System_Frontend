@@ -62,6 +62,7 @@ export function EditBookingPage({ bookingId }: { bookingId: string }) {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [bookingType, setBookingType] = useState<"B1" | "B2" | "">("");
+  const [liveBookings, setLiveBookings] = useState<Booking[]>([]);
 
   // B1 (Office Allocation) form state
   const [b1Form, setB1Form] = useState({
@@ -129,6 +130,7 @@ export function EditBookingPage({ bookingId }: { bookingId: string }) {
     const loadBooking = async () => {
       try {
         const bookings = await fetchLiveBookings(bookingId);
+        setLiveBookings(bookings); // Store all bookings for conflict detection
         const b = bookings.find(item => item.id === bookingId);
         if (b) {
           setBooking(b);
@@ -204,6 +206,15 @@ export function EditBookingPage({ bookingId }: { bookingId: string }) {
     );
 
   const selectedSpace = spaces.find((s) => s.id === b2Form.space);
+
+  // Calculate booked dates for the selected space (for calendar highlighting)
+  // Exclude the current booking being edited
+  const bookedDatesForSpace = bookingType === "B2" && selectedSpace
+    ? liveBookings
+        .filter((b) => b.space === selectedSpace.name && b.id !== bookingId)
+        .map((b) => b.date)
+        .filter((date, index, self) => self.indexOf(date) === index) // Remove duplicates
+    : [];
 
   const validate = () => {
     const errs: Record<string, string> = {};
@@ -729,6 +740,7 @@ export function EditBookingPage({ bookingId }: { bookingId: string }) {
                 onChange={(val) => updateB2("date", val)}
                 placeholder={t("bookings.placeholder.date")}
                 hasError={!!errors.date}
+                bookedDates={bookedDatesForSpace}
               />
               {errors.date && (
                 <p className="text-red-500 text-xs mt-1">{errors.date}</p>

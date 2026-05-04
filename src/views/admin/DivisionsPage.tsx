@@ -185,9 +185,9 @@ export function DivisionsPage() {
           ];
           
           const divisionIds = [
-            "DIV-001",
-            "DIV-002", 
-            "DIV-003"
+            "1",
+            "2", 
+            "3"
           ];
 
           return (
