@@ -147,7 +147,7 @@ export function FileViewer({
       </div>
 
       {/* Image Preview Modal */}
-      {previewFile && isImageFile(previewFile.name) && (
+      {previewFile && previewFile.url && isImageFile(previewFile.name) && (
         <div
           className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
           onClick={() => setPreviewFile(null)}

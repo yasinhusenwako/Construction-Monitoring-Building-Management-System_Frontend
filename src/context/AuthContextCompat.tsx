@@ -52,10 +52,14 @@ export function useAuth(): AuthContextType {
 
   const tokenInfo = getUserInfoFromToken();
   const userInfo = user || tokenInfo;
+  const explicitName =
+    userInfo && "name" in userInfo && typeof userInfo.name === "string"
+      ? userInfo.name
+      : undefined;
 
   const currentUser: User | null = authenticated && userInfo ? {
     id: userInfo.email || userInfo.username || roles[0] || 'keycloak-user',
-    name: userInfo.name || (userInfo.firstName && userInfo.lastName 
+    name: explicitName || (userInfo.firstName && userInfo.lastName 
       ? `${userInfo.firstName} ${userInfo.lastName}` 
       : userInfo.username || userInfo.email || 'User'),
     email: userInfo.email || userInfo.username || '',

@@ -4,6 +4,7 @@ export type WorkflowStatus =
   | "Submitted"
   | "Under Review"
   | "Assigned to Supervisor"
+  | "WorkOrder Created"
   | "Assigned to Professionals"
   | "In Progress"
   | "Completed"
@@ -18,6 +19,7 @@ export const WORKFLOW_STATUSES: WorkflowStatus[] = [
   "Submitted",
   "Under Review",
   "Assigned to Supervisor",
+  "WorkOrder Created",
   "Assigned to Professionals",
   "In Progress",
   "Completed",
@@ -46,7 +48,8 @@ export const WORKFLOW_CONFIG: Record<WorkflowModule, WorkflowDefinition> = {
     transitions: {
       Submitted: ["Under Review"],
       "Under Review": ["Assigned to Supervisor"],
-      "Assigned to Supervisor": ["Assigned to Professionals"],
+      "Assigned to Supervisor": ["WorkOrder Created"],
+      "WorkOrder Created": ["Assigned to Professionals"],
       "Assigned to Professionals": ["In Progress"],
       "In Progress": ["Completed"],
       Completed: ["Reviewed"],
@@ -59,6 +62,7 @@ export const WORKFLOW_CONFIG: Record<WorkflowModule, WorkflowDefinition> = {
       Submitted: "admin",
       "Under Review": "admin",
       "Assigned to Supervisor": "supervisor",
+      "WorkOrder Created": "supervisor",
       "Assigned to Professionals": "supervisor",
       "In Progress": "professional",
       Completed: "professional",
@@ -117,7 +121,8 @@ export const WORKFLOW_CONFIG: Record<WorkflowModule, WorkflowDefinition> = {
 export const WORKFLOW_OWNER: Record<WorkflowStatus, WorkflowRole> = {
   Submitted: "admin",
   "Under Review": "admin",
-  "Assigned to Supervisor": "admin",
+  "Assigned to Supervisor": "supervisor",
+  "WorkOrder Created": "supervisor",
   "Assigned to Professionals": "supervisor",
   "In Progress": "professional",
   Completed: "professional",
