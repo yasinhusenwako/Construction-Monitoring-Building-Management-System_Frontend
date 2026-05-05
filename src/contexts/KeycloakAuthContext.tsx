@@ -105,7 +105,7 @@ export function KeycloakAuthProvider({ children }: { children: React.ReactNode }
               } else {
                 // Fallback: Fetch divisionId from backend API
                 console.log('⚠️ divisionId not in token, fetching from backend...');
-                fetch('http://localhost:8081/api/users/me', {
+                fetch('http://localhost:8080/api/users/me', {
                   credentials: 'include',
                   headers: {
                     'Authorization': `Bearer ${keycloak.token}`,

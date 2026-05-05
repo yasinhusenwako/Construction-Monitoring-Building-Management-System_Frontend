@@ -17,7 +17,7 @@ import {
   DollarSign,
   ShieldCheck,
 } from "lucide-react";
-import { getUserFacingStatus, WorkflowRole, WorkflowStatus, FINAL_STATUSES } from "@/lib/workflow";
+import { WorkflowRole, WorkflowStatus } from "@/lib/workflow";
 
 export interface TimelineEvent {
   id: string;
@@ -202,26 +202,10 @@ export function Timeline({
   );
   
   // Helper function to get display action based on user role
+  // Note: Timeline shows actual statuses for historical record
+  // Only the current status badge is simplified for users
   const getDisplayAction = (action: string): string => {
-    if (!userRole || userRole !== "user") {
-      return action;
-    }
-    
-    // For users, map internal statuses to user-facing statuses
-    const isFinalStatus = FINAL_STATUSES.some(status => 
-      action.toLowerCase().includes(status.toLowerCase())
-    );
-    
-    if (isFinalStatus) {
-      return action; // Show final statuses as-is
-    }
-    
-    // Map all intermediate statuses to "In Process"
-    if (action === "Submitted" || action === "Request Created") {
-      return action; // Keep "Submitted" as-is
-    }
-    
-    return "In Process"; // All other non-final statuses become "In Process"
+    return action;
   };
 
   return (
@@ -292,7 +276,10 @@ export function Timeline({
                     <span>
                       by{" "}
                       <span className="font-semibold text-[#0E2271]">
-                        {event.actor}
+                        {/* Show friendly name: strip email domain if it looks like an email */}
+                        {event.actor && event.actor.includes("@")
+                          ? event.actor.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, c => c.toUpperCase())
+                          : event.actor || "System"}
                       </span>
                     </span>
                   </div>

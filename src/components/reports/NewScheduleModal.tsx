@@ -129,7 +129,7 @@ export function NewScheduleModal({ isOpen, onClose, professionals, initialData }
             >
               <option value="">Select Professional</option>
               {professionals.map((p, index) => (
-                <option key={p.id || p.email || `prof-${index}`} value={p.name}>
+                <option key={p.id || `prof-${index}`} value={p.name}>
                   {p.name}
                 </option>
               ))}

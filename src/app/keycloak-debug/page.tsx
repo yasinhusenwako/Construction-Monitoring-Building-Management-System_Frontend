@@ -18,7 +18,7 @@ export default function KeycloakDebugPage() {
       // Test 1: Check if Keycloak server is accessible
       try {
         addLog('Test 1: Checking Keycloak server...');
-        const response = await fetch('http://localhost:8090/realms/insa/.well-known/openid-configuration');
+        const response = await fetch('http://localhost:8090/realms/buildms/.well-known/openid-configuration');
         if (response.ok) {
           const data = await response.json();
           addLog('✅ Keycloak server is accessible');
@@ -41,8 +41,8 @@ export default function KeycloakDebugPage() {
         addLog('Test 3: Initializing Keycloak...');
         const keycloak = new Keycloak({
           url: 'http://localhost:8090',
-          realm: 'insa',
-          clientId: 'insa-frontend',
+          realm: 'buildms',
+          clientId: 'buildms-frontend',
         });
 
         addLog('Keycloak instance created, calling init...');

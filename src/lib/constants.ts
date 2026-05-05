@@ -18,8 +18,6 @@ export const STATUS_COLORS = {
     "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
   "Assigned to Supervisor":
     "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-  "WorkOrder Created":
-    "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
   "Assigned to Professionals":
     "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300",
   "In Progress":

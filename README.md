@@ -246,8 +246,8 @@ keycloak.auth-server-url=http://localhost:8090
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8081
 NEXT_PUBLIC_KEYCLOAK_URL=http://localhost:8090
-NEXT_PUBLIC_KEYCLOAK_REALM=insa
-NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=insa-frontend
+NEXT_PUBLIC_KEYCLOAK_REALM=buildms
+NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=buildms-frontend
 ```
 
 ## 🚢 Deployment

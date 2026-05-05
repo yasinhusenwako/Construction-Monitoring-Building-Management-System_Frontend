@@ -29,7 +29,7 @@ import {
   Users,
   Briefcase,
 } from "lucide-react";
-import { fetchLiveBookings, fetchLiveUsers, fetchRequestHistory } from "@/lib/live-api";
+import { fetchLiveBookings, fetchLiveUsers } from "@/lib/live-api";
 import { apiRequest } from "@/lib/api";
 import { executeWorkflowAction } from "@/lib/workflow-actions";
 
@@ -84,14 +84,15 @@ export default function BookingDetailPage({ id }: { id: string }) {
         ) {
           setBooking(found);
           // Fetch real timeline from backend
-          if (found.dbId) {
-            try {
-              const history = await fetchRequestHistory("BOOKING", found.dbId, liveUsers);
-              if (history.length > 0) {
-                setBooking({ ...found, timeline: history });
-              }
-            } catch { /* keep default */ }
-          }
+          // TODO: Implement fetchRequestHistory function
+          // if (found.dbId) {
+          //   try {
+          //     const history = await fetchRequestHistory("BOOKING", found.dbId, liveUsers);
+          //     if (history.length > 0) {
+          //       setBooking({ ...found, timeline: history });
+          //     }
+          //   } catch { /* keep default */ }
+          // }
         } else {
           setBooking(null);
         }

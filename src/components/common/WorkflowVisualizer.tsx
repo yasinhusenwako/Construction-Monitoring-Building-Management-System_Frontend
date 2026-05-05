@@ -47,7 +47,7 @@ const maintenanceSteps: Step[] = [
     label: "routing",
     role: "supervisor",
     icon: MapPin,
-    statuses: ["Assigned to Supervisor", "WorkOrder Created"],
+    statuses: ["Assigned to Supervisor"],
   },
   {
     id: 3,

@@ -323,22 +323,10 @@ export function MaintenancePage() {
   };
 
   const handleCreateWorkOrder = async (m: Maintenance) => {
-    const created = await applyTransition(
-      m,
-      "WorkOrder Created",
-      "supervisor",
-      `${t("maintenance.workOrderCreatedFor")} ${m.id}`,
-    );
-
-    if (created) {
-      setMaintenanceItems((prev) =>
-        prev.map((item) =>
-          item.id === m.id && !item.workOrderId
-            ? { ...item, workOrderId: `WO-${item.id}` }
-            : item,
-        ),
-      );
-    }
+    // WorkOrder Created status has been removed from workflow
+    // Supervisors now directly assign to professionals
+    console.warn("handleCreateWorkOrder is deprecated - use direct assignment instead");
+    return false;
   };
 
   const handleDeleteRequest = async (m: Maintenance) => {

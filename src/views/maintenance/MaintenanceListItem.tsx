@@ -115,16 +115,6 @@ export function MaintenanceListItem({
             ) : (
               <>
                 {/* Workflow action buttons for non-admin roles */}
-                {role === "supervisor" && m.status === "Assigned to Supervisor" && (
-                  <button onClick={() => onCreateWorkOrder(m)} className="text-xs bg-[#1A3580] text-white px-2 py-1 rounded font-bold uppercase tracking-wider">
-                    {t("maintenance.createWorkOrder")}
-                  </button>
-                )}
-                {role === "supervisor" && m.status === "WorkOrder Created" && (
-                  <button onClick={() => onAssign(m.id)} className="text-xs bg-[#CC1F1A] text-white px-2 py-1 rounded font-bold uppercase tracking-wider">
-                    {t("maintenance.assignProfessional")}
-                  </button>
-                )}
                 {role === "supervisor" && m.status === "Completed" && (
                   <button onClick={() => onApprove(m)} className="text-xs bg-teal-600 text-white px-2 py-1 rounded font-bold uppercase">
                     {t("maintenance.submitReviewAdmin")}

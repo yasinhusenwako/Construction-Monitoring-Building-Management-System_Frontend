@@ -41,7 +41,7 @@ interface AuthPageProps {
 }
 
 export function AuthPage({ initialMode = "login" }: AuthPageProps) {
-  const { login, register: registerUser } = useAuth();
+  const { login } = useAuth();
   const { t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -83,16 +83,11 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      setError("Please fill in all fields.");
-      return;
-    }
+    // With Keycloak, login redirects to Keycloak's login page
+    // No need for email/password validation here
     setError("");
     setLoading(true);
-    const result = await login(email, password);
-    setLoading(false);
-    if (result.success) router.push("/dashboard");
-    else setError(result.error || "Invalid credentials. Please try again.");
+    login(); // Redirects to Keycloak
   };
 
   const updateRegisterForm = (k: string, v: string) =>
@@ -133,25 +128,10 @@ export function AuthPage({ initialMode = "login" }: AuthPageProps) {
   };
 
   const handleRegisterSubmit = async () => {
-    setError("");
-    setLoading(true);
-    const result = await registerUser({
-      name: form.name,
-      email: form.email,
-      password: form.password,
-      role: form.role,
-      department: form.department,
-      divisionId: form.divisionId,
-      phone: form.phone,
-      profession: form.profession,
-    });
+    // With Keycloak, registration is handled by Keycloak's registration page
+    // Redirect to Keycloak login with registration action
+    setError("Registration is handled by Keycloak. Please contact your administrator to create an account.");
     setLoading(false);
-    if (result.success) {
-      setSuccess(true);
-      setTimeout(() => router.push("/dashboard"), 1500);
-    } else {
-      setError(result.error || "Registration failed.");
-    }
   };
 
   const selectedDivisionName =

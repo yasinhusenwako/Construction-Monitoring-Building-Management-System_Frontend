@@ -1,8 +1,9 @@
 /**
  * DEPRECATED: This file is kept for backward compatibility only.
- * All authentication now uses Keycloak via KeycloakAuthContext.
- * This file re-exports the compatibility wrapper.
+ * All authentication now uses Keycloak directly.
+ * 
+ * Migration: Replace imports from '@/context/AuthContext' with '@/hooks/useAuth'
  */
 
-export { useAuth } from './AuthContextCompat';
-export type { AuthContextType } from './AuthContextCompat';
+export { useAuth } from '../hooks/useAuth';
+export type { UseAuthReturn as AuthContextType } from '../hooks/useAuth';

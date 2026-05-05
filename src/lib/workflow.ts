@@ -226,9 +226,15 @@ export function canViewItem(
 
   // Supervisors can view items assigned to them OR items in their division
   if (role === "supervisor") {
+    const norm = (d?: string) => {
+      if (!d) return undefined;
+      if (d.startsWith("DIV-")) return d;
+      const n = parseInt(d);
+      return isNaN(n) ? d : `DIV-${String(n).padStart(3, "0")}`;
+    };
     return (
       item.supervisorId === userId ||
-      (!!userDivisionId && item.divisionId === userDivisionId)
+      (!!userDivisionId && norm(item.divisionId) === norm(userDivisionId))
     );
   }
 
@@ -253,7 +259,7 @@ export function getVisibleStatusesForRole(
       // For projects and bookings, exclude supervisor-only stages that don't exist
       return WORKFLOW_STATUSES.filter(
         (status) =>
-          status !== "Assigned to Supervisor" && status !== "WorkOrder Created",
+          status !== "Assigned to Supervisor",
       );
     }
   }
@@ -268,7 +274,6 @@ export function getVisibleStatusesForRole(
     if (module === "maintenance") {
       return [
         "Assigned to Supervisor",
-        "WorkOrder Created",
         "Assigned to Professionals",
         "In Progress",
         "Completed",

@@ -788,14 +788,18 @@ export async function adminAssignRequest(params: {
   if (!requestId)
     throw new Error(`Unable to resolve request id for ${params.businessId}`);
   const divisionId = params.divisionId || null;  // Use divisionId as-is (already string)
-  const supervisorId = params.supervisorId
-    ? parseUserId(params.supervisorId)
-    : undefined;
   if (params.module === "MAINTENANCE" && !divisionId) {
     throw new Error("Invalid division selection");
   }
-  if (params.supervisorId && !supervisorId)
-    throw new Error("Invalid supervisor selection");
+
+  // Supervisor ID can be an email (Keycloak user) or "USR-001" format (DB user).
+  // For DB users, strip the "USR-" prefix to get the numeric id.
+  // For Keycloak users (email), pass the email string directly.
+  let supervisorId: string | number | undefined;
+  if (params.supervisorId) {
+    const numeric = parseUserId(params.supervisorId);
+    supervisorId = numeric > 0 ? numeric : params.supervisorId;
+  }
 
   await apiRequest("/api/admin/assign", {
     method: "PATCH",
@@ -803,7 +807,7 @@ export async function adminAssignRequest(params: {
       requestId,
       requestType: params.module,
       ...(divisionId ? { divisionId } : {}),
-      ...(supervisorId ? { supervisorId } : {}),
+      ...(supervisorId !== undefined ? { supervisorId } : {}),
       priority: params.priority || "Medium",
     },
   });

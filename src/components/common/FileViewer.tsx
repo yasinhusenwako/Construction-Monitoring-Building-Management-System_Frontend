@@ -173,7 +173,7 @@ export function FileViewer({
               </svg>
             </button>
             <Image
-              src={previewFile.url}
+              src={previewFile.url || ''}
               alt={previewFile.name}
               width={1200}
               height={900}

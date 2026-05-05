@@ -121,15 +121,18 @@ export function UsersPage() {
     if (user.divisionId && user.divisionId.toLowerCase() === "other") {
       return "Other (Project/Booking)";
     }
-    // Handle standard divisions (DIV-001, DIV-002, DIV-003)
+    // Handle standard divisions (1, 2, 3)
     if (user.divisionId) {
       const division = divisions.find((d) => d.id === user.divisionId);
       if (division) {
         return division.name;
       }
+      // If divisionId exists but no matching division found, show the ID
+      console.warn(`Division not found for divisionId: ${user.divisionId}`);
+      return `Division ${user.divisionId}`;
     }
-    // Fallback to department
-    return user.department || "";
+    // No division assigned
+    return "";
   };
 
   const openEdit = (user: User) => {
@@ -189,16 +192,18 @@ export function UsersPage() {
       return;
     }
     
-    const resolvedDepartment =
-      form.role === "admin" || form.role === "user"
-        ? ""
-        : form.role === "supervisor"
-          ? selectedDivision?.name || ""
-          : form.department.trim();
+    // Always use the department field as-is (don't override with division name)
+    const resolvedDepartment = form.department.trim();
+    
+    // Only set divisionId for supervisor/professional roles
     const resolvedDivisionId =
       form.role === "supervisor" || form.role === "professional"
         ? form.divisionId
         : undefined;
+    
+    // Only set profession for professional role
+    const resolvedProfession = 
+      form.role === "professional" ? form.profession.trim() : undefined;
 
     const keycloakRole = mapFrontendRoleToKeycloak(form.role);
 
@@ -215,10 +220,10 @@ export function UsersPage() {
           lastName,
           enabled: form.status === "active",
           roles: [keycloakRole],
-          phone: form.phone,
-          department: resolvedDepartment,
-          divisionId: resolvedDivisionId,
-          profession: form.role === "professional" ? form.profession : undefined,
+          phone: form.phone || "",
+          department: resolvedDepartment || "",
+          divisionId: resolvedDivisionId || "",
+          profession: resolvedProfession || "",
         });
 
         // Reload users
@@ -249,10 +254,10 @@ export function UsersPage() {
           lastName,
           password: "password", // Default password
           roles: [keycloakRole],
-          phone: form.phone,
-          department: resolvedDepartment,
-          divisionId: resolvedDivisionId,
-          profession: form.role === "professional" ? form.profession : undefined,
+          phone: form.phone || "",
+          department: resolvedDepartment || "",
+          divisionId: resolvedDivisionId || "",
+          profession: resolvedProfession || "",
         });
 
         // Reload users

@@ -1,6 +1,6 @@
 import keycloak from './keycloak';
 
-const API_BASE_URL = 'http://localhost:8081/api';
+const API_BASE_URL = 'http://localhost:8080/api';
 
 // Get auth headers with Keycloak token
 function getAuthHeaders(): HeadersInit {

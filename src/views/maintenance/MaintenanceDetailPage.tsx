@@ -1008,7 +1008,7 @@ export function MaintenanceDetailPage() {
                                 module: "MAINTENANCE",
                                 businessId: maint.id,
                                 requestId: maint.dbId,
-                                divisionId: `DIV-${selectedDivisionId.padStart(3, "0")}`, // Convert "1" to "DIV-001"
+                                divisionId: selectedDivisionId, // "1", "2", or "3" — matches Keycloak supervisor divisionId
                                 priority: maint.priority,
                               });
 
@@ -1018,7 +1018,7 @@ export function MaintenanceDetailPage() {
                                 "admin",
                                 t("requests.assigned_to_supervisor"),
                                 {
-                                  divisionId: `DIV-${selectedDivisionId.padStart(3, "0")}`,
+                                  divisionId: selectedDivisionId,
                                 },
                               );
                             } catch (error) {
@@ -1181,8 +1181,20 @@ export function MaintenanceDetailPage() {
 
           {/* Supervisor Actions */}
           {role === "supervisor" &&
-            (maint.supervisorId === currentUser?.id ||
-              maint.divisionId === currentUser?.divisionId) && (
+            (() => {
+              const norm = (d?: string) => {
+                if (!d) return undefined;
+                if (d.startsWith("DIV-")) return d;
+                const n = parseInt(d);
+                return isNaN(n) ? d : `DIV-${String(n).padStart(3, "0")}`;
+              };
+              return (
+                maint.supervisorId === currentUser?.id ||
+                maint.supervisorId === currentUser?.email ||
+                (!!currentUser?.divisionId &&
+                  norm(maint.divisionId) === norm(currentUser?.divisionId))
+              );
+            })() && (
               <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative border-l-4 border-l-[#CC1F1A]">
                 <h3 className="text-sm font-bold text-[#CC1F1A] mb-5 flex items-center gap-2">
                   <CheckCircle size={16} />
@@ -1199,8 +1211,7 @@ export function MaintenanceDetailPage() {
                   {maint.status === "Assigned to Supervisor" && (
                     <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
                       <p className="text-xs text-muted-foreground mb-4">
-                        Task has been assigned to you. Select an available
-                        professional to begin.
+                        Create a work order by selecting a professional and providing instructions.
                       </p>
 
                       <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
@@ -1228,103 +1239,35 @@ export function MaintenanceDetailPage() {
                         </p>
                       )}
 
-                      <button
-                        onClick={() => {
-                          if (!selectedTech) return;
-                          const selectedProfessional = systemUsers.find(
-                            (u) => u.email === selectedTech,
-                          );
-                          handleAction(
-                            "Assigned to Professionals",
-                            "supervisor",
-                            t("requests.assigned_to_professional"),
-                            {
-                              assignedTo: selectedTech,
-                              notes:
-                                selectedProfessional?.profession ||
-                                "General maintenance",
-                            },
-                          );
-                        }}
-                        disabled={!selectedTech}
-                        className="w-full py-3 rounded-xl text-sm font-bold bg-[#CC1F1A] text-white shadow-premium hover-lift transition-all disabled:bg-red-200 disabled:text-red-400 disabled:hover:transform-none flex items-center justify-center gap-2"
-                      >
-                        <UserPlus size={16} />{" "}
-                        {t("maintenance.assignProfessional")}
-                      </button>
-                    </div>
-                  )}
-                  {maint.status === "WorkOrder Created" && (
-                    <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
                       <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
-                        Select Profession Type
+                        Work Instructions
                       </label>
-                      <select
-                        value={selectedTaskType}
-                        onChange={(e) => {
-                          setSelectedTaskType(e.target.value);
-                          setSelectedTech(""); // Reset professional selection when profession changes
-                        }}
-                        className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all shadow-sm"
-                      >
-                        <option value="">Select profession type...</option>
-                        <option value="Electrician">Electrician</option>
-                        <option value="Plumber">Plumber</option>
-                        <option value="Carpenter">Carpenter</option>
-                        <option value="HVAC Technician">HVAC Technician</option>
-                        <option value="Mason">Mason</option>
-                        <option value="Painter">Painter</option>
-                        <option value="Welder">Welder</option>
-                        <option value="General Maintenance">
-                          General Maintenance
-                        </option>
-                      </select>
-
-                      {selectedTaskType && (
-                        <>
-                          <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide opacity-80 mt-4">
-                            {t("maintenance.assignProfessional")} (
-                            {selectedTaskType})
-                          </label>
-                          <select
-                            value={selectedTech}
-                            onChange={(e) => setSelectedTech(e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all shadow-sm"
-                          >
-                            <option value="">Select professional...</option>
-                            {taskTypeDivisionProfessionals.map((tech) => (
-                              <option key={tech.email} value={tech.email}>
-                                {tech.name} - {tech.profession}
-                              </option>
-                            ))}
-                          </select>
-                          {taskTypeDivisionProfessionals.length === 0 && (
-                            <p className="text-xs text-amber-600 mb-3 bg-amber-50 border border-amber-200 rounded px-3 py-2">
-                              No {selectedTaskType} professionals available in
-                              this division
-                            </p>
-                          )}
-                        </>
-                      )}
+                      <textarea
+                        value={techNote}
+                        onChange={(e) => setTechNote(e.target.value)}
+                        rows={3}
+                        placeholder="Describe the work to be done, tools needed, safety notes..."
+                        className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none resize-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all shadow-sm"
+                      />
 
                       <button
                         onClick={() => {
-                          if (!selectedTech || !selectedTaskType) return;
+                          if (!selectedTech || !techNote.trim()) return;
                           handleAction(
                             "Assigned to Professionals",
                             "supervisor",
                             t("requests.assigned_to_professional"),
                             {
                               assignedTo: selectedTech,
-                              notes: selectedTaskType,
+                              notes: techNote.trim(),
                             },
                           );
+                          setTechNote("");
                         }}
-                        disabled={!selectedTech || !selectedTaskType}
+                        disabled={!selectedTech || !techNote.trim()}
                         className="w-full py-3 rounded-xl text-sm font-bold bg-[#CC1F1A] text-white shadow-premium hover-lift transition-all disabled:bg-red-200 disabled:text-red-400 disabled:hover:transform-none flex items-center justify-center gap-2"
                       >
-                        <UserPlus size={16} />{" "}
-                        {t("maintenance.assignProfessional")}
+                        <UserPlus size={16} /> Create Work Order
                       </button>
                     </div>
                   )}
@@ -1351,7 +1294,8 @@ export function MaintenanceDetailPage() {
                     </div>
                   )}
 
-                  {/* Note Field */}
+                  {/* Note Field — only shown when not creating a work order */}
+                  {maint.status !== "Assigned to Supervisor" && (
                   <div className="glass-effect rounded-xl p-5 shadow-sm mt-3">
                     <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
                       {t("maintenance.supervisorActions")} Note
@@ -1380,6 +1324,7 @@ export function MaintenanceDetailPage() {
                       <MessageSquare size={14} /> {t("maintenance.saveNote")}
                     </button>
                   </div>
+                  )}
                 </div>
               </div>
             )}

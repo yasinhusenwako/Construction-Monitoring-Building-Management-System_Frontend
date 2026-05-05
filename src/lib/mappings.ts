@@ -47,7 +47,6 @@ export function mapStatusFromBackend(status: string): WorkflowStatus {
     "submitted": "Submitted",
     "under review": "Under Review",
     "assigned to supervisor": "Assigned to Supervisor",
-    "workorder created": "WorkOrder Created",
     "assigned to professionals": "Assigned to Professionals",
     "in progress": "In Progress",
     "completed": "Completed",

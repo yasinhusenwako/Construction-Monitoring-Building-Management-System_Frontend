@@ -154,10 +154,6 @@ export async function executeWorkflowAction(params: {
     }
 
     if (params.actorRole === "supervisor") {
-      if (params.nextStatus === "WorkOrder Created") {
-        return { ok: true };
-      }
-
       if (params.nextStatus === "Assigned to Professionals") {
         if (!params.extraUpdates?.assignedTo) {
           return fail(

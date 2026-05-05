@@ -112,11 +112,24 @@ export function TaskManagementPage() {
   console.log("Supervisor Tracked Statuses:", supervisorTrackedStatuses);
 
   // My assigned tasks — primary key is supervisorId, divisionId is informational only
+  // supervisorId on the task may be "USR-001" (DB user) or an email (Keycloak user).
+  // uid is the Keycloak email. We match on either the formatted id or the raw email.
+  // divisionId on the task is stored as "DIV-001"; supervisor's token may have "1" or "DIV-001".
+  const normalizeDivision = (d?: string) => {
+    if (!d) return undefined;
+    if (d.startsWith("DIV-")) return d;
+    const n = parseInt(d);
+    return isNaN(n) ? d : `DIV-${String(n).padStart(3, "0")}`;
+  };
+  const normalizedUserDivision = normalizeDivision(userDivision);
+
   const myTasks = allTasks.filter(
     (m) => {
-      const matchesSupervisor = m.supervisorId === uid;
-      const matchesDivision = userDivision &&
-        m.divisionId === userDivision &&
+      const matchesSupervisor =
+        m.supervisorId === uid ||
+        m.supervisorId === currentUser?.email;
+      const matchesDivision = normalizedUserDivision &&
+        normalizeDivision(m.divisionId) === normalizedUserDivision &&
         supervisorTrackedStatuses.includes(m.status);
       
       console.log(`Task ${m.id}:`, {
