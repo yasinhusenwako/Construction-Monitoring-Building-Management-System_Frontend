@@ -52,8 +52,7 @@ const DROPDOWN_MAX_NOTIFICATIONS = 8;
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const PROJECT_BADGE_SEEN_KEY = "insa_admin_seen_projects_actionable";
-  const MAINTENANCE_BADGE_SEEN_KEY =
-    "insa_admin_seen_maintenance_actionable";
+  const MAINTENANCE_BADGE_SEEN_KEY = "insa_admin_seen_maintenance_actionable";
   const { currentUser, isAuthenticated, logout } = useAuth(); // Use compat wrapper
   const { t } = useLanguage();
   const { settings } = useSystemSettings();
@@ -104,14 +103,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     fetchLiveNotifications()
       .then(setNotifications)
       .catch(() => {});
-    
+
     // Poll for new notifications every 30 seconds
     const interval = setInterval(() => {
       fetchLiveNotifications()
         .then(setNotifications)
         .catch(() => {});
     }, 30000);
-    
+
     return () => clearInterval(interval);
   }, [isAuthenticated]);
 
@@ -130,7 +129,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     const storedMaintenanceSeen = Number(
       localStorage.getItem(MAINTENANCE_BADGE_SEEN_KEY) || "0",
     );
-    setProjectSeenCount(Number.isFinite(storedProjectSeen) ? storedProjectSeen : 0);
+    setProjectSeenCount(
+      Number.isFinite(storedProjectSeen) ? storedProjectSeen : 0,
+    );
     setMaintenanceSeenCount(
       Number.isFinite(storedMaintenanceSeen) ? storedMaintenanceSeen : 0,
     );
@@ -205,9 +206,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     if (!notification.read) {
       // Optimistic update so the notification disappears from the unread list immediately.
       setNotifications((prev) =>
-        prev.map((n) =>
-          n.id === notification.id ? { ...n, read: true } : n,
-        ),
+        prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)),
       );
 
       try {
@@ -216,10 +215,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         console.error("Failed to mark notification as read:", error);
       }
     }
-    
+
     // Close dropdown
     setNotifOpen(false);
-    
+
     // Navigate to the link if available
     if (notification.link) {
       router.push(notification.link);
@@ -343,18 +342,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <Image
           src={logoImg}
           alt="INSA Logo"
-          width={40}
-          height={40}
-          className="object-contain rounded bg-white/10 dark:bg-white/20 p-0.5"
+          width={44}
+          height={44}
+          className="object-contain rounded-lg bg-white p-1 shadow-md ring-1 ring-white/30"
         />
         <div
           className={`transition-all duration-200 ${sidebarOpen ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden"}`}
         >
           <p className="text-white text-sm font-semibold leading-tight">
-            {settings.siteName.split(' ')[0] || 'INSA'}
+            {settings.siteName.split(" ")[0] || "INSA"}
           </p>
           <p className="text-blue-200 dark:text-blue-300 text-xs leading-tight">
-            {settings.siteName.split(' ').slice(1).join(' ') || 'BuildMS'}
+            {settings.siteName.split(" ").slice(1).join(" ") || "BuildMS"}
           </p>
         </div>
       </div>
