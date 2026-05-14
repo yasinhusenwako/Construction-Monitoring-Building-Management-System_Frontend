@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -18,8 +18,11 @@ import {
   ExternalLink,
   Pencil,
 } from "lucide-react";
-import { StatusBadge } from "@/components/common/StatusBadge";
+import { AsyncState } from "@/components/common/AsyncState";
+import { PriorityBadge, StatusBadge } from "@/components/common/StatusBadge";
 import { getUserFacingStatus } from "@/lib/workflow";
+
+type RequestType = "all" | "project" | "booking" | "maintenance";
 
 export function MyRequestsPage() {
   const router = useRouter();
@@ -28,15 +31,28 @@ export function MyRequestsPage() {
   const uid = currentUser?.id;
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState<
-    "all" | "Project" | "Booking" | "Maintenance"
-  >("all");
+  const [filterType, setFilterType] = useState<RequestType>("all");
   const [allRequests, setAllRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const getTypeLabel = (type: RequestType | string) => {
+    switch (type) {
+      case "project":
+        return t("requests.module.project");
+      case "booking":
+        return t("requests.module.booking");
+      case "maintenance":
+        return t("requests.module.maintenance");
+      default:
+        return type;
+    }
+  };
 
   React.useEffect(() => {
     const refresh = async () => {
       setLoading(true);
+      setError(null);
       try {
         const [projects, bookings, maintenance] = await Promise.all([
           fetchLiveProjects(),
@@ -49,7 +65,7 @@ export function MyRequestsPage() {
           .map((p) => ({
             id: p.id,
             title: p.title,
-            type: "Project" as const,
+            type: "project" as const,
             status: p.status,
             date: p.createdAt,
             path: `/dashboard/projects/${p.id}`,
@@ -61,7 +77,7 @@ export function MyRequestsPage() {
           .map((b) => ({
             id: b.id,
             title: b.title || b.space,
-            type: "Booking" as const,
+            type: "booking" as const,
             status: b.status,
             date: b.createdAt,
             path: `/dashboard/bookings/${b.id}`,
@@ -73,7 +89,7 @@ export function MyRequestsPage() {
           .map((m) => ({
             id: m.id,
             title: m.title,
-            type: "Maintenance" as const,
+            type: "maintenance" as const,
             status: m.status,
             date: m.createdAt,
             path: `/dashboard/maintenance/${m.id}`,
@@ -85,14 +101,15 @@ export function MyRequestsPage() {
           (a, b) => b.date.localeCompare(a.date),
         );
         setAllRequests(merged);
-      } catch (error) {
-        console.error("Failed to fetch my requests:", error);
+      } catch (err) {
+        console.error("Failed to fetch my requests:", err);
+        setError(err instanceof Error ? err.message : t("error.loadFailed"));
       } finally {
         setLoading(false);
       }
     };
     refresh();
-  }, [uid]);
+  }, [t, uid]);
 
   const filteredRequests = useMemo(() => {
     return allRequests.filter((req) => {
@@ -102,20 +119,40 @@ export function MyRequestsPage() {
       const matchesType = filterType === "all" || req.type === filterType;
       return matchesSearch && matchesType;
     });
-  }, [allRequests, searchQuery, filterType]);
+  }, [allRequests, filterType, searchQuery]);
 
   const getIcon = (type: string) => {
     switch (type) {
-      case "Project":
+      case "project":
         return <FolderOpen size={16} className="text-blue-600" />;
-      case "Booking":
+      case "booking":
         return <Calendar size={16} className="text-purple-600" />;
-      case "Maintenance":
+      case "maintenance":
         return <Wrench size={16} className="text-orange-600" />;
       default:
         return null;
     }
   };
+
+  if (loading) {
+    return (
+      <AsyncState
+        title={t("loading.data")}
+        state="loading"
+        message={t("loading.pleaseWait")}
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <AsyncState
+        title={t("error.loadFailed")}
+        state="error"
+        message={error}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -136,7 +173,7 @@ export function MyRequestsPage() {
             />
             <input
               type="text"
-              placeholder="Search by title or ID..."
+              placeholder={t("requests.searchByTitleOrId")}
               className="pl-9 pr-4 py-2 rounded-lg border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -148,7 +185,7 @@ export function MyRequestsPage() {
       <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden text-sm">
         <div className="p-4 border-b border-border bg-gray-50/50 flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-2 overflow-x-auto">
-            {(["all", "Project", "Booking", "Maintenance"] as const).map(
+            {(["all", "project", "booking", "maintenance"] as const).map(
               (type) => (
                 <button
                   key={type}
@@ -159,17 +196,19 @@ export function MyRequestsPage() {
                       : "bg-white text-muted-foreground hover:bg-gray-100 border border-border"
                   }`}
                 >
-                  {type === "all" ? "All Streams" : type}
+                  {type === "all"
+                    ? t("requests.allModulesLabel")
+                    : getTypeLabel(type)}
                 </button>
               ),
             )}
           </div>
           <p className="text-muted-foreground">
-            Showing{" "}
+            {t("common.showing")}{" "}
             <span className="font-semibold text-foreground">
               {filteredRequests.length}
             </span>{" "}
-            requests
+            {t("common.of")} {allRequests.length} {t("common.results")}
           </p>
         </div>
 
@@ -177,16 +216,26 @@ export function MyRequestsPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 text-muted-foreground font-medium uppercase text-[10px] tracking-wider">
-                <th className="px-6 py-3 border-b border-border">Request ID</th>
-                <th className="px-6 py-3 border-b border-border">Type</th>
-                <th className="px-6 py-3 border-b border-border">Title</th>
                 <th className="px-6 py-3 border-b border-border">
-                  Submitted On
+                  {t("export.id")}
                 </th>
-                <th className="px-6 py-3 border-b border-border">Priority</th>
-                <th className="px-6 py-3 border-b border-border">Status</th>
+                <th className="px-6 py-3 border-b border-border">
+                  {t("export.type")}
+                </th>
+                <th className="px-6 py-3 border-b border-border">
+                  {t("export.title")}
+                </th>
+                <th className="px-6 py-3 border-b border-border">
+                  {t("requests.submittedOn")}
+                </th>
+                <th className="px-6 py-3 border-b border-border">
+                  {t("export.priority")}
+                </th>
+                <th className="px-6 py-3 border-b border-border">
+                  {t("export.status")}
+                </th>
                 <th className="px-6 py-3 border-b border-border text-right">
-                  Action
+                  {t("projects.actions")}
                 </th>
               </tr>
             </thead>
@@ -197,7 +246,7 @@ export function MyRequestsPage() {
                     <div className="flex flex-col items-center justify-center text-muted-foreground">
                       <Filter size={48} className="mb-3 opacity-20" />
                       <p className="font-medium text-gray-500">
-                        No requests found matching your filters.
+                        {t("requests.noRequestsFound")}
                       </p>
                     </div>
                   </td>
@@ -216,7 +265,9 @@ export function MyRequestsPage() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         {getIcon(req.type)}
-                        <span className="font-medium">{req.type}</span>
+                        <span className="font-medium">
+                          {getTypeLabel(req.type)}
+                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4 max-w-xs">
@@ -228,20 +279,10 @@ export function MyRequestsPage() {
                       {req.date.split("T")[0]}
                     </td>
                     <td className="px-6 py-4">
-                      {req.type === "Maintenance" ? (
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            (req as any).priority === "Critical"
-                              ? "bg-red-100 text-red-700"
-                              : (req as any).priority === "High"
-                                ? "bg-orange-100 text-orange-700"
-                                : "bg-blue-100 text-blue-700"
-                          }`}
-                        >
-                          {(req as any).priority}
-                        </span>
+                      {req.type === "maintenance" ? (
+                        <PriorityBadge priority={(req as any).priority} />
                       ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
+                        <span className="text-muted-foreground text-xs">-</span>
                       )}
                     </td>
                     <td className="px-6 py-4">

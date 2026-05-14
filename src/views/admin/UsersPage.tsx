@@ -171,6 +171,25 @@ export function UsersPage() {
   };
 
   const handleSave = async () => {
+    const trimmedName = form.name.trim();
+    const trimmedEmail = form.email.trim();
+
+    if (!trimmedName) {
+      alert("Please enter full name.");
+      return;
+    }
+
+    if (!trimmedEmail) {
+      alert("Please enter email address.");
+      return;
+    }
+
+    const nameParts = trimmedName.split(/\s+/).filter(Boolean);
+    if (nameParts.length < 2) {
+      alert("Please enter both first and last name.");
+      return;
+    }
+
     const selectedDivision = divisions.find((d) => d.id === form.divisionId);
     const needsDivision =
       form.role === "supervisor" || form.role === "professional";
@@ -191,26 +210,29 @@ export function UsersPage() {
     
     const resolvedDepartment =
       form.role === "admin" || form.role === "user"
-        ? ""
+        ? null
         : form.role === "supervisor"
-          ? selectedDivision?.name || ""
-          : form.department.trim();
+          ? selectedDivision?.name || null
+          : form.department.trim() || null;
     const resolvedDivisionId =
       form.role === "supervisor" || form.role === "professional"
-        ? form.divisionId
-        : undefined;
+        ? form.divisionId || null
+        : null;
+    const resolvedProfession =
+      form.role === "professional" ? form.profession.trim() || null : null;
 
     const keycloakRole = mapFrontendRoleToKeycloak(form.role);
+    const username = trimmedEmail.split("@")[0];
 
     if (editUser) {
       try {
         // Split name into first and last name
-        const nameParts = form.name.trim().split(" ");
         const firstName = nameParts[0] || "";
-        const lastName = nameParts.slice(1).join(" ") || "";
+        const lastName = nameParts.slice(1).join(" ");
 
         await keycloakUserApi.updateUser(editUser.id, {
-          email: form.email,
+          username,
+          email: trimmedEmail,
           firstName,
           lastName,
           enabled: form.status === "active",
@@ -218,7 +240,7 @@ export function UsersPage() {
           phone: form.phone,
           department: resolvedDepartment,
           divisionId: resolvedDivisionId,
-          profession: form.role === "professional" ? form.profession : undefined,
+          profession: resolvedProfession,
         });
 
         // Reload users
@@ -235,24 +257,21 @@ export function UsersPage() {
     } else {
       try {
         // Split name into first and last name
-        const nameParts = form.name.trim().split(" ");
         const firstName = nameParts[0] || "";
-        const lastName = nameParts.slice(1).join(" ") || "";
-
-        // Create username from email (part before @)
-        const username = form.email.split("@")[0];
+        const lastName = nameParts.slice(1).join(" ");
 
         await keycloakUserApi.createUser({
           username,
-          email: form.email,
+          email: trimmedEmail,
           firstName,
           lastName,
           password: "password", // Default password
+          enabled: form.status === "active",
           roles: [keycloakRole],
           phone: form.phone,
           department: resolvedDepartment,
           divisionId: resolvedDivisionId,
-          profession: form.role === "professional" ? form.profession : undefined,
+          profession: resolvedProfession,
         });
 
         // Reload users

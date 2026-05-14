@@ -10,7 +10,9 @@ import {
   fetchLiveBookings,
   fetchLiveProjects,
 } from "@/lib/live-api";
+import { AsyncState } from "@/components/common/AsyncState";
 import { Users, Mail, Phone, Activity } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 function normalizeDivisionId(value?: string | null): string | null {
   if (!value) return null;
@@ -26,30 +28,32 @@ function normalizeDivisionId(value?: string | null): string | null {
 export function TeamOverviewPage() {
   const { currentUser } = useAuth();
   const { t } = useLanguage();
+  const searchParams = useSearchParams();
 
   const [teamMembers, setTeamMembers] = React.useState<any[]>([]);
   const [allTasks, setAllTasks] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [searchQuery, setSearchQuery] = React.useState("");
 
-  // Get current user's division
   const userDivision = currentUser?.divisionId;
+  const isAdmin = currentUser?.role === "admin";
+  const requestedDivision = normalizeDivisionId(searchParams.get("division"));
   const normalizedUserDivision = normalizeDivisionId(userDivision);
-  const normalizedDivisionNumber = normalizedUserDivision
-    ? String(parseInt(normalizedUserDivision.replace("DIV-", ""), 10))
+  const activeDivision =
+    isAdmin && requestedDivision ? requestedDivision : normalizedUserDivision;
+  const normalizedDivisionNumber = activeDivision
+    ? String(parseInt(activeDivision.replace("DIV-", ""), 10))
     : undefined;
-  const divisionName =
-    divisions.find(
-      (d) =>
-        d.id === userDivision ||
-        (normalizedDivisionNumber && d.id === normalizedDivisionNumber),
-    )?.name || "Division";
+  const divisionName = activeDivision
+    ? divisions.find(
+        (d) => d.id === activeDivision || d.id === normalizedDivisionNumber,
+      )?.name
+    : "All divisions";
 
   React.useEffect(() => {
     const refresh = async () => {
       setLoading(true);
       try {
-        // Token is automatically sent via httpOnly cookie
         const [users, maintenance, projects, bookings] = await Promise.all([
           fetchLiveUsers(),
           fetchLiveMaintenance(),
@@ -57,7 +61,6 @@ export function TeamOverviewPage() {
           fetchLiveBookings(),
         ]);
 
-        // Filter for professionals
         const professionals = users.filter((u) => u.role === "professional");
         setTeamMembers(professionals);
         setAllTasks([...maintenance, ...projects, ...bookings]);
@@ -74,7 +77,8 @@ export function TeamOverviewPage() {
     return allTasks.filter(
       (m) =>
         m.assignedTo === userId &&
-        (m.status === "In Progress" || m.status === "Assigned to Professionals"),
+        (m.status === "In Progress" ||
+          m.status === "Assigned to Professionals"),
     ).length;
   };
 
@@ -84,31 +88,43 @@ export function TeamOverviewPage() {
     ).length;
   };
 
-  // Filter team members by division and search - only show division professionals
+  const getWorkloadLabel = (activeTasks: number) => {
+    if (activeTasks > 5) return t("priority.high");
+    if (activeTasks > 3) return t("priority.medium");
+    return t("priority.low");
+  };
+
   const filteredTeamMembers = React.useMemo(() => {
     let filtered = teamMembers;
 
-    // Always filter by division - only show professionals from supervisor's division
-    if (normalizedUserDivision) {
+    if (activeDivision) {
       filtered = filtered.filter(
-        (member) =>
-          normalizeDivisionId(member.divisionId) === normalizedUserDivision,
+        (member) => normalizeDivisionId(member.divisionId) === activeDivision,
       );
     }
 
-    // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (member) =>
           member.name.toLowerCase().includes(query) ||
           member.email.toLowerCase().includes(query) ||
-          member.department?.toLowerCase().includes(query)
+          member.department?.toLowerCase().includes(query),
       );
     }
 
     return filtered;
-  }, [teamMembers, normalizedUserDivision, searchQuery]);
+  }, [activeDivision, searchQuery, teamMembers]);
+
+  if (loading) {
+    return (
+      <AsyncState
+        title={t("loading.data")}
+        state="loading"
+        message={t("loading.pleaseWait")}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -124,49 +140,59 @@ export function TeamOverviewPage() {
         <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-3 py-1.5 rounded-lg border border-blue-100 dark:border-blue-800">
           <Users size={18} />
           <span className="font-semibold">
-            {filteredTeamMembers.length} {t("supervisor.professionals")}
+            {filteredTeamMembers.length} {t("supervisor.professionalsCount")}
           </span>
         </div>
       </div>
 
-      {/* Search Controls */}
       <div className="bg-white rounded-xl border border-border p-4 shadow-sm">
         <div className="flex flex-col gap-3">
-          {/* Search */}
           <div className="flex-1">
             <input
               type="text"
-              placeholder="Search by name, email, or profession..."
+              placeholder={t("supervisor.searchTeamMembers")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
-          {/* Division Info */}
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="font-medium">Viewing:</span>
+            <span className="font-medium">{t("supervisor.viewing")}:</span>
             <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-semibold">
-              {divisionName} Division Only
+              {divisionName} {t("supervisor.divisionOnly")}
             </span>
           </div>
         </div>
 
-        {/* Active Search Filter */}
         {searchQuery && (
           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
-            <span className="text-xs text-muted-foreground">Active filter:</span>
+            <span className="text-xs text-muted-foreground">
+              {t("action.filter")}:
+            </span>
             <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full flex items-center gap-1">
-              Search: "{searchQuery}"
-              <button onClick={() => setSearchQuery("")} className="hover:text-purple-900">×</button>
+              {t("action.search")}: "{searchQuery}"
+              <button
+                onClick={() => setSearchQuery("")}
+                className="hover:text-purple-900"
+              >
+                x
+              </button>
             </span>
           </div>
         )}
 
-        {/* Results count */}
         <div className="mt-3 pt-3 border-t border-border">
           <p className="text-xs text-muted-foreground">
-            Showing <span className="font-semibold text-foreground">{filteredTeamMembers.length}</span> of <span className="font-semibold text-foreground">{teamMembers.length}</span> professionals
+            {t("common.showing")}{" "}
+            <span className="font-semibold text-foreground">
+              {filteredTeamMembers.length}
+            </span>{" "}
+            {t("common.of")}{" "}
+            <span className="font-semibold text-foreground">
+              {teamMembers.length}
+            </span>{" "}
+            {t("supervisor.professionalsCount")}
           </p>
         </div>
       </div>
@@ -210,7 +236,8 @@ export function TeamOverviewPage() {
                           </span>
                           {member.divisionId && (
                             <span className="text-[10px] text-muted-foreground">
-                              {member.department || "Division"}
+                              {member.department ||
+                                t("supervisor.divisionFallback")}
                             </span>
                           )}
                         </div>
@@ -236,19 +263,24 @@ export function TeamOverviewPage() {
                         </span>
                       </span>
                     </div>
-                    
-                    {/* Workload indicator */}
+
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Workload</span>
-                        <span className={`font-semibold ${activeTasks > 5 ? "text-red-600" : activeTasks > 3 ? "text-orange-600" : "text-green-600"}`}>
-                          {activeTasks > 5 ? "High" : activeTasks > 3 ? "Medium" : "Low"}
+                        <span className="text-muted-foreground">
+                          {t("supervisor.workload")}
+                        </span>
+                        <span
+                          className={`font-semibold ${activeTasks > 5 ? "text-red-600" : activeTasks > 3 ? "text-orange-600" : "text-green-600"}`}
+                        >
+                          {getWorkloadLabel(activeTasks)}
                         </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className={`h-2 rounded-full transition-all ${activeTasks > 5 ? "bg-red-500" : activeTasks > 3 ? "bg-orange-500" : "bg-green-500"}`}
-                          style={{ width: `${Math.min((activeTasks / 8) * 100, 100)}%` }}
+                          style={{
+                            width: `${Math.min((activeTasks / 8) * 100, 100)}%`,
+                          }}
                         />
                       </div>
                     </div>

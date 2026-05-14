@@ -235,7 +235,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
 
   const handleReject = async () => {
     if (!rejectionReason.trim()) {
-      alert("Please enter a rejection reason");
+      alert(t("requests.rejectionReasonRequired"));
       return;
     }
 
@@ -250,8 +250,8 @@ export default function BookingDetailPage({ id }: { id: string }) {
       window.location.reload();
     } catch (error) {
       alert(
-        "Failed to reject booking: " +
-          (error instanceof Error ? error.message : "Unknown error"),
+        `${t("bookings.rejectBooking")}: ` +
+          (error instanceof Error ? error.message : t("error.unknown")),
       );
     } finally {
       setRejectingBooking(false);
@@ -345,10 +345,10 @@ export default function BookingDetailPage({ id }: { id: string }) {
                 </div>
                 <div className="flex-1">
                   <h3 className="text-sm font-bold text-red-900 mb-2">
-                    Booking Rejected
+                    {t("bookings.bookingRejected")}
                   </h3>
                   <p className="text-sm text-red-800 font-medium mb-1">
-                    Reason for rejection:
+                    {t("requests.reasonForRejection")}
                   </p>
                   <p className="text-sm text-red-700 bg-white/50 rounded-lg p-3 border border-red-200">
                     {booking.rejectionReason}
@@ -824,16 +824,15 @@ export default function BookingDetailPage({ id }: { id: string }) {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
             <h3 className="text-lg font-bold text-[#0E2271] mb-4">
-              Reject Booking
+              {t("bookings.rejectBooking")}
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Please provide a reason for rejecting this booking. This will be
-              sent to the requester.
+              {t("requests.rejectionReasonPrompt")}
             </p>
             <textarea
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
-              placeholder="Enter rejection reason..."
+              placeholder={t("requests.rejectionReasonPlaceholder")}
               rows={4}
               className="w-full px-3 py-2 border border-border rounded-lg resize-none focus:outline-none focus:border-[#1A3580] text-sm"
             />
@@ -846,14 +845,16 @@ export default function BookingDetailPage({ id }: { id: string }) {
                 disabled={rejectingBooking}
                 className="flex-1 px-4 py-2 rounded-lg border-2 border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-all disabled:opacity-50"
               >
-                Cancel
+                {t("action.cancel")}
               </button>
               <button
                 onClick={handleReject}
                 disabled={rejectingBooking || !rejectionReason.trim()}
                 className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {rejectingBooking ? "Rejecting..." : "Reject Booking"}
+                {rejectingBooking
+                  ? t("action.rejecting")
+                  : t("bookings.rejectBooking")}
               </button>
             </div>
           </div>

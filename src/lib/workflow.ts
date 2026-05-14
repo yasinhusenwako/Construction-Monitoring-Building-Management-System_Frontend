@@ -48,7 +48,7 @@ export const WORKFLOW_CONFIG: Record<WorkflowModule, WorkflowDefinition> = {
     transitions: {
       Submitted: ["Under Review"],
       "Under Review": ["Assigned to Supervisor"],
-      "Assigned to Supervisor": ["WorkOrder Created"],
+      "Assigned to Supervisor": ["Assigned to Professionals"],
       "WorkOrder Created": ["Assigned to Professionals"],
       "Assigned to Professionals": ["In Progress"],
       "In Progress": ["Completed"],

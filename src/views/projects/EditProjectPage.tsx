@@ -357,7 +357,7 @@ export function EditProjectPage() {
       try {
         const projects = await fetchLiveProjects(projectId);
         const project = projects.find((p) => p.id === projectId);
-        
+
         if (!project) {
           alert("Project not found");
           router.push("/dashboard/projects");
@@ -365,7 +365,10 @@ export function EditProjectPage() {
         }
 
         // Check if user can edit
-        if (project.requestedBy !== currentUser?.id || project.status !== "Submitted") {
+        if (
+          project.requestedBy !== currentUser?.id ||
+          project.status !== "Submitted"
+        ) {
           alert("You can only edit your own submitted requests");
           router.push(`/dashboard/projects/${projectId}`);
           return;
@@ -395,7 +398,7 @@ export function EditProjectPage() {
           scope: (project.scope as any) || defaultScope,
           files: [],
         });
-        
+
         setLoading(false);
       } catch (error) {
         console.error("Failed to load project:", error);
@@ -468,8 +471,6 @@ export function EditProjectPage() {
           errs.functionalDescription = t("validation.required");
         if (form.budget && Number(form.budget) <= 0)
           errs.budget = t("validation.positiveNumber");
-        if (!form.startDate) errs.startDate = t("validation.required");
-        if (!form.endDate) errs.endDate = t("validation.required");
         if (form.startDate && form.endDate && form.startDate >= form.endDate)
           errs.endDate = t("validation.endDateAfterStart");
       }
@@ -676,16 +677,14 @@ export function EditProjectPage() {
         method: "PATCH",
         body: requestBody,
       });
-      
+
       alert("Project updated successfully!");
       router.push(`/dashboard/projects/${projectId}`);
     } catch (error) {
       setErrors((prev) => ({
         ...prev,
         submit:
-          error instanceof Error
-            ? error.message
-            : "Failed to update project",
+          error instanceof Error ? error.message : "Failed to update project",
       }));
     } finally {
       setLoading(false);
@@ -1220,7 +1219,7 @@ export function EditProjectPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-[#0E2271] mb-1">
-                      Desired Start Date *
+                      Desired Start Date
                     </label>
                     <DatePicker
                       value={form.startDate}
@@ -1238,7 +1237,7 @@ export function EditProjectPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-[#0E2271] mb-1">
-                      Desired Completion Date *
+                      Desired Completion Date
                     </label>
                     <DatePicker
                       value={form.endDate}
@@ -1964,10 +1963,18 @@ export function EditProjectPage() {
                         ? `ETB ${parseInt(form.budget).toLocaleString()}`
                         : "Not specified",
                     ],
-                    ["Timeline", `${form.startDate} → ${form.endDate}`],
+                    [
+                      "Timeline",
+                      form.startDate || form.endDate
+                        ? `${form.startDate || "Not specified"} → ${
+                            form.endDate || "Not specified"
+                          }`
+                        : "Not specified",
+                    ],
                     [
                       "Building Type",
-                      form.scope.buildingType === t("projects.buildingType.other")
+                      form.scope.buildingType ===
+                      t("projects.buildingType.other")
                         ? form.scope.otherBuildingType
                         : form.scope.buildingType,
                     ],

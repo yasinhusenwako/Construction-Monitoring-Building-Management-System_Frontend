@@ -241,7 +241,7 @@ export function DashboardPage() {
     <div className="space-y-6">
       {/* Admin gets its own full Master Control dashboard */}
       {role === "admin" && (
-        <AdminDashboard adminName={currentUser?.name || "Administrator"} />
+        <AdminDashboard adminName={currentUser?.name || t("role.admin")} />
       )}
 
       {/* Supervisor redirects to dedicated dashboard - handled by useEffect above */}

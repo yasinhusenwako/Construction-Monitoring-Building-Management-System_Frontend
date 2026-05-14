@@ -1,6 +1,14 @@
 import keycloak from './keycloak';
 
-const API_BASE_URL = 'http://localhost:8081/api/keycloak/users';
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(
+  /\/+$/,
+  "",
+);
+
+function resolveUrl(endpoint: string): string {
+  const path = `/api/keycloak/users${endpoint}`;
+  return API_BASE_URL ? `${API_BASE_URL}${path}` : path;
+}
 
 // Get auth headers with Keycloak token
 function getAuthHeaders(): HeadersInit {
@@ -20,7 +28,7 @@ async function keycloakApiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = resolveUrl(endpoint);
   
   const response = await fetch(url, {
     ...options,
@@ -94,22 +102,24 @@ export interface CreateUserRequest {
   lastName: string;
   password: string;
   roles: string[];
+  enabled?: boolean;
   phone?: string;
-  department?: string;
-  divisionId?: string;
-  profession?: string;
+  department?: string | null;
+  divisionId?: string | null;
+  profession?: string | null;
 }
 
 export interface UpdateUserRequest {
+  username?: string;
   email?: string;
   firstName?: string;
   lastName?: string;
   enabled?: boolean;
   roles?: string[];
   phone?: string;
-  department?: string;
-  divisionId?: string;
-  profession?: string;
+  department?: string | null;
+  divisionId?: string | null;
+  profession?: string | null;
 }
 
 // Export API functions

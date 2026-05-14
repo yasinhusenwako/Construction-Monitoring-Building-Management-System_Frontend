@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { exportToCSV } from "@/lib/exportUtils";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -12,6 +12,7 @@ import {
   fetchLiveProjects,
   fetchLiveUsers,
 } from "@/lib/live-api";
+import { AsyncState } from "@/components/common/AsyncState";
 import {
   ClipboardList,
   AlertTriangle,
@@ -38,7 +39,19 @@ function normalizeDivisionId(value?: string | null): string | null {
   return upper;
 }
 
-// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
+const statusTranslationKeys: Record<string, string> = {
+  Submitted: "status.submitted",
+  "Assigned to Supervisor": "status.assignedToSupervisor",
+  "WorkOrder Created": "status.workOrderCreated",
+  "Assigned to Professionals": "status.assignedToProfessional",
+  "In Progress": "status.inProgress",
+  Completed: "status.completed",
+  Reviewed: "status.reviewed",
+  Approved: "status.approved",
+  Rejected: "status.rejected",
+  Closed: "status.closed",
+};
+
 export function SupervisorDashboard() {
   const { currentUser } = useAuth();
   const { t } = useLanguage();
@@ -49,11 +62,15 @@ export function SupervisorDashboard() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const translateStatus = (status: string) =>
+    statusTranslationKeys[status] ? t(statusTranslationKeys[status]) : status;
+  const translatePriority = (priority?: string) =>
+    priority ? t(`priority.${priority.toLowerCase()}` as any) : "";
+
   useEffect(() => {
     const refresh = async () => {
       setLoading(true);
       try {
-        // Token is automatically sent via httpOnly cookie
         const [maintenance, projects, bookings, liveUsers] = await Promise.all([
           fetchLiveMaintenance(),
           fetchLiveProjects(),
@@ -70,12 +87,10 @@ export function SupervisorDashboard() {
     };
     refresh();
 
-    // Keep supervisor board in sync with professional updates.
     const refreshInterval = setInterval(refresh, 15000);
     return () => clearInterval(refreshInterval);
   }, []);
 
-  // Get current user's division
   const userDivision = currentUser?.divisionId;
   const normalizedUserDivision = normalizeDivisionId(userDivision);
   const normalizedDivisionNumber = normalizedUserDivision
@@ -86,87 +101,63 @@ export function SupervisorDashboard() {
       (d) =>
         d.id === userDivision ||
         (normalizedDivisionNumber && d.id === normalizedDivisionNumber),
-    )?.name || "Division";
-
-  // Debug: Log division filtering
-  console.log("=== Supervisor Dashboard Division Filter ===");
-  console.log("Current User:", currentUser?.name);
-  console.log("User Division ID:", userDivision);
-  console.log("Division Name:", divisionName);
-  console.log("Total Tasks:", allTasks.length);
-  console.log("Tasks with divisionId:", allTasks.filter(t => t.divisionId).map(t => ({
-    id: t.id,
-    title: t.title,
-    divisionId: t.divisionId,
-    supervisorId: t.supervisorId,
-    status: t.status,
-  })));
+    )?.name || t("supervisor.divisionFallback");
 
   const supervisorTrackedStatuses = [
-    "Submitted",  // Added: Supervisors should see newly submitted requests in their division
+    "Submitted",
     "Assigned to Supervisor",
     "WorkOrder Created",
     "Assigned to Professionals",
     "In Progress",
     "Completed",
     "Reviewed",
-    "Approved",  // Added: Supervisors should see approved tasks for tracking
-    "Rejected",  // Added: Supervisors should see rejected tasks for follow-up
-    "Closed",    // Added: Supervisors should see closed tasks for historical records
+    "Approved",
+    "Rejected",
+    "Closed",
   ];
 
-  // My assigned tasks — primary key is supervisorId, divisionId is informational only
-  const myTasks = allTasks.filter(
-    (m) => {
-      const matchesSupervisor = m.supervisorId === uid;
-      const matchesDivision = normalizedUserDivision &&
-        normalizeDivisionId(m.divisionId) === normalizedUserDivision &&
-        supervisorTrackedStatuses.includes(m.status);
-      
-      // Debug log for each task
-      if (m.divisionId) {
-        console.log(`Task ${m.id}:`, {
-          divisionId: m.divisionId,
-          supervisorId: m.supervisorId,
-          status: m.status,
-          matchesSupervisor,
-          matchesDivision,
-          included: matchesSupervisor || matchesDivision,
-        });
-      }
-      
-      return matchesSupervisor || matchesDivision;
-    }
+  const myTasks = allTasks.filter((task) => {
+    const matchesSupervisor = task.supervisorId === uid;
+    const matchesDivision =
+      normalizedUserDivision &&
+      normalizeDivisionId(task.divisionId) === normalizedUserDivision &&
+      supervisorTrackedStatuses.includes(task.status);
+    return matchesSupervisor || matchesDivision;
+  });
+
+  const pendingAssignment = myTasks.filter((task) =>
+    ["Assigned to Supervisor", "WorkOrder Created"].includes(task.status),
   );
-  
-  console.log("Filtered Tasks (myTasks):", myTasks.length);
-  console.log("===================================");
-  const pendingAssignment = myTasks.filter((m) =>
-    ["Assigned to Supervisor", "WorkOrder Created"].includes(m.status),
+  const withProfessionals = myTasks.filter((task) =>
+    ["Assigned to Professionals", "In Progress"].includes(task.status),
   );
-  const withProfessionals = myTasks.filter((m) =>
-    ["Assigned to Professionals", "In Progress"].includes(m.status),
-  );
-  const completedTasks = myTasks.filter((m) => m.status === "Completed");
-  const reviewedTasks = myTasks.filter((m) => m.status === "Reviewed");
-  const approvedTasks = myTasks.filter((m) => m.status === "Approved");
-  const rejectedTasks = myTasks.filter((m) => m.status === "Rejected");
-  const closedTasks = myTasks.filter((m) => m.status === "Closed");
+  const completedTasks = myTasks.filter((task) => task.status === "Completed");
+  const reviewedTasks = myTasks.filter((task) => task.status === "Reviewed");
+
   const approvedProfessionals = useMemo(
     () =>
       users.filter(
-        (u) =>
-          u.role === "professional" &&
-          String(u.status || "active").toLowerCase() === "active" &&
+        (user) =>
+          user.role === "professional" &&
+          String(user.status || "active").toLowerCase() === "active" &&
           normalizedUserDivision &&
-          normalizeDivisionId(u.divisionId) === normalizedUserDivision
+          normalizeDivisionId(user.divisionId) === normalizedUserDivision,
       ),
-    [users, normalizedUserDivision],
+    [normalizedUserDivision, users],
   );
+
+  if (loading) {
+    return (
+      <AsyncState
+        title={t("loading.dashboard")}
+        state="loading"
+        message={t("loading.pleaseWait")}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div
         className="rounded-2xl overflow-hidden"
         style={{
@@ -185,9 +176,7 @@ export function SupervisorDashboard() {
                   {t("supervisor.title")}
                 </span>
               </div>
-              <h1 className="text-white text-xl">
-                {t("supervisor.dashboard")}
-              </h1>
+              <h1 className="text-white text-xl">{t("supervisor.dashboard")}</h1>
               <p className="text-white/70 text-sm mt-0.5">
                 {currentUser?.name} · {divisionName}
               </p>
@@ -195,16 +184,26 @@ export function SupervisorDashboard() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => {
-                  const exportData = myTasks.map((t) => ({
-                    ID: t.id,
-                    Title: t.title,
-                    Status: t.status,
-                    Priority: t.priority,
-                    Location: `${t.location}, ${t.floor}`,
-                    ReportedBy: t.requestedBy,
-                    Date: t.createdAt,
-                    AssignedPro:
-                      users.find((u) => u.id === t.assignedTo)?.name ||
+                  const columns = {
+                    id: t("export.id"),
+                    title: t("export.title"),
+                    status: t("export.status"),
+                    priority: t("export.priority"),
+                    location: t("form.location"),
+                    requester: t("export.requester"),
+                    date: t("export.date"),
+                    assignedTo: t("form.assignedTo"),
+                  };
+                  const exportData = myTasks.map((task) => ({
+                    [columns.id]: task.id,
+                    [columns.title]: task.title,
+                    [columns.status]: translateStatus(task.status),
+                    [columns.priority]: translatePriority(task.priority),
+                    [columns.location]: `${task.location}, ${task.floor}`,
+                    [columns.requester]: task.requestedBy,
+                    [columns.date]: task.createdAt,
+                    [columns.assignedTo]:
+                      users.find((user) => user.id === task.assignedTo)?.name ||
                       t("common.unassigned"),
                   }));
                   exportToCSV(
@@ -239,7 +238,6 @@ export function SupervisorDashboard() {
         </div>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           {
@@ -295,14 +293,13 @@ export function SupervisorDashboard() {
         ))}
       </div>
 
-      {/* Registered & Approved Professionals */}
       <div className="bg-white rounded-xl border border-border p-5 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-[#0E2271] font-semibold">
             {t("supervisor.professionals")}
           </h3>
           <span className="text-xs font-semibold text-muted-foreground bg-secondary px-2 py-1 rounded">
-            {approvedProfessionals.length} active
+            {approvedProfessionals.length} {t("status.active")}
           </span>
         </div>
         {approvedProfessionals.length === 0 ? (
@@ -311,22 +308,30 @@ export function SupervisorDashboard() {
           </p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {approvedProfessionals.map((pro) => (
+            {approvedProfessionals.map((professional) => (
               <div
-                key={pro.id}
+                key={professional.id}
                 className="border border-border rounded-lg px-3 py-2 flex items-center justify-between"
               >
                 <div>
-                  <p className="text-sm font-semibold text-foreground">{pro.name}</p>
-                  <p className="text-xs text-muted-foreground">{pro.email}</p>
-                    {!pro.divisionId && (
-                      <p className="text-[11px] text-amber-700 mt-0.5">Division will be set on first assignment</p>
-                    )}
+                  <p className="text-sm font-semibold text-foreground">
+                    {professional.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {professional.email}
+                  </p>
+                  {!professional.divisionId && (
+                    <p className="text-[11px] text-amber-700 mt-0.5">
+                      {t("supervisor.divisionAssignedOnFirstTask")}
+                    </p>
+                  )}
                 </div>
                 <div className="text-right">
-                  <p className="text-xs font-medium text-[#0E2271]">Profession</p>
+                  <p className="text-xs font-medium text-[#0E2271]">
+                    {t("users.department")}
+                  </p>
                   <p className="text-xs text-muted-foreground">
-                    {pro.department || "Not specified"}
+                    {professional.department || t("common.notSpecified")}
                   </p>
                 </div>
               </div>
@@ -335,7 +340,6 @@ export function SupervisorDashboard() {
         )}
       </div>
 
-      {/* Task Management - Navigate to dedicated page */}
       <div className="bg-white rounded-xl border border-border p-6 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -343,28 +347,43 @@ export function SupervisorDashboard() {
               {t("supervisor.taskManagement")}
             </h2>
             <p className="text-sm text-muted-foreground">
-              View and manage all assigned tasks, assign professionals, and submit completion reports
+              {t("supervisor.taskManagementDesc")}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-3xl font-bold text-[#7C3AED] mb-1">{myTasks.length}</p>
-            <p className="text-xs text-muted-foreground">Total Tasks</p>
+            <p className="text-3xl font-bold text-[#7C3AED] mb-1">
+              {myTasks.length}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {t("supervisor.totalTasks")}
+            </p>
           </div>
         </div>
-        
-        {/* Quick Stats */}
+
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="bg-amber-50 rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold text-amber-600">{pendingAssignment.length}</p>
-            <p className="text-xs text-muted-foreground mt-1">Need Assignment</p>
+            <p className="text-2xl font-bold text-amber-600">
+              {pendingAssignment.length}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {t("supervisor.needAssignment")}
+            </p>
           </div>
           <div className="bg-orange-50 rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold text-orange-600">{withProfessionals.length}</p>
-            <p className="text-xs text-muted-foreground mt-1">In Progress</p>
+            <p className="text-2xl font-bold text-orange-600">
+              {withProfessionals.length}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {t("status.inProgress")}
+            </p>
           </div>
           <div className="bg-teal-50 rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold text-teal-600">{completedTasks.length}</p>
-            <p className="text-xs text-muted-foreground mt-1">Completed</p>
+            <p className="text-2xl font-bold text-teal-600">
+              {completedTasks.length}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {t("status.completed")}
+            </p>
           </div>
         </div>
 
@@ -373,7 +392,7 @@ export function SupervisorDashboard() {
           className="w-full px-6 py-3 rounded-lg text-white text-sm font-semibold bg-[#7C3AED] hover:bg-[#6D28D9] transition-colors flex items-center justify-center gap-2"
         >
           <ClipboardList size={18} />
-          Open Task Management
+          {t("supervisor.openTaskManagement")}
         </button>
       </div>
     </div>
