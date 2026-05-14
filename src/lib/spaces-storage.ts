@@ -38,14 +38,12 @@ export function getSpaces(): Space[] {
       return defaultSpaces;
     }
     const parsed = JSON.parse(stored) as Space[];
-    // Filter out "hhhh" which is test data
-    return parsed.filter(s => s.name !== "hhhh" && s.name !== "hhh");
+    return parsed;
   } catch (error) {
     console.error("Failed to load spaces from storage:", error);
-    return defaultSpaces.filter(s => s.name !== "hhhh" && s.name !== "hhh");
+    return defaultSpaces;
   }
 }
-
 /**
  * Save spaces to localStorage
  */
@@ -60,7 +58,6 @@ export function saveSpaces(spaces: Space[]): void {
     console.error("Failed to save spaces to storage:", error);
   }
 }
-
 /**
  * Add a new space
  */
@@ -100,7 +97,6 @@ export function getSpaceById(spaceId: string): Space | undefined {
   const spaces = getSpaces();
   return spaces.find((s) => s.id === spaceId);
 }
-
 /**
  * Reset spaces to default
  */

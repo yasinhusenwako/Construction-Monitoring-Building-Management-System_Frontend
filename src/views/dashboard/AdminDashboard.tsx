@@ -75,10 +75,39 @@ function kpiColor(v: number, thresholds: [number, string][]): string {
   return thresholds[thresholds.length - 1][1];
 }
 
+const statusTranslationKeys: Record<string, string> = {
+  Submitted: "status.submitted",
+  "Under Review": "status.underReview",
+  Approved: "status.approved",
+  "In Progress": "status.inProgress",
+  Completed: "status.completed",
+  Rejected: "status.rejected",
+  "Assigned to Supervisor": "status.assignedToSupervisor",
+  "WorkOrder Created": "status.workOrderCreated",
+  "Assigned to Professionals": "status.assignedToProfessional",
+  Reviewed: "status.reviewed",
+  Closed: "status.closed",
+  active: "status.active",
+};
+
+const maintenanceTypeTranslationKeys: Record<string, string> = {
+  HVAC: "maintenance.hvacIssue",
+  Electrical: "maintenance.electricalIssue",
+  Plumbing: "maintenance.plumbingIssue",
+  Structural: "maintenance.structuralIssue",
+  "General Maintenance": "maintenance.generalIssue",
+};
+
 // ─── MAIN COMPONENT ────────────────────────────────────────────────────────
 export function AdminDashboard({ adminName }: { adminName: string }) {
   const router = useRouter();
   const { t } = useLanguage();
+  const translateStatus = (status: string) =>
+    statusTranslationKeys[status] ? t(statusTranslationKeys[status]) : status;
+  const translateMaintenanceType = (type: string) =>
+    maintenanceTypeTranslationKeys[type]
+      ? t(maintenanceTypeTranslationKeys[type])
+      : type;
   const [activeTab, setActiveTab] = useState<
     "overview" | "analytics" | "workflow"
   >("overview");
@@ -172,6 +201,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
 
   // Professional workload
   const techWorkload = technicians.map((t) => ({
+    id: t.id,
     name: t.name.split(" ")[0],
     assigned: maintenanceItems.filter(
       (m) =>
@@ -188,19 +218,19 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
   // Chart data
   const requestVolumeData = [
     {
-      name: "Projects",
+      name: t("module.projects"),
       total: projects.length,
       pending: pendingProjects.length,
       done: completedProjects.length,
     },
     {
-      name: "Bookings",
+      name: t("module.bookings"),
       total: bookings.length,
       pending: pendingBookings.length + reviewBookings.length,
       done: approvedBookings.length,
     },
     {
-      name: "Maintenance",
+      name: t("module.maintenance"),
       total: maintenanceItems.length,
       pending: unassignedTickets.length,
       done: resolvedTickets.length,
@@ -209,22 +239,26 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
 
   const projectStatusData = [
     {
-      name: t("status.submitted"),
+      label: t("status.submitted"),
+      statusKey: "status.submitted",
       value: pendingProjects.length,
       color: "#F5B800",
     },
     {
-      name: t("status.inProgress"),
+      label: t("status.inProgress"),
+      statusKey: "status.inProgress",
       value: inProgressProjects.length,
       color: "#1A3580",
     },
     {
-      name: t("status.completed"),
+      label: t("status.completed"),
+      statusKey: "status.completed",
       value: completedProjects.length,
       color: "#16A34A",
     },
     {
-      name: t("status.rejected"),
+      label: t("status.rejected"),
+      statusKey: "status.rejected",
       value: rejectedProjects.length,
       color: "#CC1F1A",
     },
@@ -235,7 +269,10 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
     maintenanceItems.forEach((m) => {
       counts[m.type] = (counts[m.type] || 0) + 1;
     });
-    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+    return Object.entries(counts).map(([type, value]) => ({
+      name: translateMaintenanceType(type),
+      value,
+    }));
   })();
 
   const activityTrend = [
@@ -262,7 +299,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
 
       color: "#1A3580",
       path: `/dashboard/projects/${p.id}`,
-      cta: "Review",
+      cta: t("action.review"),
     })),
     ...unassignedTickets.map((m) => ({
       type: "maintenance" as const,
@@ -272,7 +309,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
 
       color: "#CC1F1A",
       path: `/dashboard/maintenance/${m.id}`,
-      cta: "Assign",
+      cta: t("action.assign"),
     })),
     ...pendingSupervisorReview.map((m) => ({
       type: "maintenance" as const,
@@ -282,7 +319,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
 
       color: "#0891B2",
       path: `/dashboard/maintenance/${m.id}`,
-      cta: "Approve",
+      cta: t("action.approve"),
     })),
     ...[...pendingBookings, ...reviewBookings].map((b) => ({
       type: "booking" as const,
@@ -292,7 +329,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
 
       color: "#7C3AED",
       path: `/dashboard/bookings`,
-      cta: "Approve",
+      cta: t("action.approve"),
     })),
   ].slice(0, 6);
 
@@ -304,36 +341,46 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
   };
 
   const handleExportReport = () => {
+    const columns = {
+      id: t("export.id"),
+      type: t("export.type"),
+      title: t("export.title"),
+      status: t("export.status"),
+      priority: t("export.priority"),
+      requester: t("export.requester"),
+      date: t("export.date"),
+    };
+
     const projectData = projects.map((p) => ({
-      ID: p.id,
-      Type: "Project",
-      Title: p.title,
-      Status: p.status,
-      Requester:
+      [columns.id]: p.id,
+      [columns.type]: t("requests.module.project"),
+      [columns.title]: p.title,
+      [columns.status]: translateStatus(p.status),
+      [columns.requester]:
         liveUsers.find((u) => u.id === p.requestedBy)?.name || p.requestedBy,
-      Date: p.createdAt,
+      [columns.date]: p.createdAt,
     }));
 
     const bookingData = bookings.map((b) => ({
-      ID: b.id,
-      Type: "Booking",
-      Title: b.title || b.space,
-      Status: b.status,
-      Priority: "Medium",
-      Requester:
+      [columns.id]: b.id,
+      [columns.type]: t("requests.module.booking"),
+      [columns.title]: b.title || b.space,
+      [columns.status]: translateStatus(b.status),
+      [columns.priority]: t("priority.medium"),
+      [columns.requester]:
         liveUsers.find((u) => u.id === b.requestedBy)?.name || b.requestedBy,
-      Date: b.createdAt,
+      [columns.date]: b.createdAt,
     }));
 
     const maintenanceData = maintenanceItems.map((m) => ({
-      ID: m.id,
-      Type: "Maintenance",
-      Title: m.title,
-      Status: m.status,
-      Priority: m.priority,
-      Requester:
+      [columns.id]: m.id,
+      [columns.type]: t("requests.module.maintenance"),
+      [columns.title]: m.title,
+      [columns.status]: translateStatus(m.status),
+      [columns.priority]: t(`priority.${m.priority.toLowerCase()}` as any),
+      [columns.requester]:
         liveUsers.find((u) => u.id === m.requestedBy)?.name || m.requestedBy,
-      Date: m.createdAt,
+      [columns.date]: m.createdAt,
     }));
 
     const allData = [...projectData, ...bookingData, ...maintenanceData];
@@ -558,7 +605,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
               value={
                 pendingSupervisorReview.length + pendingAdminFinalReview.length
               }
-              sub={`${pendingSupervisorReview.length} Div · ${pendingAdminFinalReview.length} Admin`}
+              sub={`${pendingSupervisorReview.length} ${t("admin.divisionShort")} · ${pendingAdminFinalReview.length} ${t("role.admin")}`}
               trend={{
                 val:
                   pendingAdminFinalReview.length > 0
@@ -631,17 +678,20 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <ModulePanel
                 title={t("module.projects")}
-                stream="Stream A"
+                stream={t("admin.streamA")}
                 color="#1A3580"
                 icon={<FolderOpen size={14} />}
                 stats={[
                   {
-                    label: "Pending Review",
+                    label: t("dashboard.pendingReview"),
                     value: pendingProjects.length,
                     highlight: pendingProjects.length > 0,
                   },
-                  { label: "In Progress", value: inProgressProjects.length },
-                  { label: "Completed", value: completedProjects.length },
+                  {
+                    label: t("status.inProgress"),
+                    value: inProgressProjects.length,
+                  },
+                  { label: t("status.completed"), value: completedProjects.length },
                 ]}
                 items={[...pendingProjects, ...inProgressProjects].map((p) => ({
                   id: p.id,
@@ -652,45 +702,48 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
               />
               <ModulePanel
                 title={t("module.bookings")}
-                stream="Stream B"
+                stream={t("admin.streamB")}
                 color="#7C3AED"
                 icon={<Calendar size={14} />}
                 stats={[
                   {
-                    label: "Submitted",
+                    label: t("status.submitted"),
                     value: pendingBookings.length,
                     highlight: pendingBookings.length > 0,
                   },
-                  { label: "Under Review", value: reviewBookings.length },
-                  { label: "Approved", value: approvedBookings.length },
+                  { label: t("status.underReview"), value: reviewBookings.length },
+                  { label: t("status.approved"), value: approvedBookings.length },
                 ]}
                 items={[...pendingBookings, ...reviewBookings].map((b) => ({
                   id: b.id,
                   title: b.title,
                   status: b.status,
-                  badge: b.attendees > 100 ? `${b.attendees} pax` : undefined,
+                  badge:
+                    b.attendees > 100
+                      ? t("admin.attendeeCount", { count: b.attendees })
+                      : undefined,
                 }))}
                 onView={() => router.push("/dashboard/bookings")}
               />
               <ModulePanel
                 title={t("module.maintenance")}
-                stream="Stream C"
+                stream={t("admin.streamC")}
                 color="#CC1F1A"
                 icon={<Wrench size={14} />}
                 stats={[
                   {
-                    label: "New Submissions",
+                    label: t("admin.newSubmissions"),
                     value: unassignedTickets.length,
                     highlight: unassignedTickets.length > 0,
                   },
                   {
-                    label: "In Progress",
+                    label: t("status.inProgress"),
                     value: maintenanceItems.filter(
                       (m) => m.status === "In Progress",
                     ).length,
                   },
                   {
-                    label: "Pending Admin Review",
+                    label: t("admin.pendingAdminReview"),
                     value: pendingSupervisorReview.length,
                     highlight: pendingSupervisorReview.length > 0,
                   },
@@ -701,9 +754,9 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                   status: m.status,
                   badge:
                     m.priority === "Critical"
-                      ? "🔴 Critical"
+                      ? t("priority.critical")
                       : m.priority === "High"
-                        ? "🟡 High"
+                        ? t("priority.high")
                         : undefined,
                 }))}
                 onView={() => router.push("/dashboard/maintenance")}
@@ -731,7 +784,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                 {[
                   ...projects.map((p) => ({
                     id: p.id,
-                    type: "Project",
+                    type: "project",
+                    typeLabel: t("requests.module.project"),
                     title: p.title,
                     status: p.status,
                     date: p.updatedAt,
@@ -739,7 +793,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                   })),
                   ...bookings.map((b) => ({
                     id: b.id,
-                    type: "Booking",
+                    type: "booking",
+                    typeLabel: t("requests.module.booking"),
                     title: b.title,
                     status: b.status,
                     date: b.updatedAt,
@@ -747,7 +802,8 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                   })),
                   ...maintenanceItems.map((m) => ({
                     id: m.id,
-                    type: "Maintenance",
+                    type: "maintenance",
+                    typeLabel: t("requests.module.maintenance"),
                     title: m.title,
                     status: m.status,
                     date: m.updatedAt,
@@ -764,16 +820,16 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                     >
                       <div
                         className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm ${
-                          item.type === "Project"
+                          item.type === "project"
                             ? "bg-blue-50 text-[#1A3580]"
-                            : item.type === "Booking"
+                            : item.type === "booking"
                               ? "bg-purple-50 text-purple-700"
                               : "bg-orange-50 text-orange-700"
                         }`}
                       >
-                        {item.type === "Project" ? (
+                        {item.type === "project" ? (
                           <FolderOpen size={14} />
-                        ) : item.type === "Booking" ? (
+                        ) : item.type === "booking" ? (
                           <Calendar size={14} />
                         ) : (
                           <Wrench size={14} />
@@ -788,7 +844,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                             ·
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            {item.type}
+                            {item.typeLabel}
                           </span>
                         </div>
                         <p className="text-sm font-medium text-foreground truncate">
@@ -816,14 +872,14 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                   </h3>
                 </div>
                 <div className="p-3 space-y-2.5">
-                  {techWorkload.map((t) => {
+                  {techWorkload.map((t, index) => {
                     const total = t.assigned + t.completed;
                     const pct =
                       total > 0 ? Math.round((t.assigned / total) * 100) : 0;
                     const loadColor =
                       pct > 70 ? "#CC1F1A" : pct > 40 ? "#F5B800" : "#16A34A";
                     return (
-                      <div key={t.name}>
+                      <div key={`tech-${t.id}-${index}`}>
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-[#1A3580] flex items-center justify-center text-white text-xs font-bold">
@@ -835,7 +891,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">
-                              {t.assigned} active
+                              {t.assigned} {translateStatus("active")}
                             </span>
                             <span
                               className="text-xs font-semibold"
@@ -873,24 +929,24 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                 <div className="p-3 space-y-2">
                   {[
                     {
-                      role: "Administrator",
+                      role: t("role.admin"),
                       count: liveUsers.filter((u) => u.role === "admin").length,
                       color: "#0E2271",
                     },
                     {
-                      role: "Div. Supervisors",
+                      role: t("role.supervisor"),
                       count: liveUsers.filter((u) => u.role === "supervisor")
                         .length,
                       color: "#7C3AED",
                     },
                     {
-                      role: "Professionals",
+                      role: t("role.professional"),
                       count: liveUsers.filter((u) => u.role === "professional")
                         .length,
                       color: "#CC1F1A",
                     },
                     {
-                      role: "Users (Requesters)",
+                      role: t("admin.usersRequesters"),
                       count: liveUsers.filter((u) => u.role === "user").length,
                       color: "#F5B800",
                     },
@@ -929,33 +985,33 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               {
-                label: "MTTR (avg)",
-                value: "1.8 days",
-                sub: "Mean Time to Resolve",
+                label: t("admin.mttrAvg"),
+                value: t("admin.daysValue", { count: "1.8" }),
+                sub: t("admin.meanTimeToResolve"),
                 color: "#1A3580",
                 icon: <Timer size={18} />,
               },
               {
-                label: "Request Backlog",
+                label: t("admin.requestBacklog"),
                 value:
                   pendingProjects.length +
                   pendingBookings.length +
                   unassignedTickets.length,
-                sub: "Unprocessed requests",
+                sub: t("admin.unprocessedRequests"),
                 color: "#F5B800",
                 icon: <Package size={18} />,
               },
               {
-                label: "SLA Compliance",
+                label: t("admin.slaCompliance"),
                 value: `${slaCompliance}%`,
-                sub: "Resolved within SLA",
+                sub: t("admin.resolvedWithinSla"),
                 color: "#16A34A",
                 icon: <CheckCircle2 size={18} />,
               },
               {
-                label: "Escalations",
+                label: t("admin.escalations"),
                 value: criticalTickets.length,
-                sub: "Critical & unresolved",
+                sub: t("admin.criticalUnresolved"),
                 color: "#CC1F1A",
                 icon: <Flag size={18} />,
               },
@@ -1061,6 +1117,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                       outerRadius={80}
                       paddingAngle={3}
                       dataKey="value"
+                      nameKey="label"
                     >
                       {projectStatusData.map((entry, i) => (
                         <Cell key={i} fill={entry.color} />
@@ -1072,7 +1129,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                 <div className="flex-1 space-y-2">
                   {projectStatusData.map((d) => (
                     <div
-                      key={d.name}
+                      key={d.statusKey}
                       className="flex items-center justify-between"
                     >
                       <div className="flex items-center gap-2">
@@ -1081,9 +1138,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                           style={{ background: d.color }}
                         />
                         <span className="text-xs text-muted-foreground">
-                          {t(
-                            `status.${d.name.charAt(0).toLowerCase()}${d.name.slice(1).replace(/\s+/g, "")}` as any,
-                          )}
+                          {d.label}
                         </span>
                       </div>
                       <span className="text-xs font-bold text-foreground">
@@ -1427,31 +1482,37 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                 {[
                   {
                     stage: "Submitted",
+                    label: t("status.submitted"),
                     items: projects.filter((p) => p.status === "Submitted"),
                     color: "#F5B800",
                   },
                   {
                     stage: "Under Review",
+                    label: t("status.underReview"),
                     items: projects.filter((p) => p.status === "Under Review"),
                     color: "#1A3580",
                   },
                   {
                     stage: "Approved",
+                    label: t("status.approved"),
                     items: projects.filter((p) => p.status === "Approved"),
                     color: "#7C3AED",
                   },
                   {
                     stage: "In Progress",
+                    label: t("status.inProgress"),
                     items: projects.filter((p) => p.status === "In Progress"),
                     color: "#16A34A",
                   },
                   {
                     stage: "Completed",
+                    label: t("status.completed"),
                     items: projects.filter((p) => p.status === "Completed"),
                     color: "#6B7280",
                   },
                   {
                     stage: "Rejected",
+                    label: t("status.rejected"),
                     items: projects.filter((p) => p.status === "Rejected"),
                     color: "#CC1F1A",
                   },
@@ -1463,9 +1524,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                         style={{ background: row.color }}
                       />
                       <span className="text-xs text-muted-foreground">
-                        {t(
-                          `status.${row.stage.charAt(0).toLowerCase()}${row.stage.slice(1).replace(/\s+/g, "")}` as any,
-                        ) || row.stage}
+                        {row.label}
                       </span>
                     </div>
                     <div className="flex-1 bg-secondary rounded-full h-5 relative overflow-hidden">
@@ -1497,6 +1556,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                 {[
                   {
                     stage: "Submitted",
+                    label: t("status.submitted"),
                     items: maintenanceItems.filter(
                       (m) => m.status === "Submitted",
                     ),
@@ -1504,6 +1564,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                   },
                   {
                     stage: "Assigned to Supervisor",
+                    label: t("status.assignedToSupervisor"),
                     items: maintenanceItems.filter(
                       (m) => m.status === "Assigned to Supervisor",
                     ),
@@ -1511,6 +1572,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                   },
                   {
                     stage: "In Progress",
+                    label: t("status.inProgress"),
                     items: maintenanceItems.filter(
                       (m) => m.status === "In Progress",
                     ),
@@ -1518,6 +1580,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                   },
                   {
                     stage: "Reviewed",
+                    label: t("status.reviewed"),
                     items: maintenanceItems.filter(
                       (m) => m.status === "Reviewed",
                     ),
@@ -1525,6 +1588,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                   },
                   {
                     stage: "Approved",
+                    label: t("status.approved"),
                     items: maintenanceItems.filter(
                       (m) => m.status === "Approved",
                     ),
@@ -1538,9 +1602,7 @@ export function AdminDashboard({ adminName }: { adminName: string }) {
                         style={{ background: row.color }}
                       />
                       <span className="text-xs text-muted-foreground">
-                        {t(
-                          `status.${row.stage.charAt(0).toLowerCase()}${row.stage.slice(1).replace(/\s+/g, "")}` as any,
-                        ) || row.stage}
+                        {row.label}
                       </span>
                     </div>
                     <div className="flex-1 bg-secondary rounded-full h-5 relative overflow-hidden">

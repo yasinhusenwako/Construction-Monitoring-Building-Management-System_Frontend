@@ -357,7 +357,7 @@ export function EditProjectPage() {
       try {
         const projects = await fetchLiveProjects(projectId);
         const project = projects.find((p) => p.id === projectId);
-        
+
         if (!project) {
           alert("Project not found");
           router.push("/dashboard/projects");
@@ -365,7 +365,10 @@ export function EditProjectPage() {
         }
 
         // Check if user can edit
-        if (project.requestedBy !== currentUser?.id || project.status !== "Submitted") {
+        if (
+          project.requestedBy !== currentUser?.id ||
+          project.status !== "Submitted"
+        ) {
           alert("You can only edit your own submitted requests");
           router.push(`/dashboard/projects/${projectId}`);
           return;
@@ -395,7 +398,7 @@ export function EditProjectPage() {
           scope: (project.scope as any) || defaultScope,
           files: [],
         });
-        
+
         setLoading(false);
       } catch (error) {
         console.error("Failed to load project:", error);
@@ -674,16 +677,14 @@ export function EditProjectPage() {
         method: "PATCH",
         body: requestBody,
       });
-      
+
       alert("Project updated successfully!");
       router.push(`/dashboard/projects/${projectId}`);
     } catch (error) {
       setErrors((prev) => ({
         ...prev,
         submit:
-          error instanceof Error
-            ? error.message
-            : "Failed to update project",
+          error instanceof Error ? error.message : "Failed to update project",
       }));
     } finally {
       setLoading(false);
@@ -1962,10 +1963,18 @@ export function EditProjectPage() {
                         ? `ETB ${parseInt(form.budget).toLocaleString()}`
                         : "Not specified",
                     ],
-                    ["Timeline", `${form.startDate} → ${form.endDate}`],
+                    [
+                      "Timeline",
+                      form.startDate || form.endDate
+                        ? `${form.startDate || "Not specified"} → ${
+                            form.endDate || "Not specified"
+                          }`
+                        : "Not specified",
+                    ],
                     [
                       "Building Type",
-                      form.scope.buildingType === t("projects.buildingType.other")
+                      form.scope.buildingType ===
+                      t("projects.buildingType.other")
                         ? form.scope.otherBuildingType
                         : form.scope.buildingType,
                     ],

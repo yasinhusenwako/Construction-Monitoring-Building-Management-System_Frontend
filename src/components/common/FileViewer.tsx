@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import {
   FileText,
@@ -28,6 +28,50 @@ export function FileViewer({
   emptyMessage = "No files attached",
 }: FileViewerProps) {
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewFile?.url && previewFile.url.startsWith("blob:")) {
+        URL.revokeObjectURL(previewFile.url);
+      }
+    };
+  }, [previewFile]);
+
+  const getAuthHeader = (): string | null => {
+    try {
+      const keycloakInstance = (window as any).keycloak;
+      if (
+        keycloakInstance &&
+        keycloakInstance.authenticated &&
+        keycloakInstance.token
+      ) {
+        return `Bearer ${keycloakInstance.token}`;
+      }
+    } catch {
+      // Ignore auth lookup errors and fall back to unauthenticated requests.
+    }
+    return null;
+  };
+
+  const fetchFileBlob = async (url: string): Promise<Blob> => {
+    const headers = new Headers();
+    const authHeader = getAuthHeader();
+    if (authHeader) {
+      headers.set("Authorization", authHeader);
+    }
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Download failed (${response.status})`);
+    }
+
+    return response.blob();
+  };
 
   if (files.length === 0) {
     return (
@@ -63,33 +107,52 @@ export function FileViewer({
   };
 
   const handleDownload = (file: FileItem) => {
-    if (file.url) {
-      // If we have a URL, download from there
-      const link = document.createElement("a");
-      link.href = file.url;
-      link.download = file.name;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } else {
-      // Legacy files without URLs - show message
+    if (!file.url) {
       alert(
         `File "${file.name}" is not available for download. This is a legacy attachment reference.`,
       );
+      return;
     }
+
+    fetchFileBlob(file.url)
+      .then((blob) => {
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = file.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(objectUrl);
+      })
+      .catch((error) => {
+        console.error("Failed to download file:", error);
+        window.open(file.url, "_blank");
+      });
   };
 
   const handlePreview = (file: FileItem) => {
-    if (file.url && isImageFile(file.name)) {
-      setPreviewFile(file);
-    } else if (file.url) {
-      // Open in new tab for non-images
-      window.open(file.url, "_blank");
-    } else {
+    if (!file.url) {
       alert(
         `Preview not available for "${file.name}". This is a legacy attachment reference.`,
       );
+      return;
     }
+
+    if (isImageFile(file.name)) {
+      fetchFileBlob(file.url)
+        .then((blob) => {
+          const objectUrl = URL.createObjectURL(blob);
+          setPreviewFile({ ...file, url: objectUrl });
+        })
+        .catch((error) => {
+          console.error("Failed to preview file:", error);
+          window.open(file.url, "_blank");
+        });
+      return;
+    }
+
+    window.open(file.url, "_blank");
   };
 
   return (
@@ -147,7 +210,7 @@ export function FileViewer({
       </div>
 
       {/* Image Preview Modal */}
-      {previewFile && isImageFile(previewFile.name) && (
+      {previewFile && previewFile.url && isImageFile(previewFile.name) && (
         <div
           className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
           onClick={() => setPreviewFile(null)}

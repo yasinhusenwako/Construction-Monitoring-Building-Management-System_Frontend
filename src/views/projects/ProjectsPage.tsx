@@ -2,20 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from '@/context/AuthContext';
-import { useLanguage } from '@/context/LanguageContext';
-import type { Project } from '@/types/models';
+import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
+import type { Project } from "@/types/models";
 import {
   canViewItem,
   getUserFacingStatus,
   getVisibleStatusesForRole,
   WORKFLOW_STATUSES,
   WorkflowRole,
-} from '@/lib/workflow';
+} from "@/lib/workflow";
 import { fetchLiveProjects } from "@/lib/live-api";
 import { apiRequest } from "@/lib/api";
-import { getClassificationInfo, getClassificationLabel, formatProjectTitle } from "@/lib/classification-utils";
-import { StatusBadge } from '@/components/common/StatusBadge';
+import {
+  getClassificationInfo,
+  getClassificationLabel,
+  formatProjectTitle,
+} from "@/lib/classification-utils";
+import { StatusBadge } from "@/components/common/StatusBadge";
 import {
   Plus,
   Search,
@@ -45,9 +49,14 @@ export function ProjectsPage() {
       console.log("[ProjectsPage] No user ID, skipping fetch");
       return;
     }
-    
-    console.log("[ProjectsPage] Fetching projects for user:", currentUser.id, "role:", role);
-    
+
+    console.log(
+      "[ProjectsPage] Fetching projects for user:",
+      currentUser.id,
+      "role:",
+      role,
+    );
+
     const refresh = async () => {
       try {
         const live = await fetchLiveProjects();
@@ -61,7 +70,10 @@ export function ProjectsPage() {
     void refresh();
   }, [currentUser?.id, role]); // Only depend on user ID, not the whole user object
 
-  const statuses = ["All", ...getVisibleStatusesForRole(role as WorkflowRole, "project")];
+  const statuses = [
+    "All",
+    ...getVisibleStatusesForRole(role as WorkflowRole, "project"),
+  ];
 
   const filtered = projects.filter((p) => {
     const matchesRole = canViewItem(
@@ -70,7 +82,7 @@ export function ProjectsPage() {
       currentUser?.id,
       currentUser?.divisionId,
     );
-    
+
     const matchesSearch =
       !search ||
       p.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -99,7 +111,11 @@ export function ProjectsPage() {
     // Users can only delete their own projects in Submitted status
     // Admins can delete any project
     if (role === "admin") return true;
-    if (role === "user" && project.requestedBy === currentUser?.id && project.status === "Submitted") {
+    if (
+      role === "user" &&
+      project.requestedBy === currentUser?.id &&
+      project.status === "Submitted"
+    ) {
       return true;
     }
     return false;
@@ -136,7 +152,7 @@ export function ProjectsPage() {
     const info = getClassificationInfo(classification);
     const label = info?.label || getClassificationLabel(classification);
     const color = info?.color || "#64748B";
-    
+
     return (
       <span
         className="px-2 py-0.5 rounded text-xs font-medium"
@@ -291,12 +307,7 @@ export function ProjectsPage() {
                       {getStreamBadge(project.classification)}
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge
-                        status={getUserFacingStatus(
-                          project.status,
-                          role as WorkflowRole,
-                        )}
-                      />
+                      <StatusBadge status={project.status} />
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       {project.budget.toLocaleString()}
@@ -321,7 +332,8 @@ export function ProjectsPage() {
                               onClick={() => void handleDeleteProject(project)}
                               className="flex items-center gap-1 text-xs text-red-600 hover:underline font-medium"
                             >
-                              <Trash2 size={12} /> {t("action.delete") || "Delete"}
+                              <Trash2 size={12} />{" "}
+                              {t("action.delete") || "Delete"}
                             </button>
                           </>
                         ) : (
@@ -330,11 +342,14 @@ export function ProjectsPage() {
                             {canEditProject(project) && (
                               <button
                                 onClick={() =>
-                                  router.push(`/dashboard/projects/${project.id}/edit`)
+                                  router.push(
+                                    `/dashboard/projects/${project.id}/edit`,
+                                  )
                                 }
                                 className="flex items-center gap-1 text-xs text-[#1A3580] hover:underline font-medium"
                               >
-                                <FileText size={12} /> {t("action.edit") || "Edit"}
+                                <FileText size={12} />{" "}
+                                {t("action.edit") || "Edit"}
                               </button>
                             )}
                             <button
@@ -347,10 +362,13 @@ export function ProjectsPage() {
                             </button>
                             {canDeleteProject(project) && (
                               <button
-                                onClick={() => void handleDeleteProject(project)}
+                                onClick={() =>
+                                  void handleDeleteProject(project)
+                                }
                                 className="flex items-center gap-1 text-xs text-red-600 hover:underline font-medium"
                               >
-                                <Trash2 size={12} /> {t("action.delete") || "Delete"}
+                                <Trash2 size={12} />{" "}
+                                {t("action.delete") || "Delete"}
                               </button>
                             )}
                           </>

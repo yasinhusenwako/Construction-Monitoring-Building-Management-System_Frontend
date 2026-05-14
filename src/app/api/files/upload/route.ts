@@ -1,8 +1,7 @@
 import type { NextRequest } from "next/server";
 
-import { dynamic, proxyBackendRequest } from "../../_proxy";
-
-export { dynamic };
+import { proxyBackendRequest } from "../../_proxy";
+export const dynamic = "force-dynamic";
 
 async function handle(request: NextRequest) {
   return proxyBackendRequest(request);
