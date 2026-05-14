@@ -27,11 +27,14 @@ export function EditMaintenancePage({ maintenanceId }: { maintenanceId: string }
     title: "",
     description: "",
     category: "",
+    otherCategory: "",
     priority: "" as Maintenance["priority"],
     location: "",
     otherLocation: "",
     block: "",
+    otherBlock: "",
     floor: "",
+    otherFloor: "",
     roomArea: "",
   });
 
@@ -130,12 +133,15 @@ export function EditMaintenancePage({ maintenanceId }: { maintenanceId: string }
           setForm({
             title: m.title,
             description: m.description,
-            category: m.type,
+            category: categories.some(c => c.value === m.type) ? m.type : "Other",
+            otherCategory: !categories.some(c => c.value === m.type) ? m.type : "",
             priority: m.priority,
             location: locations.includes(mainLocation) ? mainLocation : (mainLocation ? t("common.other") : ""),
             otherLocation: !locations.includes(mainLocation) ? mainLocation : "",
-            block: parts[1] || "",
-            floor: parts[2] || "",
+            block: blocks.includes(parts[1] || "") ? parts[1] : (parts[1] ? t("common.other") : ""),
+            otherBlock: !blocks.includes(parts[1] || "") ? parts[1] : "",
+            floor: floors.includes(parts[2] || "") ? parts[2] : (parts[2] ? t("common.other") : ""),
+            otherFloor: !floors.includes(parts[2] || "") ? parts[2] : "",
             roomArea: parts[3] || "",
           });
         }
@@ -161,12 +167,21 @@ export function EditMaintenancePage({ maintenanceId }: { maintenanceId: string }
     }
     if (step === 1) {
       if (!form.category) errs.category = t("validation.selectOne");
+      if (form.category === "Other" && !form.otherCategory?.trim()) {
+        errs.otherCategory = t("validation.required");
+      }
       if (!form.priority) errs.priority = t("validation.selectOne");
     }
     if (step === 2) {
       if (!form.location) errs.location = t("validation.selectOne");
       if (form.location === t("common.other") && !form.otherLocation.trim()) {
         errs.otherLocation = t("validation.required");
+      }
+      if (form.block === t("common.other") && !form.otherBlock?.trim()) {
+        errs.otherBlock = t("validation.required");
+      }
+      if (form.floor === t("common.other") && !form.otherFloor?.trim()) {
+        errs.otherFloor = t("validation.required");
       }
     }
     setErrors(errs);
@@ -181,14 +196,16 @@ export function EditMaintenancePage({ maintenanceId }: { maintenanceId: string }
     if (!validate()) return;
     setSubmitting(true);
     try {
-      const actualLocation = form.location === t("common.other") ? form.otherLocation : form.location;
-      const locParts = [actualLocation, form.block, form.floor, form.roomArea].filter(Boolean);
+      const actualLocation = form.location === t("common.other") && form.otherLocation?.trim() ? form.otherLocation : form.location;
+      const actualBlock = form.block === t("common.other") && form.otherBlock?.trim() ? form.otherBlock : form.block;
+      const actualFloor = form.floor === t("common.other") && form.otherFloor?.trim() ? form.otherFloor : form.floor;
+      const locParts = [actualLocation, actualBlock, actualFloor, form.roomArea].filter(Boolean);
       const fullLocation = locParts.length > 0 ? locParts.join(" / ") : "N/A";
 
       const payload = {
         title: form.title,
         description: form.description,
-        category: form.category,
+        category: form.category === "Other" && form.otherCategory?.trim() ? form.otherCategory : form.category,
         priority: form.priority,
         location: fullLocation,
       };
@@ -367,6 +384,28 @@ export function EditMaintenancePage({ maintenanceId }: { maintenanceId: string }
               </div>
             </div>
 
+            {form.category === "Other" && (
+              <div>
+                <label className="block text-sm font-medium text-[#0E2271] mb-1">
+                  Please Specify Category *
+                </label>
+                <input
+                  type="text"
+                  value={form.otherCategory || ""}
+                  onChange={(e) => update("otherCategory", e.target.value)}
+                  className={`modern-input ${
+                    errors.otherCategory ? "border-red-500 border-2" : ""
+                  }`}
+                  placeholder="Enter custom category"
+                />
+                {errors.otherCategory && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.otherCategory}
+                  </p>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-[#0E2271] mb-3">
                 {t("form.priority")} *
@@ -451,6 +490,22 @@ export function EditMaintenancePage({ maintenanceId }: { maintenanceId: string }
                   {blocks.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
               </div>
+
+              {form.block === t("common.other") && (
+                <div>
+                  <label className="block text-sm font-medium text-[#0E2271] mb-1">
+                    Specify Block/Wing *
+                  </label>
+                  <input
+                    value={form.otherBlock || ""}
+                    onChange={(e) => update("otherBlock", e.target.value)}
+                    placeholder="Enter block name"
+                    className={inputClass("otherBlock")}
+                  />
+                  {errors.otherBlock && <p className="text-red-500 text-xs mt-1">{errors.otherBlock}</p>}
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-[#0E2271] mb-1">
                   Floor
@@ -464,6 +519,21 @@ export function EditMaintenancePage({ maintenanceId }: { maintenanceId: string }
                   {floors.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
               </div>
+
+              {form.floor === t("common.other") && (
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="block text-sm font-medium text-[#0E2271] mb-1">
+                    Specify Floor *
+                  </label>
+                  <input
+                    value={form.otherFloor || ""}
+                    onChange={(e) => update("otherFloor", e.target.value)}
+                    placeholder="Enter floor name"
+                    className={inputClass("otherFloor")}
+                  />
+                  {errors.otherFloor && <p className="text-red-500 text-xs mt-1">{errors.otherFloor}</p>}
+                </div>
+              )}
             </div>
 
             <div>
@@ -511,7 +581,7 @@ export function EditMaintenancePage({ maintenanceId }: { maintenanceId: string }
                     {t("form.category")}
                   </p>
                   <p className="font-semibold text-[#0E2271]">
-                    {categories.find(c => c.value === form.category)?.icon} {form.category}
+                    {categories.find(c => c.value === form.category)?.icon} {form.category === "Other" && form.otherCategory ? form.otherCategory : form.category}
                   </p>
                 </div>
                 <div>
@@ -529,8 +599,8 @@ export function EditMaintenancePage({ maintenanceId }: { maintenanceId: string }
                   <p className="font-semibold text-[#0E2271]">
                     {[
                       form.location === t("common.other") ? form.otherLocation : form.location,
-                      form.block,
-                      form.floor,
+                      form.block === t("common.other") ? form.otherBlock : form.block,
+                      form.floor === t("common.other") ? form.otherFloor : form.floor,
                       form.roomArea
                     ].filter(Boolean).join(" / ")}
                   </p>

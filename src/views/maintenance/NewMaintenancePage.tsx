@@ -19,10 +19,14 @@ type FormState = {
   title: string;
   description: string;
   category: string;
+  otherCategory: string;
   priority: "" | "Critical" | "High" | "Medium" | "Routine";
   building: string;
+  otherLocation: string;
   block: string;
+  otherBlock: string;
   floor: string;
+  otherFloor: string;
   roomArea: string;
   files: UploadedFile[];
 };
@@ -151,10 +155,14 @@ export function NewMaintenancePage() {
     title: "",
     description: "",
     category: "",
+    otherCategory: "",
     priority: "",
     building: "",
+    otherLocation: "",
     block: "",
+    otherBlock: "",
     floor: "",
+    otherFloor: "",
     roomArea: "",
     files: [],
   });
@@ -176,6 +184,9 @@ export function NewMaintenancePage() {
 
     if (step === 1) {
       if (!form.category) nextErrors.category = t("validation.selectOne");
+      if (form.category === "Other" && !form.otherCategory.trim()) {
+        nextErrors.otherCategory = t("validation.required");
+      }
       if (!form.priority) nextErrors.priority = t("validation.selectOne");
     }
 
@@ -187,6 +198,15 @@ export function NewMaintenancePage() {
         !form.roomArea.trim()
       ) {
         nextErrors.location = t("maintenance.atLeastOneLocation");
+      }
+      if (form.building === t("common.other") && !form.otherLocation.trim()) {
+        nextErrors.otherLocation = t("validation.required");
+      }
+      if (form.block === t("common.other") && !form.otherBlock.trim()) {
+        nextErrors.otherBlock = t("validation.required");
+      }
+      if (form.floor === t("common.other") && !form.otherFloor.trim()) {
+        nextErrors.otherFloor = t("validation.required");
       }
     }
 
@@ -214,16 +234,21 @@ export function NewMaintenancePage() {
           body: {
             maintenanceId: generatedId,
             title: form.title,
-            category: form.category,
+            category: form.category === "Other" && form.otherCategory.trim() ? form.otherCategory : form.category,
             priority: (form.priority === "Routine" || !form.priority
               ? "Low"
               : form.priority) as "Low" | "Medium" | "High" | "Critical",
             description: form.description,
-            location: [form.building, form.block, form.floor, form.roomArea]
+            location: [
+              form.building === t("common.other") && form.otherLocation.trim() ? form.otherLocation : form.building, 
+              form.block === t("common.other") && form.otherBlock.trim() ? form.otherBlock : form.block, 
+              form.floor === t("common.other") && form.otherFloor.trim() ? form.otherFloor : form.floor, 
+              form.roomArea
+            ]
               .filter((x) => x && x.trim())
               .join(" / "),
-            building: form.building,
-            floor: form.floor,
+            building: form.building === t("common.other") && form.otherLocation.trim() ? form.otherLocation : form.building,
+            floor: form.floor === t("common.other") && form.otherFloor.trim() ? form.otherFloor : form.floor,
             roomArea: form.roomArea,
             attachments: form.files.map((f) => f.name),
             createdBy,
@@ -458,6 +483,29 @@ export function NewMaintenancePage() {
                 <p className="text-red-500 text-xs mt-1">{errors.category}</p>
               )}
             </div>
+
+            {form.category === "Other" && (
+              <div>
+                <label className="block text-sm font-medium text-[#0E2271] mb-1">
+                  Please Specify Category *
+                </label>
+                <input
+                  type="text"
+                  value={form.otherCategory}
+                  onChange={(e) => update("otherCategory", e.target.value)}
+                  className={`modern-input ${
+                    errors.otherCategory ? "border-red-500 border-2" : ""
+                  }`}
+                  placeholder="Enter custom category"
+                />
+                {errors.otherCategory && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.otherCategory}
+                  </p>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-[#0E2271] mb-2">
                 {t("form.priority")} *
@@ -523,6 +571,29 @@ export function NewMaintenancePage() {
                 ))}
               </select>
             </div>
+
+            {form.building === t("common.other") && (
+              <div>
+                <label className="block text-sm font-medium text-[#0E2271] mb-1">
+                  Please Specify Location *
+                </label>
+                <input
+                  type="text"
+                  value={form.otherLocation}
+                  onChange={(e) => update("otherLocation", e.target.value)}
+                  className={`modern-input ${
+                    errors.otherLocation ? "border-red-500 border-2" : ""
+                  }`}
+                  placeholder="Enter custom location"
+                />
+                {errors.otherLocation && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.otherLocation}
+                  </p>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-[#0E2271] mb-1">
                 {t("form.block")}
@@ -542,6 +613,29 @@ export function NewMaintenancePage() {
                 ))}
               </select>
             </div>
+
+            {form.block === t("common.other") && (
+              <div>
+                <label className="block text-sm font-medium text-[#0E2271] mb-1">
+                  Please Specify Block *
+                </label>
+                <input
+                  type="text"
+                  value={form.otherBlock}
+                  onChange={(e) => update("otherBlock", e.target.value)}
+                  className={`modern-input ${
+                    errors.otherBlock ? "border-red-500 border-2" : ""
+                  }`}
+                  placeholder="Enter custom block"
+                />
+                {errors.otherBlock && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.otherBlock}
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-[#0E2271] mb-1">
@@ -562,6 +656,29 @@ export function NewMaintenancePage() {
                   ))}
                 </select>
               </div>
+
+              {form.floor === t("common.other") && (
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="block text-sm font-medium text-[#0E2271] mb-1">
+                    Please Specify Floor *
+                  </label>
+                  <input
+                    type="text"
+                    value={form.otherFloor}
+                    onChange={(e) => update("otherFloor", e.target.value)}
+                    className={`modern-input ${
+                      errors.otherFloor ? "border-red-500 border-2" : ""
+                    }`}
+                    placeholder="Enter custom floor"
+                  />
+                  {errors.otherFloor && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.otherFloor}
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-[#0E2271] mb-1">
                   {t("form.space")}
@@ -616,11 +733,16 @@ export function NewMaintenancePage() {
             <div className="bg-secondary/50 rounded-xl p-4 space-y-3 text-sm">
               {[
                 [t("maintenance.requestTitle"), form.title],
-                [t("form.category"), form.category],
+                [t("form.category"), form.category === "Other" && form.otherCategory ? form.otherCategory : form.category],
                 [t("form.priority"), form.priority],
                 [
                   t("form.location"),
-                  [form.building, form.block, form.floor, form.roomArea]
+                  [
+                    form.building === t("common.other") && form.otherLocation ? form.otherLocation : form.building,
+                    form.block === t("common.other") && form.otherBlock ? form.otherBlock : form.block,
+                    form.floor === t("common.other") && form.otherFloor ? form.otherFloor : form.floor,
+                    form.roomArea
+                  ]
                     .filter(Boolean)
                     .join(" / ") || "—",
                 ],

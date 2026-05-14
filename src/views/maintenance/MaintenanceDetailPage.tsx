@@ -117,6 +117,9 @@ export function MaintenanceDetailPage() {
   const [assignMode, setAssignMode] = useState<"team" | "professional">("team");
   const [busy, setBusy] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [rejectingMaintenance, setRejectingMaintenance] = useState(false);
 
   useEffect(() => {
     const refresh = async () => {
@@ -397,6 +400,31 @@ export function MaintenanceDetailPage() {
     } catch (error) {
       console.error("Failed to save cost data:", error);
       alert("Failed to save cost data. Please try again.");
+    }
+  };
+
+  const handleReject = async () => {
+    if (!rejectionReason.trim()) {
+      alert("Please enter a rejection reason");
+      return;
+    }
+
+    setRejectingMaintenance(true);
+    try {
+      await apiRequest(`/api/maintenance/${maint.dbId}/reject`, {
+        method: "PATCH",
+        body: { reason: rejectionReason },
+      });
+      setShowRejectModal(false);
+      setRejectionReason("");
+      window.location.reload();
+    } catch (error) {
+      alert(
+        "Failed to reject maintenance: " +
+          (error instanceof Error ? error.message : "Unknown error"),
+      );
+    } finally {
+      setRejectingMaintenance(false);
     }
   };
 
@@ -900,30 +928,7 @@ export function MaintenanceDetailPage() {
                           <CheckCircle size={16} /> Approve
                         </button>
                         <button
-                          onClick={async () => {
-                            const reason = prompt(
-                              "Please enter the reason for rejection:",
-                            );
-                            if (reason !== null) {
-                              try {
-                                await apiRequest(
-                                  `/api/maintenance/${maint.dbId}/reject`,
-                                  {
-                                    method: "PATCH",
-                                    body: { reason },
-                                  },
-                                );
-                                window.location.reload();
-                              } catch (error) {
-                                alert(
-                                  "Failed to reject maintenance: " +
-                                    (error instanceof Error
-                                      ? error.message
-                                      : "Unknown error"),
-                                );
-                              }
-                            }
-                          }}
+                          onClick={() => setShowRejectModal(true)}
                           className="flex-1 py-2.5 rounded-lg text-[#CC1F1A] text-sm font-bold border-2 border-[#CC1F1A] hover:bg-red-50 transition-all flex items-center justify-center gap-2"
                         >
                           <ThumbsDown size={16} /> Reject
@@ -1102,30 +1107,7 @@ export function MaintenanceDetailPage() {
                       {t("maintenance.approveCompletion")}
                     </button>
                     <button
-                      onClick={async () => {
-                        const reason = prompt(
-                          "Please enter the reason for rejection:",
-                        );
-                        if (reason !== null) {
-                          try {
-                            await apiRequest(
-                              `/api/maintenance/${maint.dbId}/reject`,
-                              {
-                                method: "PATCH",
-                                body: { reason },
-                              },
-                            );
-                            window.location.reload();
-                          } catch (error) {
-                            alert(
-                              "Failed to reject maintenance: " +
-                                (error instanceof Error
-                                  ? error.message
-                                  : "Unknown error"),
-                            );
-                          }
-                        }
-                      }}
+                      onClick={() => setShowRejectModal(true)}
                       className="w-full py-2.5 rounded-lg text-[#CC1F1A] text-sm font-bold border-2 border-[#CC1F1A] hover:bg-red-50 transition-all flex items-center justify-center gap-2"
                     >
                       <ArrowLeft size={16} /> {t("maintenance.rejectToDiv")}
@@ -1494,6 +1476,47 @@ export function MaintenanceDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Rejection Reason Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 className="text-lg font-bold text-[#0E2271] mb-4">
+              Reject Maintenance
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Please provide a reason for rejecting this maintenance request. This will be
+              sent to the requester.
+            </p>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="Enter rejection reason..."
+              rows={4}
+              className="w-full px-3 py-2 border border-border rounded-lg resize-none focus:outline-none focus:border-[#CC1F1A] text-sm"
+            />
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setRejectionReason("");
+                }}
+                disabled={rejectingMaintenance}
+                className="flex-1 px-4 py-2 rounded-lg border-2 border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReject}
+                disabled={rejectingMaintenance || !rejectionReason.trim()}
+                className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {rejectingMaintenance ? "Rejecting..." : "Reject Maintenance"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

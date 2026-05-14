@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { format12Hour } from "@/lib/time-utils";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { getUserFacingStatus, WorkflowRole } from "@/lib/workflow";
 import { useDashboardData } from "@/hooks/use-queries";
@@ -536,7 +537,7 @@ export function DashboardPage() {
                       className="p-3 bg-purple-50 border border-purple-100 rounded-lg"
                     >
                       <p className="text-xs font-medium text-purple-800">
-                        {b.date} · {b.startTime}-{b.endTime}
+                        {b.date} · {format12Hour(b.startTime)}-{format12Hour(b.endTime)}
                       </p>
                       <p className="text-sm font-semibold text-purple-900 mt-0.5 line-clamp-1">
                         {b.space}

@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { format12Hour } from "@/lib/time-utils";
 import { Booking } from "../../types/models";
 import { StatusBadge } from "../../components/common/StatusBadge";
 import { WorkflowVisualizer } from "../../components/common/WorkflowVisualizer";
@@ -476,14 +477,14 @@ export default function BookingDetailPage({ id }: { id: string }) {
                     <DetailRow
                       icon={<Clock size={16} />}
                       label={t("bookings.startTime") || "Start Time"}
-                      value={booking.startTime}
+                      value={format12Hour(booking.startTime)}
                     />
                     <DetailRow
                       icon={<Clock size={16} />}
                       label={t("bookings.endTime") || "End Time"}
                       value={
                         booking.endTime !== booking.startTime
-                          ? booking.endTime
+                          ? format12Hour(booking.endTime)
                           : undefined
                       }
                     />

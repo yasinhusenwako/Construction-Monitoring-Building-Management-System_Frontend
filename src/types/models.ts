@@ -54,8 +54,8 @@ export interface Project {
   block?: string;
   floor?: string;
   budget: number;
-  startDate: string;
-  endDate: string;
+  startDate?: string;
+  endDate?: string;
   department?: string;
   contactPerson?: string;
   contactPhone?: string;

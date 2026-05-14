@@ -468,8 +468,6 @@ export function EditProjectPage() {
           errs.functionalDescription = t("validation.required");
         if (form.budget && Number(form.budget) <= 0)
           errs.budget = t("validation.positiveNumber");
-        if (!form.startDate) errs.startDate = t("validation.required");
-        if (!form.endDate) errs.endDate = t("validation.required");
         if (form.startDate && form.endDate && form.startDate >= form.endDate)
           errs.endDate = t("validation.endDateAfterStart");
       }
@@ -1220,7 +1218,7 @@ export function EditProjectPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-[#0E2271] mb-1">
-                      Desired Start Date *
+                      Desired Start Date
                     </label>
                     <DatePicker
                       value={form.startDate}
@@ -1238,7 +1236,7 @@ export function EditProjectPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-[#0E2271] mb-1">
-                      Desired Completion Date *
+                      Desired Completion Date
                     </label>
                     <DatePicker
                       value={form.endDate}

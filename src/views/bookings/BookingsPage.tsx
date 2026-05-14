@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { format12Hour } from "@/lib/time-utils";
 import {
   fetchLiveBookings,
   fetchLiveUsers,
@@ -987,7 +988,7 @@ export function BookingsPage() {
                           {booking.date}
                         </td>
                         <td className="px-4 py-3 text-xs text-muted-foreground">
-                          {booking.startTime} – {booking.endTime}
+                          {format12Hour(booking.startTime)} – {format12Hour(booking.endTime)}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
@@ -1141,11 +1142,11 @@ export function BookingsPage() {
                               ? "bg-red-100 text-red-800 border border-red-300"
                               : "bg-blue-100 text-blue-800 border border-blue-300"
                       }`}
-                      title={`${b.title} - ${b.space}\n${b.startTime} - ${b.endTime}`}
+                      title={`${b.title} - ${b.space}\n${format12Hour(b.startTime)} - ${format12Hour(b.endTime)}`}
                       onClick={() => router.push(`/dashboard/bookings/${b.id}`)}
                     >
                       <div className="truncate font-medium">
-                        {b.startTime}-{b.endTime}
+                        {format12Hour(b.startTime)}-{format12Hour(b.endTime)}
                       </div>
                       <div className="truncate text-[10px] opacity-90">
                         {b.space.split(" ").slice(0, 2).join(" ")}
