@@ -23,7 +23,8 @@ interface BackendProject {
   status: BackendStatus;
   createdBy: string;  // Backend now uses String (email for Keycloak, numeric string for legacy)
   assignedSupervisorId?: number | null;
-  assignedProfessionalId?: string | null;  // Changed to string to support both numeric IDs and emails
+  assignedProfessionalId?: string | null;  // DEPRECATED: Use assignedProfessionalIds instead
+  assignedProfessionalIds?: string | null;  // Comma-separated list of professional IDs
   location?: string;
   block?: string;
   floor?: string;
@@ -52,8 +53,10 @@ interface BackendBooking {
   status: BackendStatus;
   requester: string; // Backend now uses String (email for Keycloak, numeric string for legacy)
   assignedSupervisorId?: number | null;
-  assignedProfessionalId?: string | null;  // Changed to string to support both numeric IDs and emails
+  assignedProfessionalId?: string | null;  // DEPRECATED: Use assignedProfessionalIds instead
+  assignedProfessionalIds?: string | null;  // Comma-separated list of professional IDs
   dateTime: string;
+  endTime?: string;
   capacity?: number;
   layout?: string;     // space name (B2) or preferred location (B1)
   amenities?: string;  // may be structured JSON or plain text
@@ -73,7 +76,8 @@ interface BackendMaintenance {
   priority?: string;
   createdBy: string; // Backend now uses String (email for Keycloak, numeric string for legacy)
   assignedSupervisorId?: number | null;
-  assignedProfessionalId?: string | null;  // Changed to string to support both numeric IDs and emails
+  assignedProfessionalId?: string | null;  // DEPRECATED: Use assignedProfessionalIds instead
+  assignedProfessionalIds?: string | null;  // Comma-separated list of professional IDs
   divisionId?: string | null;  // Changed from number to string
   location?: string;
   building?: string;   // location compound part
@@ -274,6 +278,11 @@ export async function fetchLiveProjects(
         assignedTo: item.assignedProfessionalId
           ? userId(item.assignedProfessionalId)
           : undefined,
+        assignedToProfessionals: item.assignedProfessionalIds
+          ? item.assignedProfessionalIds.split(',').map(id => userId(id.trim()))
+          : item.assignedProfessionalId
+          ? [userId(item.assignedProfessionalId)]
+          : undefined,
         location: item.location || "N/A",
         block: item.block,
         floor: item.floor,
@@ -388,6 +397,11 @@ export async function fetchLiveBookings(
         assignedTo: item.assignedProfessionalId
           ? userId(item.assignedProfessionalId)
           : undefined,
+        assignedToProfessionals: item.assignedProfessionalIds
+          ? item.assignedProfessionalIds.split(',').map(id => userId(id.trim()))
+          : item.assignedProfessionalId
+          ? [userId(item.assignedProfessionalId)]
+          : undefined,
         date: dt.toISOString().slice(0, 10),
         startTime,
         endTime,
@@ -455,6 +469,11 @@ export async function fetchLiveMaintenance(
         requestedBy: userId(item.createdBy),
         assignedTo: item.assignedProfessionalId
           ? userId(item.assignedProfessionalId)
+          : undefined,
+        assignedToProfessionals: item.assignedProfessionalIds
+          ? item.assignedProfessionalIds.split(',').map(id => userId(id.trim()))
+          : item.assignedProfessionalId
+          ? [userId(item.assignedProfessionalId)]
           : undefined,
         supervisorId: item.assignedSupervisorId
           ? userId(item.assignedSupervisorId)

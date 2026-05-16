@@ -19,7 +19,8 @@ export type WorkflowActionModule = "PROJECT" | "BOOKING" | "MAINTENANCE";
 export type WorkflowActionUpdates = {
   supervisorId?: string;
   divisionId?: string;
-  assignedTo?: string;
+  assignedTo?: string; // DEPRECATED: Use assignedToProfessionals instead
+  assignedToProfessionals?: string[]; // NEW: Array of professional IDs
   notes?: string;
 };
 
@@ -115,19 +116,26 @@ export async function executeWorkflowAction(params: {
         params.nextStatus === "Assigned to Professionals" &&
         params.module !== "MAINTENANCE"
       ) {
-        if (!params.extraUpdates?.assignedTo) {
+        // Support both single and multiple professional assignment
+        const professionalIds = params.extraUpdates?.assignedToProfessionals || 
+                               (params.extraUpdates?.assignedTo ? [params.extraUpdates.assignedTo] : []);
+        
+        if (professionalIds.length === 0) {
           return fail(
             "validation",
-            "A professional must be selected before assigning this request.",
+            "At least one professional must be selected before assigning this request.",
           );
         }
 
-        await adminAssignProfessional({
-          module: params.module,
-          businessId: params.businessId,
-          requestId: params.requestId,
-          professionalId: params.extraUpdates.assignedTo,
-        });
+        // Assign all professionals (backend will handle multiple)
+        for (const professionalId of professionalIds) {
+          await adminAssignProfessional({
+            module: params.module,
+            businessId: params.businessId,
+            requestId: params.requestId,
+            professionalId: professionalId,
+          });
+        }
         return { ok: true };
       }
 
@@ -155,10 +163,14 @@ export async function executeWorkflowAction(params: {
 
     if (params.actorRole === "supervisor") {
       if (params.nextStatus === "Assigned to Professionals") {
-        if (!params.extraUpdates?.assignedTo) {
+        // Support both single and multiple professional assignment
+        const professionalIds = params.extraUpdates?.assignedToProfessionals || 
+                               (params.extraUpdates?.assignedTo ? [params.extraUpdates.assignedTo] : []);
+        
+        if (professionalIds.length === 0) {
           return fail(
             "validation",
-            "A professional must be selected before assigning this request.",
+            "At least one professional must be selected before assigning this request.",
           );
         }
 
@@ -170,13 +182,16 @@ export async function executeWorkflowAction(params: {
           );
         }
 
-        await supervisorAssignProfessional({
-          module: params.module,
-          businessId: params.businessId,
-          requestId: params.requestId,
-          professionalId: params.extraUpdates.assignedTo,
-          instructions,
-        });
+        // Assign all professionals (backend will handle multiple)
+        for (const professionalId of professionalIds) {
+          await supervisorAssignProfessional({
+            module: params.module,
+            businessId: params.businessId,
+            requestId: params.requestId,
+            professionalId: professionalId,
+            instructions,
+          });
+        }
         return { ok: true };
       }
 

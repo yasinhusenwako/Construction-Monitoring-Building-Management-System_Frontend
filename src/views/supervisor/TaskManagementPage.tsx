@@ -11,7 +11,9 @@ import {
   supervisorAssignProfessional,
   supervisorReviewRequest,
 } from "@/lib/live-api";
-import { AssignmentModal } from "./AssignmentModal";
+import { AssignProfessionalsDialog } from "@/components/maintenance/AssignProfessionalsDialog";
+import { ProfessionalChipsCompact } from "@/components/common/ProfessionalChips";
+import { useProfessionalsById } from "@/hooks/use-professionals";
 import { CompletionReportModal } from "./CompletionReportModal";
 import { AsyncState } from "@/components/common/AsyncState";
 import { StatusBadge, PriorityBadge } from "@/components/common/StatusBadge";
@@ -60,6 +62,102 @@ const typeTranslationKeys: Record<string, string> = {
   "Urgent Repair": "maintenance.urgentRepair",
 };
 
+// Task Row Component
+function TaskRow({
+  task,
+  copied,
+  onCopyId,
+  onAssign,
+  onReport,
+  translateType,
+  router,
+  t,
+}: {
+  task: any;
+  copied: string;
+  onCopyId: (id: string) => void;
+  onAssign: () => void;
+  onReport: () => void;
+  translateType: (type?: string) => string;
+  router: any;
+  t: any;
+}) {
+  const { professionals } = useProfessionalsById(task.assignedToProfessionals || []);
+  const detailPath = `/dashboard/maintenance/${task.id}`;
+
+  return (
+    <tr className="hover:bg-secondary/30 transition-colors">
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-1.5 whitespace-nowrap">
+          <span className="font-mono text-xs font-semibold text-[#7C3AED]">
+            {task.id}
+          </span>
+          <button
+            onClick={() => onCopyId(task.id)}
+            className="text-muted-foreground hover:text-[#7C3AED]"
+          >
+            {copied === task.id ? (
+              <CheckCircle size={11} className="text-green-500" />
+            ) : (
+              <Copy size={11} />
+            )}
+          </button>
+        </div>
+      </td>
+      <td className="px-4 py-3 max-w-xs">
+        <p className="text-sm font-medium text-foreground truncate">
+          {task.title}
+        </p>
+        <p className="text-xs text-muted-foreground truncate">
+          {task.description || ""}
+        </p>
+        {/* Display assigned professionals */}
+        {professionals.length > 0 && (
+          <div className="mt-1">
+            <ProfessionalChipsCompact professionals={professionals} maxDisplay={2} />
+          </div>
+        )}
+      </td>
+      <td className="px-4 py-3">
+        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+          {translateType(task.type)}
+        </span>
+      </td>
+      <td className="px-4 py-3">
+        <StatusBadge status={task.status} />
+      </td>
+      <td className="px-4 py-3">
+        <PriorityBadge priority={task.priority || "Medium"} />
+      </td>
+      <td className="px-4 py-3 text-xs text-muted-foreground">
+        {task.location || "-"}
+        {task.floor ? `, ${task.floor}` : ""}
+      </td>
+      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+        {task.createdAt.split("T")[0].split(" ")[0]}
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => router.push(detailPath)}
+            className="flex items-center gap-1 text-xs text-[#7C3AED] hover:underline font-medium"
+          >
+            <ExternalLink size={12} /> {t("action.view")}
+          </button>
+          {task.status === "Completed" && (
+            <button
+              onClick={onReport}
+              className="flex items-center gap-1 text-xs text-white px-2 py-1 rounded bg-[#0891B2] hover:bg-[#0e7490] font-medium"
+            >
+              <Send size={12} /> {t("supervisor.submitReport")}
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 export function TaskManagementPage() {
   const { currentUser } = useAuth();
   const { t } = useLanguage();
@@ -73,6 +171,8 @@ export function TaskManagementPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState("");
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<any | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -154,25 +254,27 @@ export function TaskManagementPage() {
     [normalizedUserDivision, users],
   );
 
-  const handleAssign = async (professionalId: string, instructions: string) => {
-    const task = myTasks.find((item) => item.id === assignTarget);
-    if (!task) return;
+  const handleAssign = async (professionalIds: string[], instructions: string) => {
+    if (!selectedTask) return;
 
     try {
+      // For now, assign to the first professional (backward compatible)
+      // TODO: Update backend API to accept multiple professional IDs
       await supervisorAssignProfessional({
         module: "MAINTENANCE",
-        businessId: task.id,
-        professionalId,
+        businessId: selectedTask.id,
+        professionalId: professionalIds[0], // Use first professional for now
         instructions,
       });
 
       setAllTasks((prev) =>
         prev.map((item) =>
-          item.id === task.id
+          item.id === selectedTask.id
             ? {
                 ...item,
                 status: "Assigned to Professionals",
-                assignedTo: professionalId,
+                assignedTo: professionalIds[0],
+                assignedToProfessionals: professionalIds, // Store all assigned professionals
                 updatedAt: new Date().toISOString(),
               }
             : item,
@@ -180,11 +282,13 @@ export function TaskManagementPage() {
       );
       setActionMsg(t("supervisor.action.assigned"));
       setTimeout(() => setActionMsg(""), 4000);
+      setShowAssignDialog(false);
+      setSelectedTask(null);
     } catch (error) {
       console.error("Assignment failed:", error);
       setActionMsg(t("common.error"));
+      throw error; // Re-throw to let dialog handle error display
     }
-    setAssignTarget(null);
   };
 
   const handleSubmitReport = async (id: string) => {
@@ -275,16 +379,18 @@ export function TaskManagementPage() {
 
   return (
     <div className="space-y-6">
-      {assignTarget && assignTargetTask && (
-        <AssignmentModal
-          ticketId={assignTarget}
-          ticketTitle={assignTargetTask.title}
-          professionals={approvedProfessionals}
-          activeTasks={allTasks}
-          onAssign={handleAssign}
-          onClose={() => setAssignTarget(null)}
-        />
-      )}
+      {/* Multiple Professional Assignment Dialog */}
+      <AssignProfessionalsDialog
+        isOpen={showAssignDialog}
+        onClose={() => {
+          setShowAssignDialog(false);
+          setSelectedTask(null);
+        }}
+        onAssign={handleAssign}
+        currentlyAssigned={selectedTask?.assignedToProfessionals || []}
+        divisionId={normalizedUserDivision || undefined}
+        title={`Assign Professionals - ${selectedTask?.title || ""}`}
+      />
 
       {reportTarget && (
         <CompletionReportModal
@@ -500,81 +606,21 @@ export function TaskManagementPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {filteredTasks.map((task) => {
-                  const assignee = users.find((user) => user.id === task.assignedTo);
-                  const detailPath = `/dashboard/maintenance/${task.id}`;
-
                   return (
-                    <tr
+                    <TaskRow
                       key={task.id}
-                      className="hover:bg-secondary/30 transition-colors"
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5 whitespace-nowrap">
-                          <span className="font-mono text-xs font-semibold text-[#7C3AED]">
-                            {task.id}
-                          </span>
-                          <button
-                            onClick={() => copyId(task.id)}
-                            className="text-muted-foreground hover:text-[#7C3AED]"
-                          >
-                            {copied === task.id ? (
-                              <CheckCircle size={11} className="text-green-500" />
-                            ) : (
-                              <Copy size={11} />
-                            )}
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 max-w-xs">
-                        <p className="text-sm font-medium text-foreground truncate">
-                          {task.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {task.description || ""}
-                        </p>
-                        {assignee && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                            <User size={10} /> {assignee.name}
-                          </p>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                          {translateType(task.type)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={task.status} />
-                      </td>
-                      <td className="px-4 py-3">
-                        <PriorityBadge priority={task.priority || "Medium"} />
-                      </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
-                        {task.location || "-"}
-                        {task.floor ? `, ${task.floor}` : ""}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                        {task.createdAt.split("T")[0].split(" ")[0]}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <button
-                            onClick={() => router.push(detailPath)}
-                            className="flex items-center gap-1 text-xs text-[#7C3AED] hover:underline font-medium"
-                          >
-                            <ExternalLink size={12} /> {t("action.view")}
-                          </button>
-                          {task.status === "Completed" && (
-                            <button
-                              onClick={() => setReportTarget(task.id)}
-                              className="flex items-center gap-1 text-xs text-white px-2 py-1 rounded bg-[#0891B2] hover:bg-[#0e7490] font-medium"
-                            >
-                              <Send size={12} /> {t("supervisor.submitReport")}
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                      task={task}
+                      copied={copied}
+                      onCopyId={copyId}
+                      onAssign={() => {
+                        setSelectedTask(task);
+                        setShowAssignDialog(true);
+                      }}
+                      onReport={() => setReportTarget(task.id)}
+                      translateType={translateType}
+                      router={router}
+                      t={t}
+                    />
                   );
                 })}
               </tbody>

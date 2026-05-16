@@ -451,6 +451,8 @@ export function NewProjectPage() {
           errs.otherSiteCondition = t("validation.required");
         if (!form.functionalDescription.trim())
           errs.functionalDescription = t("validation.required");
+        if (!form.startDate) errs.startDate = t("validation.required");
+        if (!form.endDate) errs.endDate = t("validation.required");
         if (form.budget && Number(form.budget) <= 0)
           errs.budget = t("validation.positiveNumber");
         if (form.startDate && form.endDate && form.startDate >= form.endDate)

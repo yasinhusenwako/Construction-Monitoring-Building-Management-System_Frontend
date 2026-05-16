@@ -47,7 +47,8 @@ export interface Project {
   classification: string;
   status: WorkflowStatus;
   requestedBy: string;
-  assignedTo?: string;
+  assignedTo?: string; // DEPRECATED: Use assignedToProfessionals instead
+  assignedToProfessionals?: string[]; // Array of professional IDs
   supervisorId?: string;
   workOrderId?: string;
   location: string;
@@ -86,7 +87,8 @@ export interface Booking {
   status: WorkflowStatus;
   requestedBy: string;
   supervisorId?: string;
-  assignedTo?: string;
+  assignedTo?: string; // DEPRECATED: Use assignedToProfessionals instead
+  assignedToProfessionals?: string[]; // Array of professional IDs
   workOrderId?: string;
   date: string;
   startTime: string;
@@ -129,7 +131,8 @@ export interface Maintenance {
   status: WorkflowStatus;
   priority: "Low" | "Medium" | "High" | "Critical";
   requestedBy: string;
-  assignedTo?: string;
+  assignedTo?: string; // DEPRECATED: Use assignedToProfessionals instead
+  assignedToProfessionals?: string[]; // Array of professional IDs
   supervisorId?: string;
   divisionId?: string;
   workOrderId?: string;
