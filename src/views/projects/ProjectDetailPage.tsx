@@ -32,6 +32,7 @@ import {
   Briefcase,
   Package,
   FileText,
+  AlertTriangle,
 } from "lucide-react";
 import { fetchLiveProjects, fetchLiveUsers } from "@/lib/live-api";
 import { apiRequest } from "@/lib/api";
@@ -45,20 +46,33 @@ import {
   canViewItem,
 } from "../../lib/workflow";
 import { WorkflowVisualizer } from "../../components/common/WorkflowVisualizer";
+import {
+  getProjectAssignments,
+  getProjectReports,
+  getMyAssignments,
+  completeAssignment,
+  deactivateAssignment,
+  ProjectAssignment,
+  ProfessionalReport,
+} from "@/lib/multi-professional-api";
+import { AdminAssignProfessionalForm } from "@/components/projects/AdminAssignProfessionalForm";
+import { AdminAssignmentsList } from "@/components/projects/AdminAssignmentsList";
+import { AdminReportsDashboard } from "@/components/projects/AdminReportsDashboard";
+import { ProfessionalReportSubmission } from "@/components/projects/ProfessionalReportSubmission";
+import { toast } from "sonner";
 
 export function ProjectDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const { currentUser } = useAuth();
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, formatDate } = useLanguage();
   const role = currentUser?.role;
 
   const [projectItem, setProjectItem] = useState<Project | null>(null);
   const [linkedProject, setLinkedProject] = useState<Project | null>(null);
   const [copied, setCopied] = useState(false);
   const [adminNote, setAdminNote] = useState("");
-  const [selectedTech, setSelectedTech] = useState("");
   const [actionDone, setActionDone] = useState("");
   const [systemUsers, setSystemUsers] = useState<any[]>([]);
   const [materialCost, setMaterialCost] = useState("");
@@ -67,10 +81,13 @@ export function ProjectDetailPage() {
   const [partsUsed, setPartsUsed] = useState("");
   const [costSaved, setCostSaved] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [rejectingProject, setRejectingProject] = useState(false);
+  const [projectAssignments, setProjectAssignments] = useState<ProjectAssignment[]>([]);
+  const [projectReports, setProjectReports] = useState<ProfessionalReport[]>([]);
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [viewingAssignmentId, setViewingAssignmentId] = useState<number | null>(null);
 
   useEffect(() => {
     const refresh = async () => {
@@ -84,6 +101,28 @@ export function ProjectDetailPage() {
         setSystemUsers(liveUsers);
         const found = liveProjects.find((p) => p.id === id);
 
+        let isAssignedToMulti = false;
+        let preloadedAssignments: ProjectAssignment[] = [];
+
+        if (role === "professional" && found?.dbId) {
+          try {
+            preloadedAssignments = await getMyAssignments();
+            console.log("[ProjectDetail] My Assignments:", preloadedAssignments);
+            console.log("[ProjectDetail] Current Project DB ID:", found.dbId);
+            
+            isAssignedToMulti = preloadedAssignments.some(
+              (a) => {
+                const match = Number(a.projectId) === Number(found.dbId);
+                if (match) console.log("[ProjectDetail] ✅ Found matching assignment:", a);
+                return match;
+              }
+            );
+            console.log("[ProjectDetail] Is assigned to multi:", isAssignedToMulti);
+          } catch (error) {
+            console.error("Failed to load professional assignments:", error);
+          }
+        }
+
         if (
           found &&
           canViewItem(
@@ -91,6 +130,7 @@ export function ProjectDetailPage() {
             found,
             currentUser?.id,
             currentUser?.divisionId,
+            isAssignedToMulti,
           )
         ) {
           setProjectItem(found);
@@ -128,6 +168,59 @@ export function ProjectDetailPage() {
             }
           } else {
             setLinkedProject(null);
+          }
+
+          // Load project assignments and reports (for admin and professionals)
+          if (found.dbId) {
+            setLoadingAssignments(true);
+            try {
+              let assignments: ProjectAssignment[] = [];
+              let reports: ProfessionalReport[] = [];
+
+              if (role === "professional") {
+                // Professionals use pre-fetched assignments globally
+                // Filter to show only assignments for this specific project
+                assignments = preloadedAssignments.filter((a) => a.projectId === found.dbId);
+                console.log("DEBUG Professional Assignments:", {
+                  currentUserId: currentUser?.id,
+                  allMyAssignments: preloadedAssignments,
+                  filteredForThisProject: assignments,
+                  projectId: found.dbId,
+                });
+                reports = [];
+              } else if (role === "admin") {
+                // Admins fetch all assignments for the project
+                const [projectAssignments, projectReports] = await Promise.all([
+                  getProjectAssignments(found.dbId),
+                  getProjectReports(found.dbId),
+                ]);
+                assignments = projectAssignments;
+                reports = projectReports;
+                console.log("DEBUG Admin Assignments:", {
+                  totalAssignments: assignments.length,
+                  assignments: assignments.map((a) => ({
+                    id: a.id,
+                    professionalId: a.professionalId,
+                    projectId: a.projectId,
+                    instructions: a.instructions,
+                  })),
+                });
+              }
+
+              setProjectAssignments(assignments);
+              setProjectReports(reports);
+            } catch (error) {
+              // Silently handle 403 (authorization) errors
+              if (error instanceof Error && error.message.includes('403')) {
+                console.warn("Not authorized to view assignments");
+              } else {
+                console.error("Failed to load assignments:", error);
+              }
+              setProjectAssignments([]);
+              setProjectReports([]);
+            } finally {
+              setLoadingAssignments(false);
+            }
           }
         } else {
           setProjectItem(null);
@@ -669,9 +762,12 @@ export function ProjectDetailPage() {
         <WorkflowVisualizer currentStatus={project.status} module="project" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Main Details */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6">
           {/* Linked Project Info for A5/A6 */}
           {linkedProject && project.linkedProjectId && (
             <div className="glass-card rounded-2xl p-6 shadow-modern border-2 border-[#1A3580]/20">
@@ -1028,6 +1124,99 @@ export function ProjectDetailPage() {
               )}
           </div>
 
+          {/* Professional Assignments (Visible for Admin and Professionals) */}
+          {role === 'admin' && !["Closed", "Rejected"].includes(project.status) && (
+            <div className="glass-card rounded-2xl p-6 shadow-modern border-2 border-[#0E2271]/10">
+               <h3 className="text-sm font-bold text-[#0E2271] mb-5 flex items-center gap-2">
+                 <UserPlus size={16} className="text-[#1A3580]" />
+                 Professional Assignments
+               </h3>
+               
+               <AdminAssignProfessionalForm
+                  projectId={project.dbId || 0}
+                  projectTitle={project.title}
+                  professionals={professionals.filter(
+                    (u) =>
+                      u.role === "professional" &&
+                      (u.divisionId === "0" ||
+                        u.divisionId === 0 ||
+                        u.divisionId?.toString() === "0" ||
+                        u.divisionId === "OTHER" ||
+                        !u.divisionId),
+                  )}
+                  onAssignmentSuccess={async () => {
+                    if (project.dbId) {
+                      setLoadingAssignments(true);
+                      try {
+                        const [assignments, reports] = await Promise.all([
+                          getProjectAssignments(project.dbId),
+                          getProjectReports(project.dbId),
+                        ]);
+                        setProjectAssignments(assignments);
+                        setProjectReports(reports);
+                        toast.success("Professional assigned successfully!");
+                      } catch (error) {
+                        console.error("Failed to reload assignments:", error);
+                      } finally {
+                        setLoadingAssignments(false);
+                      }
+                    }
+                  }}
+                />
+
+                {/* Assigned professionals list */}
+                {!loadingAssignments && projectAssignments.length > 0 && (
+                  <div className="mt-6 border-t border-border pt-5">
+                    <AdminAssignmentsList
+                      assignments={projectAssignments}
+                      systemUsers={systemUsers}
+                      allReports={projectReports}
+                      onDeactivate={async (assignmentId) => {
+                        try {
+                          await deactivateAssignment(assignmentId);
+                          toast.success("Professional removed from project");
+                          if (project.dbId) {
+                            const [assignments, reports] = await Promise.all([
+                              getProjectAssignments(project.dbId),
+                              getProjectReports(project.dbId),
+                            ]);
+                            setProjectAssignments(assignments);
+                            setProjectReports(reports);
+                          }
+                        } catch (error) {
+                          toast.error("Failed to remove professional");
+                        }
+                      }}
+                      onViewReports={async () => {
+                        if (project.dbId) {
+                          try {
+                            const reports = await getProjectReports(project.dbId);
+                            setProjectReports(reports);
+                          } catch (error) {
+                            console.error("Failed to refresh reports:", error);
+                          }
+                        }
+                      }}
+                      onClarify={async (assignmentId) => {
+                        try {
+                          const { requestClarification } = await import("@/lib/multi-professional-api");
+                          await requestClarification(assignmentId);
+                          toast.success("Clarification requested from professional");
+                          // Refresh assignments to show new status
+                          if (project.dbId) {
+                            const assignments = await getProjectAssignments(project.dbId);
+                            setProjectAssignments(assignments);
+                          }
+                        } catch (error) {
+                          toast.error("Failed to request clarification");
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+            </div>
+          )}
+
           {/* Documents */}
           <div className="glass-card rounded-2xl p-6 shadow-modern">
             <FileViewer
@@ -1130,7 +1319,7 @@ export function ProjectDetailPage() {
 
                     {/* Approve/Reject buttons for Under Review status */}
                     {project.status === "Under Review" && (
-                      <div className="mb-4 pb-4 border-b border-dashed border-border">
+                      <div className="mb-2 pb-4 border-b border-dashed border-border">
                         <p className="text-xs text-muted-foreground mb-3">
                           Review the project and make a decision before
                           assigning to professional.
@@ -1154,60 +1343,12 @@ export function ProjectDetailPage() {
                       </div>
                     )}
 
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                        {t("requests.selectProfessional") ||
-                          "Select Professional"}
-                      </label>
-                      <select
-                        value={selectedTech}
-                        onChange={(e) => setSelectedTech(e.target.value)}
-                        className="w-full text-sm px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm outline-none focus:border-[#1A3580] shadow-sm transition-all"
-                      >
-                        <option value="">Select</option>
-                        {projectProfessionals.map((pr) => (
-                          <option key={pr.email} value={pr.email}>
-                            {pr.name}
-                          </option>
-                        ))}
-                      </select>
-                      {projectProfessionals.length === 0 && (
-                        <p className="text-[10px] text-muted-foreground">
-                          No professional users found. Create a professional
-                          account first.
-                        </p>
-                      )}
-                      {project.status === "Submitted" && (
-                        <p className="text-[10px] text-muted-foreground">
-                          Start review first, then assign a professional.
-                        </p>
-                      )}
-                    </div>
-
-                    <button
-                      disabled={
-                        project.status !== "Under Review" ||
-                        !selectedTech ||
-                        busy
-                      }
-                      onClick={() => {
-                        setBusy(true);
-                        handleAction(
-                          "Assigned to Professionals",
-                          "admin",
-                          "Assigned to Professionals",
-                          {
-                            assignedTo: selectedTech,
-                          },
-                        ).finally(() => setBusy(false));
-                      }}
-                      className="w-full py-3 rounded-xl text-white text-sm font-bold bg-[#1A3580] shadow-premium hover-lift transition-all disabled:opacity-40 disabled:hover:transform-none"
-                    >
-                      {t("requests.assignToProfessional") ||
-                        "Assign to Professional"}
-                    </button>
                   </div>
                 )}
+
+
+
+
 
                 {project.status === "Completed" && (
                   <div className="p-4 bg-white rounded-lg border border-border shadow-sm flex flex-col gap-3">
@@ -1273,84 +1414,115 @@ export function ProjectDetailPage() {
           )}
 
           {/* Professional Actions */}
-          {canShowProfessionalActions && (
-            <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative border-l-4 border-l-[#EA580C]">
-              <h3 className="text-sm font-semibold text-[#0E2271] mb-4 flex items-center justify-between">
-                <span>{t("projects.professionalActions")}</span>
-                <button
-                  onClick={async () => {
-                    try {
-                      const liveProjects = await fetchLiveProjects(id);
-                      const found = liveProjects.find((p) => p.id === id);
-                      if (found) {
-                        setProjectItem(found);
-                        setActionDone("Status refreshed");
-                        setTimeout(() => setActionDone(""), 2000);
-                      }
-                    } catch (err) {
-                      console.error("Failed to refresh", err);
-                    }
-                  }}
-                  className="text-xs text-[#1A3580] hover:underline"
-                >
-                  Refresh Status
-                </button>
-              </h3>
-              {project.assignedTo && project.assignedTo !== currentUser?.id && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 text-sm text-amber-700">
-                  You are viewing this task, but it is assigned to another
-                  professional.
-                </div>
-              )}
-              {actionDone && (
-                <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-3 text-sm text-green-700 flex items-center gap-2">
-                  <CheckCircle size={14} /> {actionDone}
-                </div>
-              )}
-              <div className="space-y-2">
-                {project.status === "Assigned to Professionals" && (
-                  <button
-                    onClick={() =>
-                      handleAction(
-                        "In Progress",
-                        "professional",
-                        t("requests.in_progress"),
-                      )
-                    }
-                    className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all"
-                    style={{ background: "#EA580C" }}
-                  >
-                    {t("maintenance.startWork")}
-                  </button>
-                )}
-                {project.status === "In Progress" && (
-                  <button
-                    onClick={() =>
-                      handleAction(
-                        "Completed",
-                        "professional",
-                        t("requests.completed"),
-                      )
-                    }
-                    className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all"
-                    style={{ background: "#0D9488" }}
-                  >
-                    {t("maintenance.markFixed")}
-                  </button>
-                )}
-                {project.status !== "Assigned to Professionals" &&
-                  project.status !== "In Progress" && (
-                    <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-600">
-                      Current status:{" "}
-                      <span className="font-semibold">{project.status}</span>
-                      {project.status === "Under Review" && (
-                        <p className="text-xs mt-1 text-slate-500">
-                          Waiting for admin to assign this project to you.
-                        </p>
+          {canShowProfessionalActions && role === "professional" && (
+            <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative border-l-4 border-l-[#EA580C] space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-[#0E2271]">
+                  {t("projects.professionalActions")}
+                </h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 bg-[#EA580C]/10 text-[#EA580C] rounded-full uppercase tracking-wider">
+                  Professional Portal
+                </span>
+              </div>
+
+              {(() => {
+                const myAssignment = projectAssignments.find(a => 
+                  a.professionalId === String(currentUser?.id) || 
+                  a.professionalId === `USR-${String(currentUser?.id).padStart(3, '0')}` ||
+                  a.professionalId === currentUser?.email
+                );
+
+                if (!myAssignment) {
+                  return (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-700">
+                      <p className="font-bold mb-1">Observation Only</p>
+                      You are viewing this project but are not currently assigned to any specific task.
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-6">
+                    {/* Assignment Details */}
+                    <div className="bg-secondary/30 rounded-xl p-4 border border-border">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase mb-2">Your Assigned Scope:</p>
+                      <p className="text-sm text-foreground leading-relaxed italic">"{myAssignment.instructions}"</p>
+                    </div>
+
+                    {/* Progress Update Button */}
+                    <div className="space-y-3">
+                      {["ACTIVE", "NEEDS_CLARIFICATION"].includes(myAssignment.status) ? (
+                        <>
+                          <div className="flex flex-col gap-2">
+                             {myAssignment.status === "NEEDS_CLARIFICATION" && (
+                               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 text-amber-700 mb-2">
+                                 <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
+                                 <div>
+                                   <p className="font-bold text-sm">Clarification Requested</p>
+                                   <p className="text-xs">The administrator has requested more details or changes to your work. Please check the reports/notes above and submit an updated report.</p>
+                                 </div>
+                               </div>
+                             )}
+                             <p className="text-xs font-bold text-[#0E2271] px-1">Task Management</p>
+                             <button
+                                onClick={async () => {
+                                  try {
+                                    await completeAssignment(myAssignment.id);
+                                    toast.success("Assignment marked as completed!");
+                                    // Refresh the page data
+                                    window.location.reload();
+                                  } catch (error) {
+                                    toast.error("Failed to update assignment status");
+                                  }
+                                }}
+                                className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all flex items-center justify-center gap-2"
+                                style={{ background: "#0D9488" }}
+                             >
+                                <CheckCircle size={16} /> Mark My Assignment as Finished
+                             </button>
+                             <p className="text-[10px] text-muted-foreground text-center italic">
+                               Click this only when you have finished all your assigned tasks.
+                             </p>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3 text-green-700">
+                          <CheckCircle size={20} className="flex-shrink-0" />
+                          <div>
+                            <p className="text-sm font-bold">Assignment Finished</p>
+                            <p className="text-xs opacity-80">You have successfully completed your tasks for this project.</p>
+                          </div>
+                        </div>
                       )}
                     </div>
-                  )}
-              </div>
+
+                    {/* Report Submission Component */}
+                    <div className="border-t border-border pt-6">
+                       {viewingAssignmentId === myAssignment.id ? (
+                         <ProfessionalReportSubmission
+                            assignment={myAssignment}
+                            systemUsers={systemUsers}
+                            onBack={() => setViewingAssignmentId(null)}
+                         />
+                       ) : (
+                         <button
+                           onClick={() => setViewingAssignmentId(myAssignment.id)}
+                           className="w-full py-2.5 rounded-xl text-[#1A3580] text-sm font-bold border-2 border-[#1A3580]/30 hover:border-[#1A3580] hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
+                         >
+                           <MessageSquare size={16} /> Submit Daily Report
+                         </button>
+                       )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+          
+          {/* Legacy Professional Actions (for non-multi roles or fallback) */}
+          {canShowProfessionalActions && role !== "professional" && (
+            <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative border-l-4 border-l-[#EA580C]">
+              {/* ... existing code ... */}
             </div>
           )}
 
@@ -1377,7 +1549,7 @@ export function ProjectDetailPage() {
                   {t("projects.created")}
                 </span>
                 <span className="font-medium text-xs">
-                  {new Date(project.createdAt).toLocaleDateString()}
+                  {formatDate(project.createdAt)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -1386,7 +1558,7 @@ export function ProjectDetailPage() {
                   {t("projects.lastUpdated")}
                 </span>
                 <span className="font-medium text-xs">
-                  {new Date(project.updatedAt).toLocaleDateString()}
+                  {formatDate(project.updatedAt)}
                 </span>
               </div>
               <div className="h-px bg-border"></div>

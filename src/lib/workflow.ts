@@ -214,6 +214,7 @@ export function canViewItem(
   item: WorkflowItem,
   userId?: string,
   userDivisionId?: string,
+  isAssignedToMultiProfessionalProject?: boolean,
 ): boolean {
   if (!role) return false;
   if (role === "admin") return true;
@@ -241,6 +242,13 @@ export function canViewItem(
       item.supervisorId === userId ||
       (!!userDivisionId && norm(item.divisionId) === norm(userDivisionId))
     );
+  }
+
+  // Professionals can view if:
+  // 1. They're the single assignee (assignedTo)
+  // 2. They're assigned via multi-professional system
+  if (role === "professional") {
+    return item.assignedTo === userId || isAssignedToMultiProfessionalProject === true;
   }
 
   return item.assignedTo === userId;

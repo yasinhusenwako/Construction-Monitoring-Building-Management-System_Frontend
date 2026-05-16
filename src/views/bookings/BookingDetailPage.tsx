@@ -37,7 +37,7 @@ import { executeWorkflowAction } from "@/lib/workflow-actions";
 export default function BookingDetailPage({ id }: { id: string }) {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const { t } = useLanguage();
+  const { t, formatDate } = useLanguage();
   const role = currentUser?.role || "user";
 
   const [booking, setBooking] = useState<Booking | null>(null);

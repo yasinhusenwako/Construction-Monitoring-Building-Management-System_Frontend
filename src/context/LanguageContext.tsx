@@ -7,6 +7,9 @@ import React, {
   useEffect,
   ReactNode,
 } from "react";
+import { formatDate as formatDateWithCalendar } from "@/lib/ethiopian-calendar";
+import enMessages from "@/locales/en.json";
+import amMessages from "@/locales/am.json";
 
 type Language = "en" | "am";
 
@@ -14,14 +17,18 @@ interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   t: (key: string, args?: Record<string, string | number>) => string;
+  formatDate: (
+    date: Date | string,
+    options?: { format?: "short" | "long"; includeTime?: boolean }
+  ) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-// Flat JSON message store
+// Static message imports
 const messageCache: Record<Language, Record<string, string>> = {
-  en: {},
-  am: {},
+  en: enMessages as Record<string, string>,
+  am: amMessages as Record<string, string>,
 };
 
 function resolve(messages: Record<string, string>, key: string, args?: Record<string, string | number>): string {
@@ -31,36 +38,42 @@ function resolve(messages: Record<string, string>, key: string, args?: Record<st
   return val.replace(/\{(\w+)\}/g, (_, k) => String(args[k] ?? `{${k}}`));
 }
 
-async function loadMessages(lang: Language): Promise<Record<string, string>> {
-  if (Object.keys(messageCache[lang]).length > 0) return messageCache[lang];
-  const mod = await import(`../locales/${lang}.json`);
-  messageCache[lang] = mod.default as Record<string, string>;
+function loadMessages(lang: Language): Record<string, string> {
   return messageCache[lang];
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLang] = useState<Language>("en");
-  const [messages, setMessages] = useState<Record<string, string>>({});
+  const [messages, setMessages] = useState<Record<string, string>>(
+    messageCache.en
+  );
 
   useEffect(() => {
     const stored = (localStorage.getItem("locale") as Language) || "en";
     const lang: Language = stored === "am" ? "am" : "en";
     setLang(lang);
-    loadMessages(lang).then(setMessages);
+    setMessages(loadMessages(lang));
   }, []);
 
   const setLanguage = (lang: Language) => {
     setLang(lang);
     localStorage.setItem("locale", lang);
-    loadMessages(lang).then(setMessages);
+    setMessages(loadMessages(lang));
   };
 
   const t = (key: string, args?: Record<string, string | number>): string => {
     return resolve(messages, key, args);
   };
 
+  const formatDate = (
+    date: Date | string,
+    options?: { format?: "short" | "long"; includeTime?: boolean }
+  ): string => {
+    return formatDateWithCalendar(date, language, options);
+  };
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t, formatDate }}>
       {children}
     </LanguageContext.Provider>
   );

@@ -1,4 +1,5 @@
 "use client";
+import { useKeycloakAuth } from "@/contexts/KeycloakAuthContext";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-client";
@@ -24,6 +25,7 @@ import {
   markNotificationAsRead,
   markAllNotificationsAsRead,
 } from "@/lib/live-api";
+import { getMyAssignments } from "@/lib/multi-professional-api";
 import { showErrorToast, showSuccessToast } from "@/lib/error-handler";
 
 // Projects
@@ -230,12 +232,24 @@ export function useReports() {
   });
 }
 
+// Professional Assignments
+export function useMyAssignments() {
+  const { isProfessional } = useKeycloakAuth();
+  return useQuery({
+    queryKey: ['professional', 'assignments', 'my'],
+    queryFn: getMyAssignments,
+    enabled: typeof window !== "undefined" && isProfessional(),
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
 // Combined dashboard data
 export function useDashboardData() {
   const projects = useProjects();
   const bookings = useBookings();
   const maintenance = useMaintenance();
   const notifications = useNotifications();
+  const myAssignments = useMyAssignments();
 
   // Only consider it loading if ALL queries are loading
   // This allows partial data to be shown
@@ -265,6 +279,7 @@ export function useDashboardData() {
       bookings: bookings.data ?? [],
       maintenance: maintenance.data ?? [],
       notifications: notifications.data ?? [],
+      myAssignments: myAssignments.data ?? [],
     },
     isLoading,
     isError,
@@ -274,6 +289,7 @@ export function useDashboardData() {
       bookings.refetch();
       maintenance.refetch();
       notifications.refetch();
+      myAssignments.refetch();
     },
     // Add individual loading states for debugging
     loadingStates: {
@@ -281,6 +297,7 @@ export function useDashboardData() {
       bookings: bookings.isLoading,
       maintenance: maintenance.isLoading,
       notifications: notifications.isLoading,
+      myAssignments: myAssignments.isLoading,
     },
     // Add individual error states for debugging
     errorStates: {
@@ -288,6 +305,7 @@ export function useDashboardData() {
       bookings: bookings.isError,
       maintenance: maintenance.isError,
       notifications: notifications.isError,
+      myAssignments: myAssignments.isError,
     },
   };
 }

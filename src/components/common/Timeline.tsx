@@ -18,6 +18,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { WorkflowRole, WorkflowStatus } from "@/lib/workflow";
+import { useLanguage } from "@/context/LanguageContext";
 
 export interface TimelineEvent {
   id: string;
@@ -175,14 +176,24 @@ function getStatusConfig(action: string): {
   };
 }
 
-function formatTimestamp(ts: string): { date: string; time: string } {
+function formatTimestamp(ts: string, language: "en" | "am"): { date: string; time: string } {
   const d = new Date(ts);
-  return {
-    date: d.toLocaleDateString("en-US", {
+  
+  let dateStr: string;
+  if (language === "am") {
+    // Use Ethiopian calendar
+    const { formatDate } = require("@/lib/ethiopian-calendar");
+    dateStr = formatDate(d, "am", { format: "short" });
+  } else {
+    dateStr = d.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
-    }),
+    });
+  }
+  
+  return {
+    date: dateStr,
     time: d.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
@@ -196,6 +207,8 @@ export function Timeline({
   emptyMessage = "No activity recorded yet",
   userRole,
 }: TimelineProps) {
+  const { language } = useLanguage();
+  
   // Sort oldest → newest so the timeline reads top-to-bottom chronologically
   const sorted = [...(events ?? [])].sort(
     (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
@@ -235,7 +248,7 @@ export function Timeline({
           {sorted.map((event, i) => {
             const displayAction = getDisplayAction(event.action);
             const cfg = getStatusConfig(displayAction);
-            const { date, time } = formatTimestamp(event.timestamp);
+            const { date, time } = formatTimestamp(event.timestamp, language);
             const isLast = i === sorted.length - 1;
 
             return (

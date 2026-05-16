@@ -88,6 +88,7 @@ export function DashboardPage() {
     bookings,
     maintenance: maintenanceItems,
     notifications,
+    myAssignments,
   } = data;
 
   // Compute stats
@@ -129,9 +130,17 @@ export function DashboardPage() {
 
   const allSystemTasks = [...maintenanceItems, ...projects, ...bookings];
 
-  const assignedTasks = allSystemTasks.filter(
-    (m: { assignedTo?: string }) => m.assignedTo === uid,
+  // Combine projects from legacy field and multi-assignment system
+  const assignedProjects = projects.filter(p => 
+    p.assignedTo === uid || 
+    (myAssignments && myAssignments.some((ma: any) => ma.projectId === p.dbId))
   );
+
+  const assignedTasks = [
+    ...maintenanceItems.filter(m => m.assignedTo === uid),
+    ...bookings.filter(b => b.assignedTo === uid),
+    ...assignedProjects
+  ];
 
   const supervisorTasks = allSystemTasks.filter(
     (m: { supervisorId?: string; divisionId?: string; status: string }) =>

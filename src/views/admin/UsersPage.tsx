@@ -117,19 +117,23 @@ export function UsersPage() {
   });
 
   const getDivisionName = (user: User) => {
-    // Handle "other" division (case-insensitive)
-    if (user.divisionId && user.divisionId.toLowerCase() === "other") {
+    // Handle "other" division (case-insensitive and trimmed)
+    const divId = Array.isArray(user.divisionId) ? user.divisionId[0] : user.divisionId;
+    const normalizedDivId = divId?.toString().trim().toLowerCase();
+    
+    if (normalizedDivId === "other") {
       return "Other (Project/Booking)";
     }
+    
     // Handle standard divisions (1, 2, 3)
-    if (user.divisionId) {
-      const division = divisions.find((d) => d.id === user.divisionId);
+    if (divId) {
+      const division = divisions.find((d) => d.id === divId.toString());
       if (division) {
         return division.name;
       }
       // If divisionId exists but no matching division found, show the ID
-      console.warn(`Division not found for divisionId: ${user.divisionId}`);
-      return `Division ${user.divisionId}`;
+      console.warn(`Division not found for divisionId: ${divId}`);
+      return `Division ${divId}`;
     }
     // No division assigned
     return "";
@@ -137,20 +141,20 @@ export function UsersPage() {
 
   const openEdit = (user: User) => {
     setEditUser(user);
-    const knownDivisionId =
-      user.divisionId || divisions.find((d) => d.name === user.department)?.id;
-    const divisionId =
-      knownDivisionId ||
-      (user.role === "professional" &&
-      user.department === "Other (Project/Booking)"
-        ? PROFESSIONAL_OTHER_DIVISION_ID
-        : "");
+    const rawDivId = Array.isArray(user.divisionId) ? user.divisionId[0] : user.divisionId;
+    const divId =
+      rawDivId || divisions.find((d) => d.name === user.department)?.id;
+    
+    const isOther = divId?.toString().trim().toLowerCase() === "other";
+    
+    const resolvedDivisionId =
+      isOther ? PROFESSIONAL_OTHER_DIVISION_ID : (divId || "");
     setForm({
       name: user.name,
       email: user.email,
       phone: user.phone,
       department: user.department,
-      divisionId,
+      divisionId: resolvedDivisionId,
       profession: user.role === "professional" ? user.profession || "" : "",
       role: user.role as any,
       status: user.status as any,

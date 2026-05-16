@@ -93,7 +93,7 @@ export function MaintenanceDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const { currentUser } = useAuth();
-  const { t } = useLanguage();
+  const { t, formatDate } = useLanguage();
   const router = useRouter();
   const role = currentUser?.role;
 
@@ -1502,7 +1502,7 @@ export function MaintenanceDetailPage() {
                   {t("maintenance.created_label")}
                 </span>
                 <span className="font-medium text-xs">
-                  {new Date(maint.createdAt).toLocaleDateString()}
+                  {formatDate(maint.createdAt)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -1511,7 +1511,7 @@ export function MaintenanceDetailPage() {
                   {t("maintenance.lastUpdated")}
                 </span>
                 <span className="font-medium text-xs">
-                  {new Date(maint.updatedAt).toLocaleDateString()}
+                  {formatDate(maint.updatedAt)}
                 </span>
               </div>
               <div className="h-px bg-border"></div>

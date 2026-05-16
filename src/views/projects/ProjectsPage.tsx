@@ -42,6 +42,7 @@ export function ProjectsPage() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [copied, setCopied] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
+  const [myAssignmentProjectIds, setMyAssignmentProjectIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     // Only run if we have a user ID
@@ -62,6 +63,19 @@ export function ProjectsPage() {
         const live = await fetchLiveProjects();
         console.log("[ProjectsPage] Received projects:", live.length, live);
         setProjects(live);
+
+        // If professional, fetch their multi-professional assignments
+        if (role === "professional") {
+          try {
+            const { getMyAssignments } = await import("@/lib/multi-professional-api");
+            const assignments = await getMyAssignments();
+            const projectIds = new Set(assignments.map((a) => a.projectId));
+            setMyAssignmentProjectIds(projectIds);
+            console.log("[ProjectsPage] Professional assignments:", projectIds);
+          } catch (error) {
+            console.error("[ProjectsPage] Failed to fetch professional assignments:", error);
+          }
+        }
       } catch (error) {
         console.error("[ProjectsPage] Failed to fetch projects:", error);
         // If authentication error, ProtectedRoute will handle it
@@ -76,11 +90,13 @@ export function ProjectsPage() {
   ];
 
   const filtered = projects.filter((p) => {
+    const isAssignedViaMultiProfessional = myAssignmentProjectIds.has(p.dbId || 0);
     const matchesRole = canViewItem(
       role as WorkflowRole | undefined,
       p,
       currentUser?.id,
       currentUser?.divisionId,
+      isAssignedViaMultiProfessional,
     );
 
     const matchesSearch =
@@ -88,6 +104,16 @@ export function ProjectsPage() {
       p.title.toLowerCase().includes(search.toLowerCase()) ||
       p.id.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "All" || p.status === statusFilter;
+    
+    console.log(`[ProjectsPage] Filtering project ${p.id}:`, {
+      dbId: p.dbId,
+      isAssignedViaMultiProfessional,
+      matchesRole,
+      matchesSearch,
+      matchesStatus,
+      willShow: matchesRole && matchesSearch && matchesStatus,
+    });
+    
     return matchesRole && matchesSearch && matchesStatus;
   });
 

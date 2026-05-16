@@ -2,6 +2,12 @@
 
 import { useState, useRef, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
+import {
+  gregorianToEthiopian,
+  getEthiopianMonths,
+  type EthiopianDate,
+} from "@/lib/ethiopian-calendar";
 
 interface DatePickerProps {
   value: string; // YYYY-MM-DD
@@ -14,6 +20,7 @@ interface DatePickerProps {
 }
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const WEEKDAYS_AM = ["እ", "ሰ", "ማ", "ሮ", "ሐ", "ዓ", "ቅ"]; // Amharic weekdays (እሁድ, ሰኞ, ማክሰኞ, ሮብ, ሐሙስ, ዓርብ, ቅዳሜ)
 const MONTHS = [
   "January",
   "February",
@@ -29,16 +36,52 @@ const MONTHS = [
   "December",
 ];
 
+// Helper functions for Ethiopian calendar
+function ethiopianToGregorian(ethDate: EthiopianDate): Date {
+  // Ethiopian year -7 or -8 = Gregorian year
+  let gYear = ethDate.year + 8;
+  let gMonth = 8; // Start from September
+  let gDay = ethDate.day;
+
+  // Convert month to day of year offset
+  let dayOfYear = (ethDate.month - 1) * 30 + ethDate.day;
+
+  // Calculate from September 11/12
+  const ethNewYearDay = isGregorianLeapYear(gYear - 1) ? 12 : 11;
+  let gregorianDate = new Date(gYear, 8, ethNewYearDay);
+
+  // Add days
+  gregorianDate.setDate(gregorianDate.getDate() + dayOfYear - 1);
+
+  return gregorianDate;
+}
+
+function isGregorianLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
 function parseDate(str: string): Date | null {
   if (!str) return null;
   const [y, m, d] = str.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
 
-function formatDisplay(str: string): string {
+function formatDisplay(str: string, language: "en" | "am"): string {
   if (!str) return "";
-  const [y, m, d] = str.split("-").map(Number);
-  return `${MONTHS[m - 1]} ${d}, ${y}`;
+  const date = parseDate(str);
+  if (!date) return "";
+
+  if (language === "am") {
+    // Display in Ethiopian calendar
+    const ethDate = gregorianToEthiopian(date);
+    const ethMonths = getEthiopianMonths();
+    const monthName = ethMonths[ethDate.month - 1] || "";
+    return `${monthName} ${ethDate.day}, ${ethDate.year}`;
+  } else {
+    // Display in Gregorian calendar
+    const [y, m, d] = str.split("-").map(Number);
+    return `${MONTHS[m - 1]} ${d}, ${y}`;
+  }
 }
 
 function toYMD(date: Date): string {
@@ -56,13 +99,34 @@ export function DatePicker({
   minDate,
   bookedDates = [],
 }: DatePickerProps) {
+  const { language } = useLanguage();
+  const isEthiopian = language === "am";
+  const ethMonths = isEthiopian ? getEthiopianMonths() : [];
+  const displayMonths = isEthiopian ? ethMonths : MONTHS;
+  const displayWeekdays = isEthiopian ? WEEKDAYS_AM : WEEKDAYS;
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  // If showing Ethiopian calendar, convert today to Ethiopian date for display
+  let viewingEthDate: EthiopianDate | null = null;
+  if (isEthiopian) {
+    viewingEthDate = gregorianToEthiopian(today);
+  }
+
   const initDate = parseDate(value) || today;
+  let initEthDate: EthiopianDate | null = null;
+  if (isEthiopian) {
+    initEthDate = gregorianToEthiopian(initDate);
+  }
+
   const [open, setOpen] = useState(false);
-  const [viewYear, setViewYear] = useState(initDate.getFullYear());
-  const [viewMonth, setViewMonth] = useState(initDate.getMonth());
+  const [viewYear, setViewYear] = useState(
+    isEthiopian ? initEthDate!.year : initDate.getFullYear()
+  );
+  const [viewMonth, setViewMonth] = useState(
+    isEthiopian ? initEthDate!.month - 1 : initDate.getMonth()
+  );
   const [yearPickerOpen, setYearPickerOpen] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -72,11 +136,17 @@ export function DatePicker({
     if (value) {
       const d = parseDate(value);
       if (d) {
-        setViewYear(d.getFullYear());
-        setViewMonth(d.getMonth());
+        if (isEthiopian) {
+          const ethDate = gregorianToEthiopian(d);
+          setViewYear(ethDate.year);
+          setViewMonth(ethDate.month - 1);
+        } else {
+          setViewYear(d.getFullYear());
+          setViewMonth(d.getMonth());
+        }
       }
     }
-  }, [value]);
+  }, [value, isEthiopian]);
 
   // Close on outside click
   useEffect(() => {
@@ -95,26 +165,58 @@ export function DatePicker({
 
   const minD = minDate ? parseDate(minDate) : null;
 
-  const getDaysInMonth = (year: number, month: number) =>
-    new Date(year, month + 1, 0).getDate();
-  const getFirstDayOfMonth = (year: number, month: number) =>
-    new Date(year, month, 1).getDay();
+  // Month calculations differ for Ethiopian calendar
+  const getDaysInMonth = (year: number, month: number): number => {
+    if (isEthiopian) {
+      // Ethiopian months 1-12 have 30 days, month 13 has 5 or 6 days
+      if (month === 12) {
+        // Pagumen - check for leap year
+        return isGregorianLeapYear(year + 8) ? 6 : 5;
+      }
+      return 30;
+    } else {
+      return new Date(year, month + 1, 0).getDate();
+    }
+  };
+
+  const getFirstDayOfMonth = (year: number, month: number): number => {
+    if (isEthiopian) {
+      // Convert Ethiopian month to Gregorian date to get first day
+      const ethDate: EthiopianDate = { year, month: month + 1, day: 1 };
+      const gregDate = ethiopianToGregorian(ethDate);
+      return gregDate.getDay();
+    } else {
+      return new Date(year, month, 1).getDay();
+    }
+  };
 
   const prevMonth = () => {
     if (viewMonth === 0) {
-      setViewMonth(11);
+      setViewMonth(isEthiopian ? 11 : 11);
       setViewYear((y) => y - 1);
     } else setViewMonth((m) => m - 1);
   };
+
   const nextMonth = () => {
-    if (viewMonth === 11) {
+    const maxMonth = isEthiopian ? 12 : 11;
+    if (viewMonth === maxMonth) {
       setViewMonth(0);
       setViewYear((y) => y + 1);
     } else setViewMonth((m) => m + 1);
   };
 
   const selectDay = (day: number) => {
-    const date = new Date(viewYear, viewMonth, day);
+    let date: Date;
+    if (isEthiopian) {
+      const ethDate: EthiopianDate = {
+        year: viewYear,
+        month: viewMonth + 1,
+        day,
+      };
+      date = ethiopianToGregorian(ethDate);
+    } else {
+      date = new Date(viewYear, viewMonth, day);
+    }
     onChange(toYMD(date));
     setOpen(false);
     setYearPickerOpen(false);
@@ -123,30 +225,71 @@ export function DatePicker({
   const isSelected = (day: number) => {
     if (!value) return false;
     const sel = parseDate(value);
-    return (
-      sel?.getFullYear() === viewYear &&
-      sel?.getMonth() === viewMonth &&
-      sel?.getDate() === day
-    );
+    if (!sel) return false;
+
+    if (isEthiopian) {
+      const selEthDate = gregorianToEthiopian(sel);
+      return (
+        selEthDate.year === viewYear &&
+        selEthDate.month === viewMonth + 1 &&
+        selEthDate.day === day
+      );
+    } else {
+      return (
+        sel.getFullYear() === viewYear &&
+        sel.getMonth() === viewMonth &&
+        sel.getDate() === day
+      );
+    }
   };
 
   const isToday = (day: number) => {
-    return (
-      today.getFullYear() === viewYear &&
-      today.getMonth() === viewMonth &&
-      today.getDate() === day
-    );
+    if (isEthiopian) {
+      const todayEthDate = gregorianToEthiopian(today);
+      return (
+        todayEthDate.year === viewYear &&
+        todayEthDate.month === viewMonth + 1 &&
+        todayEthDate.day === day
+      );
+    } else {
+      return (
+        today.getFullYear() === viewYear &&
+        today.getMonth() === viewMonth &&
+        today.getDate() === day
+      );
+    }
   };
 
   const isDisabled = (day: number) => {
     if (!minD) return false;
-    const d = new Date(viewYear, viewMonth, day);
+    let d: Date;
+    if (isEthiopian) {
+      const ethDate: EthiopianDate = {
+        year: viewYear,
+        month: viewMonth + 1,
+        day,
+      };
+      d = ethiopianToGregorian(ethDate);
+    } else {
+      d = new Date(viewYear, viewMonth, day);
+    }
     d.setHours(0, 0, 0, 0);
     return d < minD;
   };
 
   const isBooked = (day: number) => {
-    const dateStr = toYMD(new Date(viewYear, viewMonth, day));
+    let dateStr: string;
+    if (isEthiopian) {
+      const ethDate: EthiopianDate = {
+        year: viewYear,
+        month: viewMonth + 1,
+        day,
+      };
+      const gregDate = ethiopianToGregorian(ethDate);
+      dateStr = toYMD(gregDate);
+    } else {
+      dateStr = toYMD(new Date(viewYear, viewMonth, day));
+    }
     return bookedDates.includes(dateStr);
   };
 
@@ -157,7 +300,7 @@ export function DatePicker({
   const currentCentury = Math.floor(viewYear / 10) * 10;
   const yearRange = Array.from(
     { length: 12 },
-    (_, i) => currentCentury - 1 + i,
+    (_, i) => currentCentury - 1 + i
   );
 
   return (
@@ -178,10 +321,12 @@ export function DatePicker({
       >
         <Calendar
           size={15}
-          className={`flex-shrink-0 ${open ? "text-[#1A3580]" : "text-muted-foreground"}`}
+          className={`flex-shrink-0 ${
+            open ? "text-[#1A3580]" : "text-muted-foreground"
+          }`}
         />
         <span className={value ? "text-foreground" : "text-muted-foreground"}>
-          {value ? formatDisplay(value) : placeholder}
+          {value ? formatDisplay(value, language) : placeholder}
         </span>
         {value && (
           <button
@@ -218,10 +363,12 @@ export function DatePicker({
               onClick={() => setYearPickerOpen((y) => !y)}
               className="flex items-center gap-1 text-white font-semibold text-sm hover:bg-white/10 px-2 py-1 rounded-lg transition-colors"
             >
-              {MONTHS[viewMonth]} {viewYear}
+              {displayMonths[viewMonth]} {viewYear}
               <ChevronRight
                 size={12}
-                className={`transition-transform ${yearPickerOpen ? "rotate-90" : ""}`}
+                className={`transition-transform ${
+                  yearPickerOpen ? "rotate-90" : ""
+                }`}
               />
             </button>
 
@@ -268,7 +415,10 @@ export function DatePicker({
                     className={`py-1.5 rounded-lg text-xs font-medium transition-all ${
                       yr === viewYear
                         ? "bg-[#1A3580] text-white"
-                        : yr === today.getFullYear()
+                        : yr ===
+                            (isEthiopian
+                              ? gregorianToEthiopian(today).year
+                              : today.getFullYear())
                           ? "border border-[#1A3580] text-[#1A3580]"
                           : "hover:bg-secondary text-foreground"
                     }`}
@@ -282,9 +432,9 @@ export function DatePicker({
 
           {/* Weekday headers */}
           <div className="grid grid-cols-7 px-3 pt-3 pb-1">
-            {WEEKDAYS.map((d) => (
+            {displayWeekdays.map((d, idx) => (
               <div
-                key={d}
+                key={`weekday-${idx}`}
                 className="text-center text-xs font-semibold text-muted-foreground py-1"
               >
                 {d}
@@ -338,7 +488,7 @@ export function DatePicker({
               }}
               className="text-xs text-[#1A3580] font-semibold hover:underline"
             >
-              Today
+              {isEthiopian ? "ዛሬ" : "Today"}
             </button>
             {value && (
               <button
@@ -359,7 +509,7 @@ export function DatePicker({
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <div className="w-3 h-3 rounded bg-red-100 border border-red-300"></div>
-                  <span>Booked dates</span>
+                  <span>{isEthiopian ? "ሰርግ ሊሆንም ይችሉ" : "Booked dates"}</span>
                 </div>
               </div>
             </div>

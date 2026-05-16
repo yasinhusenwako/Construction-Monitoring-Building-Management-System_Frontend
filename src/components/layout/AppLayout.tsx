@@ -248,10 +248,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       label:
         currentUser?.role === "admin"
           ? t("nav.projectManagement")
+          : currentUser?.role === "professional"
+          ? t("nav.myTasks")
           : t("nav.projects"),
       path: "/dashboard/projects",
       icon: <FolderOpen size={18} />,
-      roles: ["admin", "user"],
+      roles: ["admin", "user", "professional"],
       badge: currentUser?.role === "admin" ? projectBadge : undefined,
     },
     {
@@ -272,7 +274,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           : t("nav.maintenance"),
       path: "/dashboard/maintenance",
       icon: <Wrench size={18} />,
-      roles: ["admin", "user", "professional"],
+      roles: ["admin", "user"],
       badge: currentUser?.role === "admin" ? maintenanceBadge : undefined,
     },
 
