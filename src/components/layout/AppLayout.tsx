@@ -251,7 +251,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           : currentUser?.role === "professional"
           ? t("nav.myTasks")
           : t("nav.projects"),
-      path: "/dashboard/projects",
+      path:
+        currentUser?.role === "professional"
+          ? "/dashboard/my-tasks"
+          : "/dashboard/projects",
       icon: <FolderOpen size={18} />,
       roles: ["admin", "user", "professional"],
       badge: currentUser?.role === "admin" ? projectBadge : undefined,

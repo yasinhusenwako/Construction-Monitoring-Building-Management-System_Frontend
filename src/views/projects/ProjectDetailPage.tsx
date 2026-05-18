@@ -1211,6 +1211,32 @@ export function ProjectDetailPage() {
                           toast.error("Failed to request clarification");
                         }
                       }}
+                      onApprove={async (assignmentId) => {
+                        try {
+                          const { approveAssignment } = await import("@/lib/multi-professional-api");
+                          await approveAssignment(assignmentId);
+                          toast.success("Assignment approved");
+                          if (project.dbId) {
+                            const assignments = await getProjectAssignments(project.dbId);
+                            setProjectAssignments(assignments);
+                          }
+                        } catch (error) {
+                          toast.error("Failed to approve assignment");
+                        }
+                      }}
+                      onReject={async (assignmentId) => {
+                        try {
+                          const { rejectAssignment } = await import("@/lib/multi-professional-api");
+                          await rejectAssignment(assignmentId);
+                          toast.success("Assignment rejected");
+                          if (project.dbId) {
+                            const assignments = await getProjectAssignments(project.dbId);
+                            setProjectAssignments(assignments);
+                          }
+                        } catch (error) {
+                          toast.error("Failed to reject assignment");
+                        }
+                      }}
                     />
                   </div>
                 )}
@@ -1346,6 +1372,26 @@ export function ProjectDetailPage() {
                   </div>
                 )}
 
+                {/* Manual Project Completion for Admin */}
+                {(project.status === "Assigned to Professionals" || project.status === "In Progress") && (
+                  <div className="space-y-3 bg-white border border-border rounded-xl p-4 shadow-sm">
+                    <div className="mb-2 pb-4 border-b border-dashed border-border">
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Once professionals have finished their tasks, you can mark the entire project as Completed.
+                      </p>
+                      <button
+                        onClick={() =>
+                          handleAction("Completed", "admin", "Project marked as Completed")
+                        }
+                        className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all flex items-center justify-center gap-2"
+                        style={{ background: "#0D9488" }}
+                      >
+                        <CheckCircle size={16} /> Mark Project as Completed
+                      </button>
+                    </div>
+                  </div>
+                )}
+
 
 
 
@@ -1451,7 +1497,7 @@ export function ProjectDetailPage() {
 
                     {/* Progress Update Button */}
                     <div className="space-y-3">
-                      {["ACTIVE", "NEEDS_CLARIFICATION"].includes(myAssignment.status) ? (
+                      {["ACTIVE", "NEEDS_CLARIFICATION", "IN_PROGRESS"].includes(myAssignment.status) ? (
                         <>
                           <div className="flex flex-col gap-2">
                              {myAssignment.status === "NEEDS_CLARIFICATION" && (
@@ -1464,24 +1510,43 @@ export function ProjectDetailPage() {
                                </div>
                              )}
                              <p className="text-xs font-bold text-[#0E2271] px-1">Task Management</p>
-                             <button
-                                onClick={async () => {
-                                  try {
-                                    await completeAssignment(myAssignment.id);
-                                    toast.success("Assignment marked as completed!");
-                                    // Refresh the page data
-                                    window.location.reload();
-                                  } catch (error) {
-                                    toast.error("Failed to update assignment status");
-                                  }
-                                }}
-                                className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all flex items-center justify-center gap-2"
-                                style={{ background: "#0D9488" }}
-                             >
-                                <CheckCircle size={16} /> Mark My Assignment as Finished
-                             </button>
+                             
+                             {myAssignment.status === "ACTIVE" ? (
+                               <button
+                                  onClick={async () => {
+                                    try {
+                                      const { startAssignment } = await import("@/lib/multi-professional-api");
+                                      await startAssignment(myAssignment.id);
+                                      toast.success("Task started successfully!");
+                                      window.location.reload();
+                                    } catch (error) {
+                                      toast.error("Failed to start assignment");
+                                    }
+                                  }}
+                                  className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700"
+                               >
+                                  <Clock size={16} /> Announce I Started
+                               </button>
+                             ) : (
+                               <button
+                                  onClick={async () => {
+                                    try {
+                                      await completeAssignment(myAssignment.id);
+                                      toast.success("Assignment marked as completed!");
+                                      // Refresh the page data
+                                      window.location.reload();
+                                    } catch (error) {
+                                      toast.error("Failed to update assignment status");
+                                    }
+                                  }}
+                                  className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all flex items-center justify-center gap-2"
+                                  style={{ background: "#0D9488" }}
+                               >
+                                  <CheckCircle size={16} /> Mark My Assignment as Finished
+                               </button>
+                             )}
                              <p className="text-[10px] text-muted-foreground text-center italic">
-                               Click this only when you have finished all your assigned tasks.
+                               {myAssignment.status === "ACTIVE" ? "Click this to let the admin know you have started working on this task." : "Click this only when you have finished all your assigned tasks."}
                              </p>
                           </div>
                         </>

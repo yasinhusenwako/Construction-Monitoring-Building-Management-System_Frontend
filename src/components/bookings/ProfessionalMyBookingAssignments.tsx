@@ -1,0 +1,93 @@
+import React from 'react';
+import { ProjectAssignment } from '@/lib/multi-professional-api';
+import { Briefcase, MessageSquare } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { enUS } from 'date-fns/locale';
+
+interface ProfessionalMyBookingAssignmentsProps {
+  assignments: ProjectAssignment[];
+  bookings: Array<{ id: string; title: string; bookingId: string }>;
+  onSelectAssignment: (assignment: ProjectAssignment) => void;
+}
+
+export function ProfessionalMyBookingAssignments({
+  assignments,
+  bookings,
+  onSelectAssignment,
+}: ProfessionalMyBookingAssignmentsProps) {
+  if (assignments.length === 0) {
+    return (
+      <div className="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-8 text-center">
+        <Briefcase size={32} className="mx-auto text-gray-400 mb-3" />
+        <p className="text-gray-600 font-medium">No assignments yet</p>
+        <p className="text-sm text-gray-500 mt-1">
+          Admin will assign you to bookings here
+        </p>
+      </div>
+    );
+  }
+
+  const getBookingTitle = (bookingId: number): string => {
+    const bookingIdStr = String(bookingId);
+    const booking = bookings.find((b) => b.id === bookingIdStr);
+    return booking?.title || `Booking #${bookingId}`;
+  };
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold text-[#0E2271] mb-4">
+        My Assigned Bookings ({assignments.length})
+      </h2>
+
+      {assignments.map((assignment) => (
+        <div
+          key={assignment.id}
+          className="border border-gray-200 rounded-lg p-5 bg-white hover:shadow-md transition-shadow cursor-pointer hover:border-[#1A3580]"
+          onClick={() => onSelectAssignment(assignment)}
+        >
+          {/* Header */}
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex-1">
+              <p className="font-semibold text-[#0E2271] text-sm">
+                {getBookingTitle(assignment.projectId)}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Booking ID: {assignment.projectId}
+              </p>
+            </div>
+            <span className="px-2.5 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full whitespace-nowrap ml-2">
+              Active
+            </span>
+          </div>
+
+          {/* Scope/Instructions */}
+          <div className="mb-4">
+            <p className="text-xs font-semibold text-gray-600 mb-2">
+              Your Scope:
+            </p>
+            <p className="text-sm text-gray-700 bg-gray-50 rounded p-3 border border-gray-200 line-clamp-2">
+              {assignment.instructions}
+            </p>
+          </div>
+
+          {/* Footer & Action Button */}
+          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+            <p className="text-xs text-gray-500">
+              Assigned{' '}
+              {formatDistanceToNow(new Date(assignment.createdAt), {
+                addSuffix: true,
+                locale: enUS,
+              })}
+            </p>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-blue-50 border border-blue-200">
+              <MessageSquare size={14} className="text-blue-600" />
+              <span className="text-xs font-semibold text-blue-700">
+                Submit Report
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}

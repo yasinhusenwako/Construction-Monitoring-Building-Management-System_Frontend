@@ -131,6 +131,16 @@ export async function executeWorkflowAction(params: {
         return { ok: true };
       }
 
+      if (params.nextStatus === "Completed") {
+        await professionalUpdateTaskStatus({
+          module: params.module,
+          businessId: params.businessId,
+          requestId: params.requestId,
+          status: "Completed",
+        });
+        return { ok: true };
+      }
+
       if (
         params.nextStatus === "Approved" ||
         params.nextStatus === "Rejected" ||

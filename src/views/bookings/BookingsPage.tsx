@@ -394,6 +394,7 @@ export function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [myBookingAssignmentIds, setMyBookingAssignmentIds] = useState<Set<number>>(new Set());
 
   // Calendar state
   const today = new Date();
@@ -411,6 +412,22 @@ export function BookingsPage() {
         ]);
         setBookings(liveBookings);
         setUsers(liveUsers);
+
+        // If professional, fetch their multi-professional booking assignments
+        if (role === "professional") {
+          try {
+            const { getMyBookingAssignments } = await import("@/lib/multi-professional-api");
+            const assignments = await getMyBookingAssignments();
+            console.log("[BookingsPage] Raw booking assignments:", assignments);
+            const bookingIds = new Set(assignments.map((a) => a.bookingId));
+            setMyBookingAssignmentIds(bookingIds);
+            console.log("[BookingsPage] Professional booking assignment IDs:", bookingIds);
+            console.log("[BookingsPage] Total bookings from API:", liveBookings.length);
+            console.log("[BookingsPage] Bookings list:", liveBookings.map(b => ({ id: b.id, dbId: b.dbId, status: b.status })));
+          } catch (error) {
+            console.error("[BookingsPage] Failed to fetch professional booking assignments:", error);
+          }
+        }
       } catch (error) {
         console.error("Failed to refresh bookings data:", error);
       } finally {
@@ -418,7 +435,7 @@ export function BookingsPage() {
       }
     };
     void refresh();
-  }, []);
+  }, [role]);
 
   // ─── Spaces state ────────────────────────────────────────────────────────────
   const [spaceList, setSpaceList] = useState<Space[]>([]);
@@ -511,11 +528,13 @@ export function BookingsPage() {
 
   // ─── Bookings ─────────────────────────────────────────────────────────────
   const filtered = bookings.filter((b) => {
+    const isAssignedViaMultiProfessional = myBookingAssignmentIds.has(b.dbId || 0);
     const matchRole = canViewItem(
       role as WorkflowRole | undefined,
       b,
       currentUser?.id,
       currentUser?.divisionId,
+      isAssignedViaMultiProfessional,
     );
     const matchSearch =
       !search ||

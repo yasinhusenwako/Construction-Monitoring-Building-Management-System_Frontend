@@ -11,6 +11,16 @@ export interface ProjectAssignment {
   status: string;
 }
 
+export interface BookingAssignment {
+  id: number;
+  bookingId: number;
+  professionalId: string;
+  instructions: string;
+  createdAt: string;
+  createdBy: string;
+  status: string;
+}
+
 export interface ProfessionalReport {
   id: number;
   assignmentId: number;
@@ -176,6 +186,20 @@ export async function getMyAssignmentReports(
 }
 
 /**
+ * Mark an assignment as started (by professional)
+ */
+export async function startAssignment(
+  assignmentId: number
+): Promise<void> {
+  await apiRequest(
+    `/api/professional/projects/assignments/${assignmentId}/start`,
+    {
+      method: 'PATCH',
+    }
+  );
+}
+
+/**
  * Mark an assignment as completed (by professional)
  */
 export async function completeAssignment(
@@ -197,6 +221,214 @@ export async function requestClarification(
 ): Promise<void> {
   await apiRequest(
     `/api/admin/projects/assignments/${assignmentId}/clarify`,
+    {
+      method: 'PATCH',
+    }
+  );
+}
+
+/**
+ * Approve an assignment (by admin)
+ */
+export async function approveAssignment(
+  assignmentId: number
+): Promise<void> {
+  await apiRequest(
+    `/api/admin/projects/assignments/${assignmentId}/approve`,
+    {
+      method: 'PATCH',
+    }
+  );
+}
+
+/**
+ * Reject an assignment (by admin)
+ */
+export async function rejectAssignment(
+  assignmentId: number
+): Promise<void> {
+  await apiRequest(
+    `/api/admin/projects/assignments/${assignmentId}/reject`,
+    {
+      method: 'PATCH',
+    }
+  );
+}
+
+// ===== BOOKING ENDPOINTS (MULTI-PROFESSIONAL) =====
+
+/**
+ * Assign a professional to a booking with specific instructions
+ */
+export async function assignProfessionalToBooking(
+  bookingId: number,
+  professionalId: string,
+  instructions: string
+): Promise<BookingAssignment> {
+  return apiRequest(`/api/admin/bookings/${bookingId}/assign-professional`, {
+    method: 'POST',
+    body: {
+      professionalId,
+      instructions,
+    },
+  });
+}
+
+/**
+ * Get all assignments for a specific booking
+ */
+export async function getBookingAssignments(
+  bookingId: number
+): Promise<BookingAssignment[]> {
+  return apiRequest(`/api/admin/bookings/${bookingId}/assignments`, {
+    method: 'GET',
+  });
+}
+
+/**
+ * Get all reports for a specific booking (all professionals)
+ */
+export async function getBookingReports(
+  bookingId: number
+): Promise<ProfessionalReport[]> {
+  return apiRequest(`/api/admin/bookings/${bookingId}/reports`, {
+    method: 'GET',
+  });
+}
+
+/**
+ * Get all reports submitted by a specific professional for bookings
+ */
+export async function getBookingProfessionalReports(
+  professionalId: string
+): Promise<ProfessionalReport[]> {
+  return apiRequest(
+    `/api/admin/bookings/professional/${professionalId}/reports`,
+    {
+      method: 'GET',
+    }
+  );
+}
+
+/**
+ * Get all reports for a specific booking assignment
+ */
+export async function getBookingAssignmentReports(
+  assignmentId: number
+): Promise<ProfessionalReport[]> {
+  return apiRequest(
+    `/api/admin/bookings/assignments/${assignmentId}/reports`,
+    {
+      method: 'GET',
+    }
+  );
+}
+
+/**
+ * Mark all reports for a booking assignment as read
+ */
+export async function markBookingReportsAsRead(
+  assignmentId: number
+): Promise<{ message: string }> {
+  return apiRequest(
+    `/api/admin/bookings/assignments/${assignmentId}/read`,
+    {
+      method: 'PATCH',
+    }
+  );
+}
+
+/**
+ * Deactivate a booking assignment
+ */
+export async function deactivateBookingAssignment(
+  assignmentId: number
+): Promise<{ message: string }> {
+  return apiRequest(
+    `/api/admin/bookings/assignments/${assignmentId}`,
+    {
+      method: 'DELETE',
+    }
+  );
+}
+
+// ===== BOOKING PROFESSIONAL ENDPOINTS =====
+
+/**
+ * Get all my booking assignments (professional)
+ */
+export async function getMyBookingAssignments(): Promise<BookingAssignment[]> {
+  return apiRequest(`/api/professional/bookings/my-assignments`, {
+    method: 'GET',
+  });
+}
+
+/**
+ * Get booking assignment details (professional)
+ */
+export async function getBookingAssignmentDetails(
+  assignmentId: number
+): Promise<BookingAssignment> {
+  return apiRequest(`/api/professional/bookings/assignments/${assignmentId}`, {
+    method: 'GET',
+  });
+}
+
+/**
+ * Submit a report for a booking assignment (professional)
+ */
+export async function submitBookingReport(
+  assignmentId: number,
+  reportText: string
+): Promise<ProfessionalReport> {
+  return apiRequest(
+    `/api/professional/bookings/assignments/${assignmentId}/report`,
+    {
+      method: 'POST',
+      body: {
+        assignmentId,
+        reportText,
+      },
+    }
+  );
+}
+
+/**
+ * Get all reports for a specific booking assignment (professional can only see own)
+ */
+export async function getMyBookingAssignmentReports(
+  assignmentId: number
+): Promise<ProfessionalReport[]> {
+  return apiRequest(
+    `/api/professional/bookings/assignments/${assignmentId}/my-reports`,
+    {
+      method: 'GET',
+    }
+  );
+}
+
+/**
+ * Mark a booking assignment as started (by professional)
+ */
+export async function startBookingAssignment(
+  assignmentId: number
+): Promise<void> {
+  await apiRequest(
+    `/api/professional/bookings/assignments/${assignmentId}/start`,
+    {
+      method: 'PATCH',
+    }
+  );
+}
+
+/**
+ * Mark a booking assignment as completed (by professional)
+ */
+export async function completeBookingAssignment(
+  assignmentId: number
+): Promise<void> {
+  await apiRequest(
+    `/api/professional/bookings/assignments/${assignmentId}/complete`,
     {
       method: 'PATCH',
     }

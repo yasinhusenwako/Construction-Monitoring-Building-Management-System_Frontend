@@ -11,6 +11,8 @@ interface AdminAssignmentsListProps {
   onDeactivate: (assignmentId: number) => Promise<void>;
   onViewReports: (assignmentId: number) => void;
   onClarify: (assignmentId: number) => Promise<void>;
+  onApprove: (assignmentId: number) => Promise<void>;
+  onReject: (assignmentId: number) => Promise<void>;
 }
 
 export function AdminAssignmentsList({
@@ -20,6 +22,8 @@ export function AdminAssignmentsList({
   onDeactivate,
   onViewReports,
   onClarify,
+  onApprove,
+  onReject,
 }: AdminAssignmentsListProps) {
   const [expandedAssignmentId, setExpandedAssignmentId] = useState<number | null>(null);
 
@@ -118,12 +122,26 @@ export function AdminAssignmentsList({
                     {assignment.status.replace('_', ' ')}
                   </span>
                   {assignment.status === 'COMPLETED' && (
-                    <button
-                      onClick={() => onClarify(assignment.id)}
-                      className="text-[10px] font-bold text-[#1A3580] hover:underline flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded border border-blue-100"
-                    >
-                      <MessageSquare size={10} /> Ask for Clarification
-                    </button>
+                    <div className="flex items-center gap-1.5 ml-2">
+                      <button
+                        onClick={() => onApprove(assignment.id)}
+                        className="text-[10px] font-bold text-green-700 hover:bg-green-100 flex items-center gap-1 bg-green-50 px-2 py-0.5 rounded border border-green-200 transition-colors"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => onReject(assignment.id)}
+                        className="text-[10px] font-bold text-red-700 hover:bg-red-100 flex items-center gap-1 bg-red-50 px-2 py-0.5 rounded border border-red-200 transition-colors"
+                      >
+                        Reject
+                      </button>
+                      <button
+                        onClick={() => onClarify(assignment.id)}
+                        className="text-[10px] font-bold text-[#1A3580] hover:bg-blue-100 flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 transition-colors"
+                      >
+                        <MessageSquare size={10} /> Ask Clarification
+                      </button>
+                    </div>
                   )}
                 </div>
                 <div className="text-[10px] text-muted-foreground italic">

@@ -1,5 +1,5 @@
 "use client";
-
+// Force recompile
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
@@ -29,10 +29,25 @@ import {
   User,
   Users,
   Briefcase,
+  MessageSquare,
 } from "lucide-react";
 import { fetchLiveBookings, fetchLiveUsers } from "@/lib/live-api";
 import { apiRequest } from "@/lib/api";
 import { executeWorkflowAction } from "@/lib/workflow-actions";
+import {
+  getBookingAssignments,
+  getBookingReports,
+  getMyBookingAssignments,
+  deactivateBookingAssignment,
+  type ProjectAssignment,
+  type ProfessionalReport,
+} from "@/lib/multi-professional-api";
+import { AdminAssignProfessionalFormBooking } from "@/components/bookings/AdminAssignProfessionalFormBooking";
+import { AdminBookingAssignmentsList } from "@/components/bookings/AdminBookingAssignmentsList";
+import { AdminBookingReportsDashboard } from "@/components/bookings/AdminBookingReportsDashboard";
+import { ProfessionalMyBookingAssignments } from "@/components/bookings/ProfessionalMyBookingAssignments";
+import { ProfessionalBookingReportSubmission } from "@/components/bookings/ProfessionalBookingReportSubmission";
+import { toast } from "sonner";
 
 export default function BookingDetailPage({ id }: { id: string }) {
   const router = useRouter();
@@ -50,8 +65,45 @@ export default function BookingDetailPage({ id }: { id: string }) {
   const [rejectingBooking, setRejectingBooking] = useState(false);
 
   // Assignment state
-  const [selectedAssignee, setSelectedAssignee] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Multi-professional booking state
+  const [assignments, setAssignments] = useState<ProjectAssignment[]>([]);
+  const [reports, setReports] = useState<ProfessionalReport[]>([]);
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState<ProjectAssignment | null>(null);
+  const [viewingReportForAssignmentId, setViewingReportForAssignmentId] = useState<number | null>(null);
+
+  // Load multi-professional assignments and reports
+  const loadAssignmentsAndReports = async () => {
+    if (!booking?.dbId) return;
+    setLoadingAssignments(true);
+    try {
+      const [assignmentData, reportData] = await Promise.all([
+        getBookingAssignments(booking.dbId),
+        getBookingReports(booking.dbId),
+      ]);
+      setAssignments(assignmentData);
+      setReports(reportData);
+    } catch (error) {
+      console.error("Failed to load assignments/reports:", error);
+    } finally {
+      setLoadingAssignments(false);
+    }
+  };
+
+  // Load professional's own assignments
+  const loadMyAssignments = async () => {
+    setLoadingAssignments(true);
+    try {
+      const data = await getMyBookingAssignments();
+      setAssignments(data);
+    } catch (error) {
+      console.error("Failed to load my assignments:", error);
+    } finally {
+      setLoadingAssignments(false);
+    }
+  };
 
   useEffect(() => {
     const fetchBooking = async () => {
@@ -64,15 +116,18 @@ export default function BookingDetailPage({ id }: { id: string }) {
         setSystemUsers(liveUsers);
         const found = liveBookings.find((b) => b.id === id);
 
-        // console.log("DEBUG Booking View Permission:", {
-        //   bookingId: id,
-        //   foundId: found?.id,
-        //   role,
-        //   currentUserId: currentUser?.id,
-        //   foundAssignedTo: found?.assignedTo,
-        //   foundRequestedBy: found?.requestedBy,
-        //   foundSupervisorId: found?.supervisorId,
-        // });
+        // For professionals, check if they're assigned via multi-professional system
+        let isAssignedViaMultiProfessional = false;
+        if (role === "professional" && found?.dbId) {
+          try {
+            const myAssignments = await getMyBookingAssignments();
+            isAssignedViaMultiProfessional = myAssignments.some(
+              (a) => a.bookingId === found.dbId
+            );
+          } catch (error) {
+            console.error("Failed to check multi-professional assignments:", error);
+          }
+        }
 
         if (
           found &&
@@ -81,9 +136,14 @@ export default function BookingDetailPage({ id }: { id: string }) {
             found,
             currentUser?.id,
             currentUser?.divisionId,
+            isAssignedViaMultiProfessional,
           )
         ) {
           setBooking(found);
+          // Load assignments/reports for admins at any active status
+          if (role === "admin" && found.dbId && !["Submitted", "Under Review", "Closed", "Rejected"].includes(found.status ?? "")) {
+            loadAssignmentsAndReports();
+          }
           // Fetch real timeline from backend
           // TODO: Implement fetchRequestHistory function
           // if (found.dbId) {
@@ -107,6 +167,17 @@ export default function BookingDetailPage({ id }: { id: string }) {
 
     void fetchBooking();
   }, [id, role, currentUser?.id, currentUser?.divisionId]);
+
+  // Load assignments when booking is updated
+  useEffect(() => {
+    if (booking?.dbId) {
+      if (role === "admin" && !["Submitted", "Under Review", "Closed", "Rejected"].includes(booking.status ?? "")) {
+        loadAssignmentsAndReports();
+      } else if (role === "professional" && ["Assigned to Professionals", "In Progress"].includes(booking.status ?? "")) {
+        loadMyAssignments();
+      }
+    }
+  }, [booking?.dbId, booking?.status, role]);
 
   if (loading) {
     return (
@@ -345,32 +416,33 @@ export default function BookingDetailPage({ id }: { id: string }) {
         <WorkflowVisualizer currentStatus={booking.status} module="booking" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Rejection Reason Alert - Show if booking is rejected */}
-        {booking.status === "Rejected" && booking.rejectionReason && (
-          <div className="lg:col-span-3">
-            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-5 shadow-sm">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                  <ThumbsDown size={20} className="text-red-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-sm font-bold text-red-900 mb-2">
-                    {t("bookings.bookingRejected")}
-                  </h3>
-                  <p className="text-sm text-red-800 font-medium mb-1">
-                    {t("requests.reasonForRejection")}
-                  </p>
-                  <p className="text-sm text-red-700 bg-white/50 rounded-lg p-3 border border-red-200">
-                    {booking.rejectionReason}
-                  </p>
-                </div>
+      {/* Rejection Reason Alert - Show if booking is rejected */}
+      {booking.status === "Rejected" && booking.rejectionReason && (
+        <div>
+          <div className="bg-red-50 border-2 border-red-200 rounded-xl p-5 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <ThumbsDown size={20} className="text-red-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-red-900 mb-2">
+                  {t("bookings.bookingRejected")}
+                </h3>
+                <p className="text-sm text-red-800 font-medium mb-1">
+                  {t("requests.reasonForRejection")}
+                </p>
+                <p className="text-sm text-red-700 bg-white/50 rounded-lg p-3 border border-red-200">
+                  {booking.rejectionReason}
+                </p>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        <div className="lg:col-span-2 space-y-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Main Details - Left Side */}
+        <div className="space-y-5">
           {/* ── Purpose / Description Card ── */}
           <div className="glass-card rounded-2xl overflow-hidden shadow-modern">
             <div className="p-6">
@@ -580,7 +652,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
           </div>
         </div>
 
-        {/* ── Right Panel: Action Panel ── */}
+        {/* Right Panel - Admin Actions, Professional Tasks, Quick Summary */}
         <div className="space-y-5">
           {/* Admin Actions */}
           {role === "admin" && (
@@ -643,54 +715,38 @@ export default function BookingDetailPage({ id }: { id: string }) {
                     )}
 
                     {booking.status === "Under Review" && (
-                      <>
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">
-                            {t("requests.selectProfessional") ||
-                              "Select Professional"}
-                          </label>
-                          <select
-                            value={selectedAssignee}
-                            onChange={(e) =>
-                              setSelectedAssignee(e.target.value)
-                            }
-                            className="w-full text-sm px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm outline-none focus:border-[#1A3580] shadow-sm transition-all"
-                          >
-                            <option value="">
-                              {t("common.select") || "Select"}
-                            </option>
-                            {bookingProfessionals.map((pr) => (
-                              <option key={pr.email} value={pr.email}>
-                                {pr.name}
-                              </option>
-                            ))}
-                          </select>
-                          {bookingProfessionals.length === 0 && (
-                            <p className="text-[10px] text-muted-foreground">
-                              No Project/Booking professionals found (Division:
-                              Other).
-                            </p>
-                          )}
-                        </div>
-
-                        <button
-                          disabled={!selectedAssignee || busy}
-                          onClick={() => {
-                            setBusy(true);
-                            handleAction(
-                              "Assigned to Professionals",
-                              "admin",
-                              "Assigned to Professionals",
-                              { assignedTo: selectedAssignee },
-                            ).finally(() => setBusy(false));
-                          }}
-                          className="w-full py-3 rounded-xl text-white text-sm font-bold bg-[#1A3580] shadow-premium hover-lift transition-all disabled:opacity-40 disabled:hover:transform-none"
-                        >
-                          {t("requests.assignToProfessional") ||
-                            "Assign to Professional"}
-                        </button>
-                      </>
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <p className="text-sm text-blue-900 mb-3">
+                          Use the "Professional Assignments" section below to assign professionals with specific scopes.
+                        </p>
+                      </div>
                     )}
+                  </div>
+                )}
+
+                {/* Mark as Completed — admin manual trigger */}
+                {(booking.status === "Assigned to Professionals" ||
+                  booking.status === "In Progress") && (
+                  <div className="space-y-3 bg-white border border-border rounded-xl p-4 shadow-sm">
+                    <div className="mb-2 pb-4 border-b border-dashed border-border">
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Once professionals have finished their tasks, you can
+                        mark the entire booking as Completed.
+                      </p>
+                      <button
+                        onClick={() =>
+                          handleAction(
+                            "Completed",
+                            "admin",
+                            "Booking marked as Completed",
+                          )
+                        }
+                        className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all flex items-center justify-center gap-2"
+                        style={{ background: "#0D9488" }}
+                      >
+                        <CheckCircle size={16} /> Mark Booking as Completed
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -739,7 +795,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
             </div>
           )}
 
-          {/* Professional Actions */}
+          {/* Professional Tasks */}
           {role === "professional" && (
             <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative border-l-4 border-l-[#EA580C]">
               <h3 className="text-sm font-bold text-[#EA580C] mb-5 flex items-center gap-2">
@@ -789,11 +845,49 @@ export default function BookingDetailPage({ id }: { id: string }) {
                     </button>
                   </div>
                 )}
+
+                {/* Submit Daily Report Button */}
+                {["Assigned to Professionals", "In Progress"].includes(booking.status ?? "") && (
+                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
+                    <button
+                      onClick={() => {
+                        // If professional has assignments, use the first one; otherwise create a temporary one
+                        if (assignments.length > 0) {
+                          setViewingReportForAssignmentId(assignments[0].id);
+                        } else {
+                          // Show report form even without formal assignment
+                          setViewingReportForAssignmentId(-1);
+                        }
+                      }}
+                      className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all flex items-center justify-center gap-2"
+                      style={{ background: "#1A3580" }}
+                    >
+                      <MessageSquare size={16} />
+                      Submit Daily Report
+                    </button>
+                  </div>
+                )}
               </div>
+
+              {/* Report Submission Component - INSIDE Professional Tasks */}
+              {["Assigned to Professionals", "In Progress"].includes(booking.status ?? "") && (
+                <div className="border-t border-border pt-6">
+                  {viewingReportForAssignmentId !== null && assignments.length > 0 ? (
+                    <ProfessionalBookingReportSubmission
+                      assignment={assignments.find(a => a.id === viewingReportForAssignmentId) || assignments[0]}
+                      systemUsers={systemUsers}
+                      onBack={() => {
+                        setViewingReportForAssignmentId(null);
+                        loadMyAssignments();
+                      }}
+                    />
+                  ) : null}
+                </div>
+              )}
             </div>
           )}
 
-          {/* Quick Info Summary Card */}
+          {/* Quick Summary Card */}
           <div className="glass-card rounded-2xl p-5 shadow-modern space-y-3">
             <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
               Quick Summary
@@ -829,6 +923,102 @@ export default function BookingDetailPage({ id }: { id: string }) {
           </div>
         </div>
       </div>
+
+      {/* Multi-Professional Assignment Section */}
+      {role === "admin" && !["Closed", "Rejected"].includes(booking.status) && (
+        <div className="glass-card rounded-2xl p-6 shadow-modern border-2 border-[#0E2271]/10">
+          <h3 className="text-sm font-bold text-[#0E2271] mb-5 flex items-center gap-2">
+            <Users size={16} className="text-[#1A3580]" />
+            Professional Assignments
+          </h3>
+
+          <AdminAssignProfessionalFormBooking
+            bookingId={booking.dbId}
+            bookingTitle={booking.title}
+            professionals={bookingProfessionals}
+            onAssignmentSuccess={async () => {
+              await loadAssignmentsAndReports();
+              toast.success("Professional assigned successfully!");
+            }}
+          />
+
+          {/* Assigned professionals list */}
+          {!loadingAssignments && assignments.length > 0 && (
+            <div className="mt-6 border-t border-border pt-5">
+              <AdminBookingAssignmentsList
+                assignments={assignments}
+                systemUsers={systemUsers}
+                allReports={reports}
+                onDeactivate={async (assignmentId) => {
+                  try {
+                    await deactivateBookingAssignment(assignmentId);
+                    toast.success("Professional removed from booking");
+                    await loadAssignmentsAndReports();
+                  } catch {
+                    toast.error("Failed to remove professional");
+                  }
+                }}
+                onViewReports={async () => {
+                  await loadAssignmentsAndReports();
+                }}
+              />
+            </div>
+          )}
+
+          {/* Reports dashboard */}
+          {!loadingAssignments && reports.length > 0 && (
+            <div className="mt-6 border-t border-border pt-5">
+              <AdminBookingReportsDashboard
+                bookingId={booking.dbId}
+                allReports={reports}
+                systemUsers={systemUsers}
+                assignments={assignments}
+                loading={loadingAssignments}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Professional View: My Assignments for this booking */}
+      {role === "professional" && booking.status === "Assigned to Professionals" && (
+        <div className="space-y-6">
+          {!selectedAssignment ? (
+            <div className="glass-card rounded-2xl p-6 shadow-modern">
+              {loadingAssignments ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#EA580C]"></div>
+                </div>
+              ) : (
+                <ProfessionalMyBookingAssignments
+                  assignments={assignments}
+                  bookings={[
+                    {
+                      id: String(booking.dbId),
+                      title: booking.title,
+                      bookingId: booking.id,
+                    },
+                  ]}
+                  onSelectAssignment={(assignment) => {
+                    setSelectedAssignment(assignment);
+                  }}
+                />
+              )}
+            </div>
+          ) : (
+            <div className="glass-card rounded-2xl p-6 shadow-modern">
+              <ProfessionalBookingReportSubmission
+                assignment={selectedAssignment}
+                systemUsers={systemUsers}
+                onBack={() => {
+                  setSelectedAssignment(null);
+                  loadMyAssignments();
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Rejection Reason Modal */}
       {showRejectModal && (
