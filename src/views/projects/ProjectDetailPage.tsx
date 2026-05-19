@@ -1265,17 +1265,7 @@ export function ProjectDetailPage() {
             />
           </div>
 
-          {/* Timeline */}
-          <div className="glass-card rounded-2xl p-6 shadow-modern">
-            <Timeline
-              events={project.timeline}
-              title={t("projects.activityTimeline")}
-              emptyMessage={
-                t("projects.noActivityYet") || "No activity recorded yet"
-              }
-              userRole={role as WorkflowRole}
-            />
-          </div>
+
         </div>
 
         {/* Right Panel */}
@@ -1675,6 +1665,18 @@ export function ProjectDetailPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Timeline (Moved here) */}
+      <div className="glass-card rounded-2xl p-6 shadow-modern border-2 border-[#0E2271]/10">
+        <Timeline
+          events={project.timeline}
+          title={t("projects.activityTimeline")}
+          emptyMessage={
+            t("projects.noActivityYet") || "No activity recorded yet"
+          }
+          userRole={role as WorkflowRole}
+        />
       </div>
 
       {/* Rejection Reason Modal */}

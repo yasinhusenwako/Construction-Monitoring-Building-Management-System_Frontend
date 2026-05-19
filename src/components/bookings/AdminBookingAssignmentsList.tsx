@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ProjectAssignment, ProfessionalReport, markBookingReportsAsRead, deactivateBookingAssignment } from '@/lib/multi-professional-api';
+import { ProjectAssignment, ProfessionalReport, markBookingReportsAsRead } from '@/lib/multi-professional-api';
 import { Trash2, MessageSquare, ChevronDown, ChevronUp, Clock, User as UserIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { enUS } from 'date-fns/locale';
@@ -11,6 +11,9 @@ interface AdminBookingAssignmentsListProps {
   allReports: ProfessionalReport[];
   onDeactivate: (assignmentId: number) => Promise<void>;
   onViewReports: (assignmentId: number) => void;
+  onClarify?: (assignmentId: number) => Promise<void>;
+  onApprove?: (assignmentId: number) => Promise<void>;
+  onReject?: (assignmentId: number) => Promise<void>;
 }
 
 export function AdminBookingAssignmentsList({
@@ -19,6 +22,9 @@ export function AdminBookingAssignmentsList({
   allReports,
   onDeactivate,
   onViewReports,
+  onClarify,
+  onApprove,
+  onReject,
 }: AdminBookingAssignmentsListProps) {
   const [expandedAssignmentId, setExpandedAssignmentId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
@@ -65,12 +71,10 @@ export function AdminBookingAssignmentsList({
     if (!confirm('Are you sure you want to remove this professional from the booking?')) {
       return;
     }
-
     setDeleting(assignmentId);
     try {
-      await deactivateBookingAssignment(assignmentId);
-      toast.success('Professional removed from booking');
       await onDeactivate(assignmentId);
+      toast.success('Professional removed from booking');
     } catch (error) {
       console.error('Failed to deactivate assignment:', error);
       toast.error('Failed to remove professional');
@@ -94,8 +98,9 @@ export function AdminBookingAssignmentsList({
         return (
           <div
             key={assignment.id}
-            className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-all"
+            className="border border-border rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-all"
           >
+            {/* Main Content */}
             <div className="p-4">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
@@ -104,7 +109,7 @@ export function AdminBookingAssignmentsList({
                       {getProfessionalName(assignment.professionalId)}
                     </p>
                   </div>
-                  <p className="text-[10px] text-gray-500 mt-0.5 flex items-center gap-1">
+                  <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
                     <Clock size={10} />
                     Assigned{' '}
                     {formatDistanceToNow(new Date(assignment.createdAt), {
@@ -116,34 +121,89 @@ export function AdminBookingAssignmentsList({
                 <button
                   onClick={() => handleDelete(assignment.id)}
                   disabled={deleting === assignment.id}
-                  className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
-                  title="Remove professional"
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                  title="Remove professional from booking"
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={14} />
                 </button>
               </div>
 
-              {/* Instructions */}
-              <div className="mb-3">
-                <p className="text-[10px] font-semibold text-gray-600 mb-1">Scope:</p>
-                <p className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1 line-clamp-2">
+              {/* Status & Quick Actions */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase ${
+                    assignment.status === 'NEEDS_CLARIFICATION'
+                      ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                      : assignment.status === 'COMPLETED'
+                      ? 'bg-teal-100 text-teal-700 border border-teal-200'
+                      : assignment.status === 'APPROVED'
+                      ? 'bg-green-100 text-green-700 border border-green-200'
+                      : assignment.status === 'REJECTED'
+                      ? 'bg-red-100 text-red-700 border border-red-200'
+                      : 'bg-blue-100 text-blue-700 border border-blue-200'
+                  }`}>
+                    {assignment.status.replace(/_/g, ' ')}
+                  </span>
+
+                  {assignment.status === 'COMPLETED' && (
+                    <div className="flex items-center gap-1.5 ml-1">
+                      {onApprove && (
+                        <button
+                          onClick={() => onApprove(assignment.id)}
+                          className="text-[10px] font-bold text-green-700 hover:bg-green-100 flex items-center gap-1 bg-green-50 px-2 py-0.5 rounded border border-green-200 transition-colors"
+                        >
+                          Approve
+                        </button>
+                      )}
+                      {onReject && (
+                        <button
+                          onClick={() => onReject(assignment.id)}
+                          className="text-[10px] font-bold text-red-700 hover:bg-red-100 flex items-center gap-1 bg-red-50 px-2 py-0.5 rounded border border-red-200 transition-colors"
+                        >
+                          Reject
+                        </button>
+                      )}
+                      {onClarify && (
+                        <button
+                          onClick={() => onClarify(assignment.id)}
+                          className="text-[10px] font-bold text-[#1A3580] hover:bg-blue-100 flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 transition-colors"
+                        >
+                          <MessageSquare size={10} /> Ask Clarification
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="text-[10px] text-muted-foreground italic">
+                  {assignmentReports.length} total reports
+                </div>
+              </div>
+
+              {/* Scope / Instructions */}
+              <div className="mb-4">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">
+                  Scope / Instructions:
+                </p>
+                <p className="text-xs text-foreground bg-secondary/30 rounded-lg p-3 border border-border/50">
                   {assignment.instructions}
                 </p>
               </div>
 
-              {/* Reports Toggle */}
+              {/* View Reports Toggle */}
               <button
                 onClick={() => handleToggleReports(assignment.id)}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors border border-gray-200"
+                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  isExpanded
+                    ? 'bg-[#1A3580] text-white'
+                    : 'bg-secondary/50 text-[#1A3580] hover:bg-secondary'
+                }`}
               >
                 <div className="flex items-center gap-2">
-                  <MessageSquare size={14} className="text-gray-500" />
-                  <span className="text-xs font-medium text-gray-700">
-                    Reports ({assignmentReports.length})
-                  </span>
+                  <MessageSquare size={14} />
+                  View Reports
                   {unreadCount > 0 && (
-                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-semibold">
-                      {unreadCount} new
+                    <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">
+                      {unreadCount} NEW
                     </span>
                   )}
                 </div>
@@ -151,27 +211,37 @@ export function AdminBookingAssignmentsList({
               </button>
             </div>
 
-            {/* Reports List */}
+            {/* Expanded Reports */}
             {isExpanded && (
-              <div className="border-t border-gray-200 bg-gray-50 p-4 space-y-3">
-                {assignmentReports.length === 0 ? (
-                  <p className="text-xs text-gray-500 text-center py-2">No reports submitted yet</p>
-                ) : (
-                  assignmentReports.map((report) => (
-                    <div key={report.id} className="bg-white rounded-lg p-3 border border-gray-200">
-                      <div className="flex items-start justify-between mb-2">
-                        <p className="text-xs font-semibold text-gray-700">Report</p>
-                        <p className="text-[10px] text-gray-500">
-                          {formatDistanceToNow(new Date(report.createdAt), {
-                            addSuffix: true,
-                            locale: enUS,
-                          })}
+              <div className="bg-secondary/20 border-t border-border animate-in slide-in-from-top-2 duration-200">
+                <div className="p-4 space-y-3">
+                  {assignmentReports.length === 0 ? (
+                    <p className="text-[10px] text-center text-muted-foreground py-2 italic">
+                      No reports submitted yet.
+                    </p>
+                  ) : (
+                    assignmentReports.map((report) => (
+                      <div key={report.id} className="bg-white rounded-xl p-4 border border-border shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-center justify-between mb-3 pb-3 border-b border-dashed border-border/50">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-[#1A3580]/10 flex items-center justify-center">
+                              <UserIcon size={12} className="text-[#1A3580]" />
+                            </div>
+                            <span className="text-xs font-bold text-[#0E2271]">
+                              Report #{report.id}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-medium text-muted-foreground bg-secondary/50 px-2 py-1 rounded-md">
+                            {formatDistanceToNow(new Date(report.createdAt), { addSuffix: true })}
+                          </span>
+                        </div>
+                        <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed pl-1">
+                          {report.reportText}
                         </p>
                       </div>
-                      <p className="text-xs text-gray-600">{report.reportText}</p>
-                    </div>
-                  ))
-                )}
+                    ))
+                  )}
+                </div>
               </div>
             )}
           </div>

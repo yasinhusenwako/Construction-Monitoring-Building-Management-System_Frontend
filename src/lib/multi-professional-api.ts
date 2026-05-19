@@ -434,3 +434,47 @@ export async function completeBookingAssignment(
     }
   );
 }
+
+// ===== BOOKING ADMIN ACTION ENDPOINTS =====
+
+/**
+ * Request clarification on a booking assignment (by admin)
+ */
+export async function requestBookingClarification(
+  assignmentId: number
+): Promise<void> {
+  await apiRequest(
+    `/api/admin/bookings/assignments/${assignmentId}/clarify`,
+    {
+      method: 'PATCH',
+    }
+  );
+}
+
+/**
+ * Approve a booking assignment (by admin)
+ */
+export async function approveBookingAssignment(
+  assignmentId: number
+): Promise<void> {
+  await apiRequest(
+    `/api/admin/bookings/assignments/${assignmentId}/approve`,
+    {
+      method: 'PATCH',
+    }
+  );
+}
+
+/**
+ * Reject a booking assignment (by admin)
+ */
+export async function rejectBookingAssignment(
+  assignmentId: number
+): Promise<void> {
+  await apiRequest(
+    `/api/admin/bookings/assignments/${assignmentId}/reject`,
+    {
+      method: 'PATCH',
+    }
+  );
+}

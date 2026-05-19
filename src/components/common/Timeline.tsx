@@ -289,10 +289,11 @@ export function Timeline({
                     <span>
                       by{" "}
                       <span className="font-semibold text-[#0E2271]">
-                        {/* Show friendly name: strip email domain if it looks like an email */}
-                        {event.actor && event.actor.includes("@")
-                          ? event.actor.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, c => c.toUpperCase())
-                          : event.actor || "System"}
+                        {displayAction === "In Progress" 
+                          ? "Professionals"
+                          : (event.actor && event.actor.includes("@")
+                            ? event.actor.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, c => c.toUpperCase())
+                            : event.actor || "System")}
                       </span>
                     </span>
                   </div>

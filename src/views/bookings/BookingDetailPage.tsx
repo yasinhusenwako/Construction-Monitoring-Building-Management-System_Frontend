@@ -39,6 +39,11 @@ import {
   getBookingReports,
   getMyBookingAssignments,
   deactivateBookingAssignment,
+  startBookingAssignment,
+  completeBookingAssignment,
+  approveBookingAssignment,
+  rejectBookingAssignment,
+  requestBookingClarification,
   type ProjectAssignment,
   type ProfessionalReport,
 } from "@/lib/multi-professional-api";
@@ -639,17 +644,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
             )}
           </div>
 
-          {/* Activity Timeline */}
-          <div className="glass-card rounded-2xl p-6 shadow-modern">
-            <Timeline
-              events={booking.timeline}
-              title={t("bookings.activityTimeline") || "Activity Timeline"}
-              emptyMessage={
-                t("bookings.noActivityYet") || "No activity recorded yet"
-              }
-              userRole={role as WorkflowRole}
-            />
-          </div>
+
         </div>
 
         {/* Right Panel - Admin Actions, Professional Tasks, Quick Summary */}
@@ -811,62 +806,94 @@ export default function BookingDetailPage({ id }: { id: string }) {
               )}
 
               <div className="space-y-4">
-                {booking.status === "Assigned to Professionals" && (
-                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <button
-                      onClick={() =>
-                        handleAction(
-                          "In Progress",
-                          "professional",
-                          "Started Work",
-                        )
-                      }
-                      className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all"
-                      style={{ background: "#EA580C" }}
-                    >
-                      Start Work
-                    </button>
-                  </div>
-                )}
-                {booking.status === "In Progress" && (
-                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <button
-                      onClick={() =>
-                        handleAction(
-                          "Completed",
-                          "professional",
-                          "Task Completed",
-                        )
-                      }
-                      className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all"
-                      style={{ background: "#16A34A" }}
-                    >
-                      Complete Task
-                    </button>
-                  </div>
-                )}
+                {(() => {
+                  const myAssignment = assignments.find(a =>
+                    a.professionalId === String(currentUser?.id) ||
+                    a.professionalId === `USR-${String(currentUser?.id).padStart(3, '0')}` ||
+                    a.professionalId === currentUser?.email
+                  );
 
-                {/* Submit Daily Report Button */}
-                {["Assigned to Professionals", "In Progress"].includes(booking.status ?? "") && (
-                  <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                    <button
-                      onClick={() => {
-                        // If professional has assignments, use the first one; otherwise create a temporary one
-                        if (assignments.length > 0) {
-                          setViewingReportForAssignmentId(assignments[0].id);
-                        } else {
-                          // Show report form even without formal assignment
-                          setViewingReportForAssignmentId(-1);
-                        }
-                      }}
-                      className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all flex items-center justify-center gap-2"
-                      style={{ background: "#1A3580" }}
-                    >
-                      <MessageSquare size={16} />
-                      Submit Daily Report
-                    </button>
-                  </div>
-                )}
+                  if (!myAssignment) {
+                    return (
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-700">
+                        <p className="font-bold mb-1">Observation Only</p>
+                        You are viewing this booking but are not currently assigned to any specific task.
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-4">
+                      {/* Assignment Scope */}
+                      <div className="bg-secondary/30 rounded-xl p-4 border border-border">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase mb-2">Your Assigned Scope:</p>
+                        <p className="text-sm text-foreground leading-relaxed italic">"{myAssignment.instructions}"</p>
+                      </div>
+
+                      {/* Task Management Buttons */}
+                      {["ACTIVE", "NEEDS_CLARIFICATION", "IN_PROGRESS"].includes(myAssignment.status) ? (
+                        <div className="flex flex-col gap-2">
+                          <p className="text-xs font-bold text-[#0E2271] px-1">Task Management</p>
+                          {myAssignment.status === "ACTIVE" ? (
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await startBookingAssignment(myAssignment.id);
+                                  toast.success("Task started successfully!");
+                                  await loadMyAssignments();
+                                } catch {
+                                  toast.error("Failed to start assignment");
+                                }
+                              }}
+                              className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700"
+                            >
+                              <Clock size={16} /> Announce I Started
+                            </button>
+                          ) : (
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await completeBookingAssignment(myAssignment.id);
+                                  toast.success("Assignment marked as completed!");
+                                  await loadMyAssignments();
+                                } catch {
+                                  toast.error("Failed to update assignment status");
+                                }
+                              }}
+                              className="w-full py-3 rounded-xl text-white text-sm font-bold shadow-premium hover-lift transition-all flex items-center justify-center gap-2"
+                              style={{ background: "#0D9488" }}
+                            >
+                              <CheckCircle size={16} /> Mark My Assignment as Finished
+                            </button>
+                          )}
+                          <p className="text-[10px] text-muted-foreground text-center italic">
+                            {myAssignment.status === "ACTIVE" ? "Click this to let the admin know you have started working on this task." : "Click this only when you have finished all your assigned tasks."}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3 text-green-700">
+                          <CheckCircle size={20} className="flex-shrink-0" />
+                          <div>
+                            <p className="text-sm font-bold">Assignment Finished</p>
+                            <p className="text-xs opacity-80">You have successfully completed your tasks for this booking.</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Submit Daily Report Button */}
+                      <div className="border-t border-border pt-4">
+                        {viewingReportForAssignmentId === myAssignment.id ? null : (
+                          <button
+                            onClick={() => setViewingReportForAssignmentId(myAssignment.id)}
+                            className="w-full py-2.5 rounded-xl text-[#1A3580] text-sm font-bold border-2 border-[#1A3580]/30 hover:border-[#1A3580] hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
+                          >
+                            <MessageSquare size={16} /> Submit Daily Report
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Report Submission Component - INSIDE Professional Tasks */}
@@ -961,22 +988,38 @@ export default function BookingDetailPage({ id }: { id: string }) {
                 onViewReports={async () => {
                   await loadAssignmentsAndReports();
                 }}
+                onApprove={async (assignmentId) => {
+                  try {
+                    await approveBookingAssignment(assignmentId);
+                    toast.success("Assignment approved");
+                    await loadAssignmentsAndReports();
+                  } catch {
+                    toast.error("Failed to approve assignment");
+                  }
+                }}
+                onReject={async (assignmentId) => {
+                  try {
+                    await rejectBookingAssignment(assignmentId);
+                    toast.success("Assignment rejected");
+                    await loadAssignmentsAndReports();
+                  } catch {
+                    toast.error("Failed to reject assignment");
+                  }
+                }}
+                onClarify={async (assignmentId) => {
+                  try {
+                    await requestBookingClarification(assignmentId);
+                    toast.success("Clarification requested from professional");
+                    await loadAssignmentsAndReports();
+                  } catch {
+                    toast.error("Failed to request clarification");
+                  }
+                }}
               />
             </div>
           )}
 
-          {/* Reports dashboard */}
-          {!loadingAssignments && reports.length > 0 && (
-            <div className="mt-6 border-t border-border pt-5">
-              <AdminBookingReportsDashboard
-                bookingId={booking.dbId}
-                allReports={reports}
-                systemUsers={systemUsers}
-                assignments={assignments}
-                loading={loadingAssignments}
-              />
-            </div>
-          )}
+
         </div>
       )}
 
@@ -1019,6 +1062,18 @@ export default function BookingDetailPage({ id }: { id: string }) {
           )}
         </div>
       )}
+
+      {/* Activity Timeline (Moved here) */}
+      <div className="glass-card rounded-2xl p-6 shadow-modern border-2 border-[#0E2271]/10">
+        <Timeline
+          events={booking.timeline}
+          title={t("bookings.activityTimeline") || "Activity Timeline"}
+          emptyMessage={
+            t("bookings.noActivityYet") || "No activity recorded yet"
+          }
+          userRole={role as WorkflowRole}
+        />
+      </div>
 
       {/* Rejection Reason Modal */}
       {showRejectModal && (
