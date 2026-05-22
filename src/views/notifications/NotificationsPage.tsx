@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { fetchLiveNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "@/lib/live-api";
@@ -68,6 +69,7 @@ const typeConfig: NotificationTypeConfig = {
 export function NotificationsPage() {
   const { currentUser } = useAuth();
   const { t } = useLanguage();
+  const router = useRouter();
   const [filter, setFilter] = useState<"all" | "unread" | "read">("all");
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
@@ -197,11 +199,10 @@ export function NotificationsPage() {
             return (
               <div
                 key={notif.id}
+                onClick={() => notif.link && router.push(notif.link)}
                 className={`bg-white rounded-xl border shadow-sm p-5 transition-all ${
-                  !notif.read
-                    ? "border-l-4 border-l-[#1A3580] border-border"
-                    : "border-border opacity-80"
-                }`}
+                  notif.link ? "cursor-pointer hover:shadow-md hover:border-[#1A3580]/30" : ""
+                } ${!notif.read ? "border-l-4 border-l-[#1A3580] border-border" : "border-border opacity-80"}`}
               >
                 <div className="flex items-start gap-4">
                   <div
@@ -223,7 +224,10 @@ export function NotificationsPage() {
                         <div className="flex-shrink-0 flex items-center gap-2">
                           <span className="w-2.5 h-2.5 bg-[#1A3580] rounded-full" />
                           <button
-                            onClick={() => markRead(notif.id)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              markRead(notif.id);
+                            }}
                             className="text-xs text-[#1A3580] hover:underline whitespace-nowrap"
                           >
                             {t("notifications.markRead")}

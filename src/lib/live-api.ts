@@ -96,6 +96,33 @@ interface BackendNotification {
   createdAt: string;
 }
 
+function buildNotificationLink(title: string, message: string): string {
+  const text = `${title} ${message}`.toLowerCase();
+  const idPatterns = [
+    /maintenance\s+id:\s*([a-z0-9-]+)/i,
+    /maintenance\s+([a-z0-9-]+)/i,
+    /booking\s+id:\s*([a-z0-9-]+)/i,
+    /booking\s+([a-z0-9-]+)/i,
+    /project\s+id:\s*([a-z0-9-]+)/i,
+    /project\s+([a-z0-9-]+)/i,
+  ];
+
+  for (const pattern of idPatterns) {
+    const match = message.match(pattern) || title.match(pattern);
+    if (match?.[1]) {
+      if (text.includes("maintenance")) return `/dashboard/maintenance/${match[1]}`;
+      if (text.includes("booking")) return `/dashboard/bookings/${match[1]}`;
+      if (text.includes("project")) return `/dashboard/projects/${match[1]}`;
+    }
+  }
+
+  if (text.includes("maintenance")) return "/dashboard/my-tasks";
+  if (text.includes("booking")) return "/dashboard/bookings";
+  if (text.includes("project")) return "/dashboard/projects";
+
+  return "/dashboard/notifications";
+}
+
 interface BackendOverview {
   totalRequests?: number;
   statusBreakdown?: Record<string, number>;
@@ -501,7 +528,7 @@ export async function fetchLiveNotifications(): Promise<Notification[]> {
       type: "info",
       read: item.isRead,
       userId: userId(item.userId),
-      link: "/dashboard/notifications",
+      link: buildNotificationLink(item.title, item.message),
       createdAt: item.createdAt,
     }));
   } catch (error: any) {
@@ -1241,4 +1268,78 @@ export async function fetchAdminProfessionals(): Promise<Professional[]> {
  */
 export async function fetchDivisionProfessionals(divisionId: string): Promise<Professional[]> {
   return fetchProfessionalsByDivision(divisionId);
+}
+
+// ─── Professional Tasks (Maintenance Tasks Assigned to Professional) ──────────
+
+interface BackendMaintenanceTask {
+  id: number;
+  maintenanceId: string;
+  category: string;
+  priority?: string;
+  description: string;
+  status: BackendStatus;
+  createdBy: string;
+  createdAt?: string;
+  divisionId?: string | null;
+  location?: string;
+  assignedSupervisorId?: string | null;
+  assignedProfessionalId?: string | null;
+  materialCost?: number;
+  laborCost?: number;
+  totalCost?: number;
+  partsUsed?: string;
+}
+
+/**
+ * Fetch maintenance tasks assigned to the current professional
+ * Uses the /api/professional/tasks endpoint
+ */
+export async function fetchProfessionalTasks(): Promise<Maintenance[]> {
+  const list = await apiRequest<BackendMaintenanceTask[]>('/api/professional/tasks');
+  
+  return list.map((item) => {
+    const businessId = item.maintenanceId || `MNT-${item.id}`;
+    const loc = splitLocation(item.location);
+    
+    return {
+      id: businessId,
+      dbId: item.id,
+      title: item.category || "Maintenance Task",
+      description: item.description || "",
+      type: (item.category as Maintenance["type"]) || "General",
+      subType: item.category,
+      status: mapStatusFromBackend(item.status) as Maintenance["status"],
+      priority: inferPriority(item.priority),
+      requestedBy: userId(item.createdBy),
+      assignedTo: item.assignedProfessionalId
+        ? userId(item.assignedProfessionalId)
+        : undefined,
+      supervisorId: item.assignedSupervisorId
+        ? userId(item.assignedSupervisorId)
+        : undefined,
+      divisionId: item.divisionId || undefined,
+      location: item.location || "N/A",
+      building: loc.building,
+      floor: loc.floor,
+      createdAt: toIsoDate(item.createdAt),
+      updatedAt: toIsoDate(item.createdAt),
+      notes: "",
+      attachments: [],
+      timeline: [
+        {
+          id: `EV-${item.id}-created`,
+          action: "Assigned",
+          actor: userId(item.createdBy) || "System",
+          timestamp: toIsoDate(item.createdAt),
+          note: "",
+        },
+      ],
+      materialCost: item.materialCost,
+      laborCost: item.laborCost,
+      totalCost: item.totalCost,
+      partsUsed: item.partsUsed,
+      createdBy: userId(item.createdBy),
+    };
+  });
 }

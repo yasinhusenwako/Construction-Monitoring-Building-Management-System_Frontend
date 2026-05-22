@@ -1324,6 +1324,8 @@
   "professional.updateStatusDesc": "Update Status Description",
   "status.progressUpdates": "Progress Updates",
   "professional.progressUpdates": "Progress Updates",
+  "professional.allAssignedTasks": "View all your assigned maintenance tasks, projects, and bookings",
+  "professional.taskStatusUpdated": "Task status updated successfully",
   "action.confirm": "Confirm",
   "admin.actionRequired": "Action Required",
   "admin.activeWorkflows": "Active Workflows",

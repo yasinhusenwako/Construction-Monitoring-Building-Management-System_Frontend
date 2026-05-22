@@ -159,6 +159,16 @@ export interface Maintenance {
   createdBy?: string;
 }
 
+export interface MaintenanceAssignment {
+  id: number;
+  maintenanceId: number;
+  professionalId: string;
+  instructions: string;
+  createdAt: string;
+  createdBy: string;
+  status: string;
+}
+
 export interface Notification {
   id: string;
   title: string;

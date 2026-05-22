@@ -37,6 +37,22 @@ import { executeWorkflowAction } from "@/lib/workflow-actions";
 import { FileViewer } from "@/components/common/FileViewer";
 import { convertDocumentsToFiles } from "@/lib/file-upload";
 import { Timeline } from "@/components/common/Timeline";
+import {
+  getMaintenanceAssignments,
+  getMaintenanceReports,
+  getMyMaintenanceAssignments,
+  deactivateMaintenanceAssignment,
+  approveMaintenanceAssignment,
+  rejectMaintenanceAssignment,
+  requestMaintenanceClarification,
+  type MaintenanceAssignment,
+  type ProfessionalReport,
+} from "@/lib/multi-professional-api";
+import { AdminAssignProfessionalFormMaintenance } from "@/components/maintenance/AdminAssignProfessionalFormMaintenance";
+import { AdminMaintenanceAssignmentsList } from "@/components/maintenance/AdminMaintenanceAssignmentsList";
+import { ProfessionalMyMaintenanceAssignments } from "@/components/maintenance/ProfessionalMyMaintenanceAssignments";
+import { ProfessionalMaintenanceReportSubmission } from "@/components/maintenance/ProfessionalMaintenanceReportSubmission";
+import { toast } from "sonner";
 
 import {
   getUserFacingStatus,
@@ -121,6 +137,49 @@ export function MaintenanceDetailPage() {
   const [rejectionReason, setRejectionReason] = useState("");
   const [rejectingMaintenance, setRejectingMaintenance] = useState(false);
 
+  const normalizeDivId = (d?: string) => {
+    if (!d) return undefined;
+    if (d.startsWith("DIV-")) return d;
+    const n = parseInt(d);
+    return isNaN(n) ? d : `DIV-${String(n).padStart(3, "0")}`;
+  };
+
+  // Multi-professional assignment state
+  const [mpAssignments, setMpAssignments] = useState<MaintenanceAssignment[]>([]);
+  const [mpReports, setMpReports] = useState<ProfessionalReport[]>([]);
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [selectedMpAssignment, setSelectedMpAssignment] = useState<MaintenanceAssignment | null>(null);
+
+  // Load multi-professional assignments and reports (admin)
+  const loadAssignmentsAndReports = async (dbId: number) => {
+    setLoadingAssignments(true);
+    try {
+      const [assignmentData, reportData] = await Promise.all([
+        getMaintenanceAssignments(dbId),
+        getMaintenanceReports(dbId),
+      ]);
+      setMpAssignments(assignmentData);
+      setMpReports(reportData);
+    } catch (error) {
+      console.error("Failed to load assignments/reports:", error);
+    } finally {
+      setLoadingAssignments(false);
+    }
+  };
+
+  // Load professional's own assignments
+  const loadMyAssignments = async () => {
+    setLoadingAssignments(true);
+    try {
+      const data = await getMyMaintenanceAssignments();
+      setMpAssignments(data);
+    } catch (error) {
+      console.error("Failed to load my assignments:", error);
+    } finally {
+      setLoadingAssignments(false);
+    }
+  };
+
   useEffect(() => {
     const refresh = async () => {
       setLoading(true);
@@ -133,6 +192,19 @@ export function MaintenanceDetailPage() {
         setSystemUsers(liveUsers);
         const found = liveMaintenance.find((m) => m.id === id);
 
+        // For professionals, check if they're assigned via multi-professional system
+        let isAssignedViaMultiProfessional = false;
+        if (role === "professional" && found?.dbId) {
+          try {
+            const myAssignments = await getMyMaintenanceAssignments();
+            isAssignedViaMultiProfessional = myAssignments.some(
+              (a) => a.maintenanceId === found.dbId
+            );
+          } catch (error) {
+            console.error("Failed to check multi-professional assignments:", error);
+          }
+        }
+
         if (
           found &&
           canViewItem(
@@ -140,6 +212,7 @@ export function MaintenanceDetailPage() {
             found,
             currentUser?.id,
             currentUser?.divisionId,
+            isAssignedViaMultiProfessional,
           )
         ) {
           setMaintenanceItem(found);
@@ -177,6 +250,18 @@ export function MaintenanceDetailPage() {
 
     refresh();
   }, [id, role, currentUser?.id, currentUser?.divisionId]);
+
+  // Load assignments when maintenance item is updated
+  useEffect(() => {
+    if (maintenanceItem?.dbId) {
+      const activeStatuses = ["Assigned to Supervisor", "WorkOrder Created", "Assigned to Professionals", "In Progress", "Completed", "Reviewed"];
+      if ((role === "admin" || role === "supervisor") && activeStatuses.includes(maintenanceItem.status ?? "")) {
+        loadAssignmentsAndReports(maintenanceItem.dbId);
+      } else if (role === "professional" && ["Assigned to Professionals", "In Progress", "Completed", "Reviewed"].includes(maintenanceItem.status ?? "")) {
+        loadMyAssignments();
+      }
+    }
+  }, [maintenanceItem?.dbId, maintenanceItem?.status, role]);
 
   if (!maintenanceItem)
     return (
@@ -225,9 +310,9 @@ export function MaintenanceDetailPage() {
       );
     }
     
-    // Supervisor can ONLY see professionals from their own division
+    // Supervisor can ONLY see professionals from their own division (normalize IDs)
     if (role === "supervisor") {
-      return supervisorDivision && u.divisionId === supervisorDivision;
+      return supervisorDivision && normalizeDivId(u.divisionId) === normalizeDivId(supervisorDivision);
     }
     
     return false;
@@ -1186,9 +1271,9 @@ export function MaintenanceDetailPage() {
           {/* Supervisor Actions */}
           {role === "supervisor" &&
             (maint.supervisorId === currentUser?.id ||
-              maint.divisionId === currentUser?.divisionId) && (
-              <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative border-l-4 border-l-[#CC1F1A]">
-                <h3 className="text-sm font-bold text-[#CC1F1A] mb-5 flex items-center gap-2">
+              normalizeDivId(maint.divisionId) === normalizeDivId(currentUser?.divisionId)) && (
+              <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative border-l-4 border-l-[#1A3580]">
+                <h3 className="text-sm font-bold text-[#1A3580] mb-5 flex items-center gap-2">
                   <CheckCircle size={16} />
                   {t("maintenance.supervisorActions")}
                 </h3>
@@ -1200,136 +1285,35 @@ export function MaintenanceDetailPage() {
                   </div>
                 )}
                 <div className="space-y-4">
-                  {maint.status === "Assigned to Supervisor" && (
+                  {(maint.status === "Assigned to Supervisor" || maint.status === "WorkOrder Created") && (
                     <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                      <p className="text-xs text-muted-foreground mb-4">
-                        Task has been assigned to you. Select an available
-                        professional to begin.
-                      </p>
-
-                      <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
-                        {t("maintenance.assignProfessional")}
-                      </label>
-                      <select
-                        value={selectedTech}
-                        onChange={(e) => setSelectedTech(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all shadow-sm"
-                      >
-                        <option value="">Select professional...</option>
-                        {divisionProfessionals.map((tech) => (
-                          <option key={tech.email} value={tech.email}>
-                            {tech.name}
-                            {tech.profession
-                              ? ` - ${tech.profession}`
-                              : " - General"}
-                          </option>
-                        ))}
-                      </select>
-
-                      {divisionProfessionals.length === 0 && (
-                        <p className="text-xs text-amber-600 mb-3 bg-amber-50 border border-amber-200 rounded px-3 py-2">
-                          No professionals available in this division
-                        </p>
-                      )}
-
-                      <button
-                        onClick={() => {
-                          if (!selectedTech) return;
-                          const selectedProfessional = systemUsers.find(
-                            (u) => u.email === selectedTech,
-                          );
-                          handleAction(
-                            "Assigned to Professionals",
-                            "supervisor",
-                            t("requests.assigned_to_professional"),
-                            {
-                              assignedTo: selectedTech,
-                              notes:
-                                selectedProfessional?.profession ||
-                                "General maintenance",
-                            },
-                          );
-                        }}
-                        disabled={!selectedTech}
-                        className="w-full py-3 rounded-xl text-sm font-bold bg-[#CC1F1A] text-white shadow-premium hover-lift transition-all disabled:bg-red-200 disabled:text-red-400 disabled:hover:transform-none flex items-center justify-center gap-2"
-                      >
-                        <UserPlus size={16} />{" "}
-                        {t("maintenance.assignProfessional")}
-                      </button>
-                    </div>
-                  )}
-                  {maint.status === "WorkOrder Created" && (
-                    <div className="p-4 bg-white rounded-lg border border-border shadow-sm">
-                      <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide">
-                        Select Profession Type
-                      </label>
-                      <select
-                        value={selectedTaskType}
-                        onChange={(e) => {
-                          setSelectedTaskType(e.target.value);
-                          setSelectedTech(""); // Reset professional selection when profession changes
-                        }}
-                        className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all shadow-sm"
-                      >
-                        <option value="">Select profession type...</option>
-                        <option value="Electrician">Electrician</option>
-                        <option value="Plumber">Plumber</option>
-                        <option value="Carpenter">Carpenter</option>
-                        <option value="HVAC Technician">HVAC Technician</option>
-                        <option value="Mason">Mason</option>
-                        <option value="Painter">Painter</option>
-                        <option value="Welder">Welder</option>
-                        <option value="General Maintenance">
-                          General Maintenance
-                        </option>
-                      </select>
-
-                      {selectedTaskType && (
+                      {mpAssignments.length > 0 ? (
                         <>
-                          <label className="block text-xs font-semibold text-[#0E2271] mb-2 uppercase tracking-wide opacity-80 mt-4">
-                            {t("maintenance.assignProfessional")} (
-                            {selectedTaskType})
-                          </label>
-                          <select
-                            value={selectedTech}
-                            onChange={(e) => setSelectedTech(e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none mb-3 focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all shadow-sm"
+                          <p className="text-xs text-muted-foreground mb-4">
+                            You have assigned <span className="font-bold text-[#1A3580]">{mpAssignments.length}</span> professional(s) using the panel below. Click to formally hand off the ticket.
+                          </p>
+                          <button
+                            onClick={() => {
+                              handleAction(
+                                "Assigned to Professionals",
+                                "supervisor",
+                                "Assigned to Professionals (Multi-Professional)",
+                              );
+                            }}
+                            className="w-full py-3 rounded-xl text-sm font-bold text-white shadow-premium hover-lift transition-all flex items-center justify-center gap-2"
+                            style={{ background: "#1A3580" }}
                           >
-                            <option value="">Select professional...</option>
-                            {taskTypeDivisionProfessionals.map((tech) => (
-                              <option key={tech.email} value={tech.email}>
-                                {tech.name} - {tech.profession}
-                              </option>
-                            ))}
-                          </select>
-                          {taskTypeDivisionProfessionals.length === 0 && (
-                            <p className="text-xs text-amber-600 mb-3 bg-amber-50 border border-amber-200 rounded px-3 py-2">
-                              No {selectedTaskType} professionals available in
-                              this division
-                            </p>
-                          )}
+                            <UserPlus size={16} /> Handoff to Professionals
+                          </button>
                         </>
+                      ) : (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <p className="text-sm text-blue-900 font-medium mb-1">Assign Professionals Below</p>
+                          <p className="text-xs text-blue-700">
+                            Use the <span className="font-bold">Professional Assignments</span> section below to assign one or more professionals with specific task scopes. Once assigned, a Handoff button will appear here.
+                          </p>
+                        </div>
                       )}
-
-                      <button
-                        onClick={() => {
-                          if (!selectedTech || !selectedTaskType) return;
-                          handleAction(
-                            "Assigned to Professionals",
-                            "supervisor",
-                            t("requests.assigned_to_professional"),
-                            {
-                              assignedTo: selectedTech,
-                              notes: selectedTaskType,
-                            },
-                          );
-                        }}
-                        disabled={!selectedTech || !selectedTaskType}
-                        className="w-full py-3 rounded-xl text-sm font-bold bg-[#CC1F1A] text-white shadow-premium hover-lift transition-all disabled:bg-red-200 disabled:text-red-400 disabled:hover:transform-none flex items-center justify-center gap-2"
-                      >
-                        <UserPlus size={16} />{" "}
-                        {t("maintenance.assignProfessional")}
-                      </button>
                     </div>
                   )}
                   {maint.status === "Completed" && (
@@ -1365,7 +1349,7 @@ export function MaintenanceDetailPage() {
                       onChange={(e) => setTechNote(e.target.value)}
                       rows={3}
                       placeholder={t("projects.addCommentOrReason")}
-                      className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none resize-none focus:ring-2 focus:ring-[#CC1F1A]/20 focus:border-[#CC1F1A] transition-all shadow-sm"
+                      className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/50 backdrop-blur-sm text-sm outline-none resize-none focus:ring-2 focus:ring-[#1A3580]/20 focus:border-[#1A3580] transition-all shadow-sm"
                     />
                     <button
                       onClick={() => {
@@ -1389,7 +1373,7 @@ export function MaintenanceDetailPage() {
             )}
 
           {/* Professional Actions */}
-          {role === "professional" && maint.assignedTo === currentUser?.id && (
+          {role === "professional" && maint.assignedTo === currentUser?.id && mpAssignments.length === 0 && (
             <div className="glass-card rounded-2xl p-6 shadow-modern-lg relative border-l-4 border-l-[#EA580C]">
               <h3 className="text-sm font-bold text-[#EA580C] mb-5 flex items-center gap-2">
                 <CheckCircle size={16} />
@@ -1553,6 +1537,119 @@ export function MaintenanceDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Multi-Professional Assignment Section — Supervisor Only */}
+      {role === "supervisor" && !["Closed", "Rejected", "Submitted", "Under Review"].includes(maint.status) && maint.dbId && (
+        <div className="glass-card rounded-2xl p-6 shadow-modern border-2 border-[#0E2271]/10 mt-6 bg-white">
+          <h3 className="text-sm font-bold text-[#0E2271] mb-5 flex items-center gap-2">
+            <UsersIcon size={16} className="text-[#1A3580]" />
+            Professional Assignments
+          </h3>
+
+          <AdminAssignProfessionalFormMaintenance
+            maintenanceId={maint.dbId}
+            maintenanceDivisionId={maint.divisionId}
+            professionals={systemUsers.filter((u) => u.role === "professional")}
+            onAssignmentCreated={async (_assignment) => {
+              await loadAssignmentsAndReports(maint.dbId!);
+            }}
+          />
+
+          {/* Assigned professionals list */}
+          {!loadingAssignments && mpAssignments.length > 0 && (
+            <div className="mt-6 border-t border-border pt-5">
+              <AdminMaintenanceAssignmentsList
+                assignments={mpAssignments}
+                systemUsers={systemUsers}
+                allReports={mpReports}
+                onDeactivate={async (assignmentId) => {
+                  try {
+                    await deactivateMaintenanceAssignment(assignmentId);
+                    toast.success("Professional removed from maintenance");
+                    await loadAssignmentsAndReports(maint.dbId);
+                  } catch {
+                    toast.error("Failed to remove professional");
+                  }
+                }}
+                onViewReports={async () => {
+                  await loadAssignmentsAndReports(maint.dbId);
+                }}
+                onApprove={async (assignmentId) => {
+                  try {
+                    await approveMaintenanceAssignment(assignmentId);
+                    toast.success("Assignment approved");
+                    await loadAssignmentsAndReports(maint.dbId);
+                  } catch {
+                    toast.error("Failed to approve assignment");
+                  }
+                }}
+                onReject={async (assignmentId) => {
+                  try {
+                    await rejectMaintenanceAssignment(assignmentId);
+                    toast.success("Assignment rejected");
+                    await loadAssignmentsAndReports(maint.dbId);
+                  } catch {
+                    toast.error("Failed to reject assignment");
+                  }
+                }}
+                onClarify={async (assignmentId) => {
+                  try {
+                    await requestMaintenanceClarification(assignmentId);
+                    toast.success("Clarification requested from professional");
+                    await loadAssignmentsAndReports(maint.dbId);
+                  } catch {
+                    toast.error("Failed to request clarification");
+                  }
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Professional View: My Assignments for this maintenance */}
+      {role === "professional" && ["Assigned to Professionals", "In Progress", "Completed", "Reviewed"].includes(maint.status) && (
+        <div className="space-y-6 mt-6">
+          {!selectedMpAssignment ? (
+            <div className="glass-card rounded-2xl p-6 shadow-modern bg-white">
+              {loadingAssignments ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#EA580C]"></div>
+                </div>
+              ) : (
+                <ProfessionalMyMaintenanceAssignments
+                  assignments={mpAssignments}
+                  maintenanceItems={[
+                    {
+                      id: String(maint.dbId),
+                      title: maint.title,
+                      maintenanceId: maint.id,
+                    },
+                  ]}
+                  onSelectAssignment={(assignment) => {
+                    setSelectedMpAssignment(assignment);
+                  }}
+                />
+              )}
+            </div>
+          ) : selectedMpAssignment ? (
+            <div className="glass-card rounded-2xl p-6 shadow-modern bg-white">
+              <ProfessionalMaintenanceReportSubmission
+                assignment={selectedMpAssignment}
+                systemUsers={systemUsers}
+                onBack={() => {
+                  setSelectedMpAssignment(null);
+                  loadMyAssignments();
+                }}
+                onAssignmentUpdated={(updated) => {
+                  setSelectedMpAssignment(updated);
+                  loadMyAssignments();
+                }}
+              />
+            </div>
+          ) : null}
+        </div>
+      )}
 
       {showRejectModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

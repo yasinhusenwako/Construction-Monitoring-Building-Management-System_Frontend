@@ -248,7 +248,18 @@ export function canViewItem(
   // 1. They're the single assignee (assignedTo)
   // 2. They're assigned via multi-professional system
   if (role === "professional") {
-    return item.assignedTo === userId || isAssignedToMultiProfessionalProject === true;
+    const norm = (d?: string) => {
+      if (!d) return undefined;
+      if (d.startsWith("DIV-")) return d;
+      const n = parseInt(d);
+      return isNaN(n) ? d : `DIV-${String(n).padStart(3, "0")}`;
+    };
+    const sameDivision = !!userDivisionId && norm(item.divisionId) === norm(userDivisionId);
+    return (
+      item.assignedTo === userId ||
+      isAssignedToMultiProfessionalProject === true ||
+      sameDivision
+    );
   }
 
   return item.assignedTo === userId;

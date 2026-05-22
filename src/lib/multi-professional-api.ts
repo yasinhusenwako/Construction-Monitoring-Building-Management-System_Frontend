@@ -21,6 +21,16 @@ export interface BookingAssignment {
   status: string;
 }
 
+export interface MaintenanceAssignment {
+  id: number;
+  maintenanceId: number;
+  professionalId: string;
+  instructions: string;
+  createdAt: string;
+  createdBy: string;
+  status: string;
+}
+
 export interface ProfessionalReport {
   id: number;
   assignmentId: number;
@@ -473,6 +483,231 @@ export async function rejectBookingAssignment(
 ): Promise<void> {
   await apiRequest(
     `/api/admin/bookings/assignments/${assignmentId}/reject`,
+    {
+      method: 'PATCH',
+    }
+  );
+}
+
+
+// ===== MAINTENANCE ENDPOINTS (MULTI-PROFESSIONAL) =====
+
+/**
+ * Assign a professional to a maintenance request with specific instructions
+ */
+export async function assignProfessionalToMaintenance(
+  maintenanceId: number,
+  professionalId: string,
+  instructions: string
+): Promise<MaintenanceAssignment> {
+  return apiRequest(`/api/admin/maintenance/${maintenanceId}/assign-professional`, {
+    method: 'POST',
+    body: {
+      professionalId,
+      instructions,
+    },
+  });
+}
+
+/**
+ * Get all assignments for a specific maintenance request
+ */
+export async function getMaintenanceAssignments(
+  maintenanceId: number
+): Promise<MaintenanceAssignment[]> {
+  return apiRequest(`/api/admin/maintenance/${maintenanceId}/assignments`, {
+    method: 'GET',
+  });
+}
+
+/**
+ * Get all reports for a specific maintenance request (all professionals)
+ */
+export async function getMaintenanceReports(
+  maintenanceId: number
+): Promise<ProfessionalReport[]> {
+  return apiRequest(`/api/admin/maintenance/${maintenanceId}/reports`, {
+    method: 'GET',
+  });
+}
+
+/**
+ * Get all reports submitted by a specific professional for maintenance
+ */
+export async function getMaintenanceProfessionalReports(
+  professionalId: string
+): Promise<ProfessionalReport[]> {
+  return apiRequest(
+    `/api/admin/maintenance/professional/${professionalId}/reports`,
+    {
+      method: 'GET',
+    }
+  );
+}
+
+/**
+ * Get all reports for a specific maintenance assignment
+ */
+export async function getMaintenanceAssignmentReports(
+  assignmentId: number
+): Promise<ProfessionalReport[]> {
+  return apiRequest(
+    `/api/admin/maintenance/assignments/${assignmentId}/reports`,
+    {
+      method: 'GET',
+    }
+  );
+}
+
+/**
+ * Mark all reports for a maintenance assignment as read
+ */
+export async function markMaintenanceReportsAsRead(
+  assignmentId: number
+): Promise<{ message: string }> {
+  return apiRequest(
+    `/api/admin/maintenance/assignments/${assignmentId}/read`,
+    {
+      method: 'PATCH',
+    }
+  );
+}
+
+/**
+ * Deactivate a maintenance assignment
+ */
+export async function deactivateMaintenanceAssignment(
+  assignmentId: number
+): Promise<{ message: string }> {
+  return apiRequest(
+    `/api/admin/maintenance/assignments/${assignmentId}`,
+    {
+      method: 'DELETE',
+    }
+  );
+}
+
+// ===== MAINTENANCE PROFESSIONAL ENDPOINTS =====
+
+/**
+ * Get all my maintenance assignments (professional)
+ */
+export async function getMyMaintenanceAssignments(): Promise<MaintenanceAssignment[]> {
+  return apiRequest(`/api/professional/maintenance/my-assignments`, {
+    method: 'GET',
+  });
+}
+
+/**
+ * Get maintenance assignment details (professional)
+ */
+export async function getMaintenanceAssignmentDetails(
+  assignmentId: number
+): Promise<MaintenanceAssignment> {
+  return apiRequest(`/api/professional/maintenance/assignments/${assignmentId}`, {
+    method: 'GET',
+  });
+}
+
+/**
+ * Submit a report for a maintenance assignment (professional)
+ */
+export async function submitMaintenanceReport(
+  assignmentId: number,
+  reportText: string
+): Promise<ProfessionalReport> {
+  return apiRequest(
+    `/api/professional/maintenance/assignments/${assignmentId}/report`,
+    {
+      method: 'POST',
+      body: {
+        assignmentId,
+        reportText,
+      },
+    }
+  );
+}
+
+/**
+ * Get all reports for a specific maintenance assignment (professional can only see own)
+ */
+export async function getMyMaintenanceAssignmentReports(
+  assignmentId: number
+): Promise<ProfessionalReport[]> {
+  return apiRequest(
+    `/api/professional/maintenance/assignments/${assignmentId}/my-reports`,
+    {
+      method: 'GET',
+    }
+  );
+}
+
+/**
+ * Mark a maintenance assignment as started (by professional)
+ */
+export async function startMaintenanceAssignment(
+  assignmentId: number
+): Promise<void> {
+  await apiRequest(
+    `/api/professional/maintenance/assignments/${assignmentId}/start`,
+    {
+      method: 'PATCH',
+    }
+  );
+}
+
+/**
+ * Mark a maintenance assignment as completed (by professional)
+ */
+export async function completeMaintenanceAssignment(
+  assignmentId: number
+): Promise<void> {
+  await apiRequest(
+    `/api/professional/maintenance/assignments/${assignmentId}/complete`,
+    {
+      method: 'PATCH',
+    }
+  );
+}
+
+// ===== MAINTENANCE ADMIN ACTION ENDPOINTS =====
+
+/**
+ * Request clarification on a maintenance assignment (by admin)
+ */
+export async function requestMaintenanceClarification(
+  assignmentId: number
+): Promise<void> {
+  await apiRequest(
+    `/api/admin/maintenance/assignments/${assignmentId}/clarify`,
+    {
+      method: 'PATCH',
+    }
+  );
+}
+
+/**
+ * Approve a maintenance assignment (by admin)
+ */
+export async function approveMaintenanceAssignment(
+  assignmentId: number
+): Promise<void> {
+  await apiRequest(
+    `/api/admin/maintenance/assignments/${assignmentId}/approve`,
+    {
+      method: 'PATCH',
+    }
+  );
+}
+
+/**
+ * Reject a maintenance assignment (by admin)
+ */
+export async function rejectMaintenanceAssignment(
+  assignmentId: number
+): Promise<void> {
+  await apiRequest(
+    `/api/admin/maintenance/assignments/${assignmentId}/reject`,
     {
       method: 'PATCH',
     }
