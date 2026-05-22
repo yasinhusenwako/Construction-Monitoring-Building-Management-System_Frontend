@@ -1,13 +1,13 @@
 import React from 'react';
-import { ProjectAssignment } from '@/lib/multi-professional-api';
+import { BookingAssignment } from '@/lib/multi-professional-api';
 import { Briefcase, MessageSquare } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 
 interface ProfessionalMyBookingAssignmentsProps {
-  assignments: ProjectAssignment[];
+  assignments: BookingAssignment[];
   bookings: Array<{ id: string; title: string; bookingId: string }>;
-  onSelectAssignment: (assignment: ProjectAssignment) => void;
+  onSelectAssignment: (assignment: BookingAssignment) => void;
 }
 
 export function ProfessionalMyBookingAssignments({
@@ -49,10 +49,10 @@ export function ProfessionalMyBookingAssignments({
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1">
               <p className="font-semibold text-[#0E2271] text-sm">
-                {getBookingTitle(assignment.projectId)}
+                {getBookingTitle(assignment.bookingId)}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
-                Booking ID: {assignment.projectId}
+                Booking ID: {assignment.bookingId}
               </p>
             </div>
             <span className="px-2.5 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full whitespace-nowrap ml-2">

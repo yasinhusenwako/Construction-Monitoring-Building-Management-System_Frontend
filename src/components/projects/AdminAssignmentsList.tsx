@@ -43,7 +43,7 @@ export function AdminAssignmentsList({
     // If the ID is a raw numeric string (like "9"), convert it to "USR-009" format
     // so it matches the IDs in our systemUsers list.
     const normalizedId = /^\d+$/.test(id) ? `USR-${id.padStart(3, '0')}` : id;
-    return systemUsers.find((u) => u.id === normalizedId || u.id === id || u.email === id)?.name || id;
+    return systemUsers.find((u) => u.id === normalizedId || u.id === id)?.name || id;
   };
 
   const getUnreadCount = (assignmentId: number) => {

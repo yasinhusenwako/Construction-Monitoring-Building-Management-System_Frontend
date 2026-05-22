@@ -44,7 +44,7 @@ import {
   approveBookingAssignment,
   rejectBookingAssignment,
   requestBookingClarification,
-  type ProjectAssignment,
+  type BookingAssignment,
   type ProfessionalReport,
 } from "@/lib/multi-professional-api";
 import { AdminAssignProfessionalFormBooking } from "@/components/bookings/AdminAssignProfessionalFormBooking";
@@ -73,10 +73,10 @@ export default function BookingDetailPage({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
 
   // Multi-professional booking state
-  const [assignments, setAssignments] = useState<ProjectAssignment[]>([]);
+  const [assignments, setAssignments] = useState<BookingAssignment[]>([]);
   const [reports, setReports] = useState<ProfessionalReport[]>([]);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
-  const [selectedAssignment, setSelectedAssignment] = useState<ProjectAssignment | null>(null);
+  const [selectedAssignment, setSelectedAssignment] = useState<BookingAssignment | null>(null);
   const [viewingReportForAssignmentId, setViewingReportForAssignmentId] = useState<number | null>(null);
 
   // Load multi-professional assignments and reports
@@ -952,7 +952,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
       </div>
 
       {/* Multi-Professional Assignment Section */}
-      {role === "admin" && !["Closed", "Rejected"].includes(booking.status) && (
+      {role === "admin" && !["Closed", "Rejected"].includes(booking.status) && booking.dbId && (
         <div className="glass-card rounded-2xl p-6 shadow-modern border-2 border-[#0E2271]/10">
           <h3 className="text-sm font-bold text-[#0E2271] mb-5 flex items-center gap-2">
             <Users size={16} className="text-[#1A3580]" />
@@ -1048,7 +1048,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
                 />
               )}
             </div>
-          ) : (
+          ) : selectedAssignment ? (
             <div className="glass-card rounded-2xl p-6 shadow-modern">
               <ProfessionalBookingReportSubmission
                 assignment={selectedAssignment}
@@ -1059,7 +1059,7 @@ export default function BookingDetailPage({ id }: { id: string }) {
                 }}
               />
             </div>
-          )}
+          ) : null}
         </div>
       )}
 

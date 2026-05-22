@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   submitBookingReport,
   getMyBookingAssignmentReports,
-  ProjectAssignment,
+  BookingAssignment,
   ProfessionalReport,
 } from '@/lib/multi-professional-api';
 import { toast } from 'sonner';
@@ -11,7 +11,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 
 interface ProfessionalBookingReportSubmissionProps {
-  assignment: ProjectAssignment;
+  assignment: BookingAssignment;
   systemUsers: Array<{ id: string; name: string }>;
   onBack: () => void;
 }

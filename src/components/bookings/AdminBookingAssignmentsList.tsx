@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { ProjectAssignment, ProfessionalReport, markBookingReportsAsRead } from '@/lib/multi-professional-api';
+import { BookingAssignment, ProfessionalReport, markBookingReportsAsRead } from '@/lib/multi-professional-api';
 import { Trash2, MessageSquare, ChevronDown, ChevronUp, Clock, User as UserIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
 
 interface AdminBookingAssignmentsListProps {
-  assignments: ProjectAssignment[];
+  assignments: BookingAssignment[];
   systemUsers: Array<{ id: string; name: string }>;
   allReports: ProfessionalReport[];
   onDeactivate: (assignmentId: number) => Promise<void>;
@@ -43,7 +43,7 @@ export function AdminBookingAssignmentsList({
 
   const getProfessionalName = (id: string) => {
     const normalizedId = /^\d+$/.test(id) ? `USR-${id.padStart(3, '0')}` : id;
-    return systemUsers.find((u) => u.id === normalizedId || u.id === id || u.email === id)?.name || id;
+    return systemUsers.find((u) => u.id === normalizedId || u.id === id)?.name || id;
   };
 
   const getUnreadCount = (assignmentId: number) => {
